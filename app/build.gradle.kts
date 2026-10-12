@@ -33,6 +33,11 @@ android {
     buildFeatures {
         compose = true
     }
+    lint {
+        // Print every finding into the build log so CI failures are readable without the report artifact.
+        textReport = true
+        textOutput = file("stdout")
+    }
 }
 
 

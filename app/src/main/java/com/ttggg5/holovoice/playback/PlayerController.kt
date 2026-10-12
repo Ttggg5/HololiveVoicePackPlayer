@@ -5,6 +5,8 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import androidx.core.content.ContextCompat
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -51,6 +53,7 @@ data class PlayerState(
 )
 
 /** App-wide entry point for playback; talks to [PlaybackService] through a [MediaController]. */
+@OptIn(UnstableApi::class)
 class PlayerController(context: Context) {
     private val appContext = context.applicationContext
     private var future: ListenableFuture<MediaController>? = null

@@ -1,11 +1,14 @@
 package com.ttggg5.holovoice.playback
 
 import android.net.Uri
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.ttggg5.holovoice.data.ClipWithPack
 
 /** Builds a playable item whose media id is the clip id, so queues can be saved and restored by id. */
+@OptIn(UnstableApi::class)
 fun ClipWithPack.toMediaItem(): MediaItem {
     val uri = Uri.parse(clip.fileUri)
     return MediaItem.Builder()
