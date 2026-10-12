@@ -1,0 +1,33 @@
+# Holo Voice — Hololive voice pack player for Android
+
+An Android app for listening to the Hololive voice packs you own (for example, ones you bought from the official shop).
+The app ships no audio of its own. You import your packs from your phone.
+
+## Features
+- **Library**: imported packs, grouped by talent, with cover art. Long-press a pack to rename it, change its talent, or delete it.
+- **Soundboard**: each pack is a grid of clips. Tap a clip to play it, and tap it again while it plays to pause.
+- **Playlist & background play**: *Play all* or *Shuffle* queues a whole pack or your favorites. Playback continues with the screen off, and you can control it from the notification, lock screen, or headset. Repeat (all/one) and shuffle are on the mini player.
+- **Favorites**: star any clip to collect it in the Favorites tab.
+- **Search**: search clip titles, pack names, and talents across your whole library.
+
+## Importing packs
+Tap **Import** on the Library tab:
+- **Import folder**: pick a folder on your device. Each folder (and sub-folder) that directly contains audio files becomes a pack. The files stay where they are; the app only keeps read access to the folder.
+- **Import ZIP**: pick a `.zip` archive. The audio and images are extracted into app storage, so you can delete the ZIP afterwards. Shift_JIS (Japanese Windows) file names are supported.
+
+Supported audio: mp3, m4a, aac, ogg, opus, wav, flac. An image in the folder becomes the pack cover; files named like `cover`/`jacket` are preferred.
+Leading track numbers (`01_おはよう.mp3`) are used for ordering and removed from titles. The talent is guessed from names like `Talent - Pack` or `【Talent】Pack`, and you can edit it.
+
+## Building
+Requirements: JDK 17+ and the Android SDK (API 35).
+
+```bash
+./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
+./gradlew testDebugUnitTest      # unit tests
+```
+
+Every push also builds a debug APK on GitHub Actions (download it from the run's **Artifacts**).
+To install it, copy it to your phone and open it with "install unknown apps" allowed, or run `adb install app-debug.apk`.
+
+## Tech
+Kotlin, Jetpack Compose (Material 3), Room, Media3 ExoPlayer + MediaSessionService, Storage Access Framework, and Coil. The minimum Android version is 8.0 (API 26).

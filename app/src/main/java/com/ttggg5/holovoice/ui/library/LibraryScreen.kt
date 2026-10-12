@@ -1,0 +1,251 @@
+package com.ttggg5.holovoice.ui.library
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import com.ttggg5.holovoice.data.Pack
+import com.ttggg5.holovoice.data.PackWithCount
+import com.ttggg5.holovoice.ui.components.EmptyMessage
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LibraryScreen(viewModel: LibraryViewModel, onOpenPack: (Long) -> Unit) {
+    val packs by viewModel.packs.collectAsStateWithLifecycle()
+    val importing by viewModel.importing.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    var menuOpen by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<Pack?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.messages.collect { snackbar.showSnackbar(it) }
+    }
+
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let(viewModel::importFolder)
+    }
+    val pickZip = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::importZip)
+    }
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = { TopAppBar(title = { Text("Voice packs") }) },
+        snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            Box {
+                ExtendedFloatingActionButton(
+                    onClick = { if (!importing) menuOpen = true },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text(if (importing) "Importing…" else "Import") },
+                )
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Import folder") },
+                        leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            pickFolder.launch(null)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Import ZIP") },
+                        leadingIcon = { Icon(Icons.Filled.FolderZip, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            pickZip.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+                        },
+                    )
+                }
+            }
+        },
+    ) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (importing) LinearProgressIndicator(Modifier.fillMaxWidth())
+            when {
+                packs == null -> Unit
+                packs!!.isEmpty() -> EmptyMessage(
+                    title = "No voice packs yet",
+                    body = "Tap Import and choose a folder or a .zip containing your voice pack audio files " +
+                        "(mp3, m4a, ogg, opus, wav, flac). Each folder with audio becomes a pack.",
+                )
+                else -> PackGrid(packs!!, onOpenPack, onLongPress = { editing = it })
+            }
+        }
+    }
+
+    editing?.let { pack ->
+        EditPackDialog(
+            pack = pack,
+            onDismiss = { editing = null },
+            onSave = { name, talent ->
+                viewModel.rename(pack, name, talent)
+                editing = null
+            },
+            onDelete = {
+                viewModel.delete(pack)
+                editing = null
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PackGrid(packs: List<PackWithCount>, onOpen: (Long) -> Unit, onLongPress: (Pack) -> Unit) {
+    val byTalent = packs.groupBy { it.pack.talent }
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 150.dp),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        byTalent.forEach { (talent, talentPacks) ->
+            item(key = "header-$talent", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    talent,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 12.dp, start = 4.dp),
+                )
+            }
+            items(talentPacks, key = { it.pack.id }) { item ->
+                Card(
+                    Modifier.fillMaxWidth().combinedClickable(
+                        onClick = { onOpen(item.pack.id) },
+                        onLongClick = { onLongPress(item.pack) },
+                    ),
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.LibraryMusic,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(48.dp),
+                        )
+                        if (item.pack.coverUri != null) {
+                            AsyncImage(
+                                model = item.pack.coverUri,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                    Column(Modifier.padding(10.dp)) {
+                        Text(
+                            item.pack.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            "${item.clipCount} clips",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditPackDialog(
+    pack: Pack,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf(pack.name) }
+    var talent by rememberSaveable { mutableStateOf(pack.talent) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete ${pack.name}?") },
+            text = {
+                Text(
+                    "The pack is removed from the library. Files imported from a ZIP are deleted; " +
+                        "files in a picked folder are left untouched.",
+                )
+            },
+            confirmButton = { TextButton(onClick = onDelete) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
+        return
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit pack") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
+                OutlinedTextField(value = talent, onValueChange = { talent = it }, label = { Text("Talent") }, singleLine = true)
+                TextButton(onClick = { confirmDelete = true }) {
+                    Text("Delete pack", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(name, talent) }, enabled = name.isNotBlank()) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
