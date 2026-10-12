@@ -50,7 +50,8 @@ The app ships no audio of its own. You import your packs from your phone.
 
 ## Importing topics
 Tap **Import** on the Topics tab:
-- **Import folder**: pick a folder on your device. It becomes one topic, and each sub-folder becomes a category. The files stay where they are, and the app keeps read access so it can sync the folder later.
+- **Import many topics…**: pick the folder that holds all your voice packs. Each sub-folder becomes its own topic, and folders inside those become categories. New sub-folders become topics automatically, and topics whose folder you delete disappear. If you delete a topic in the app, it stays deleted. Audio files directly in the picked folder (not in a sub-folder) are skipped.
+- **Import one topic**: pick a single folder. It becomes one topic, and its sub-folders become categories. The files stay where they are, and the app keeps read access so it can sync the folder later.
 - **Import ZIP**: pick a `.zip` archive. The audio and images are extracted into app storage, so you can delete the ZIP afterwards. A single wrapping folder inside the ZIP is ignored. Shift_JIS (Japanese Windows) file names are supported.
 
 Supported audio: mp3, m4a, aac, ogg, opus, wav, flac. An image in the folder becomes the pack cover; files named like `cover`/`jacket` are preferred.

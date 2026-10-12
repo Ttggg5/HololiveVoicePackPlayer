@@ -1,17 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Speaker with sound waves -->
+<!-- Microphone with sound waves and a small star; content scaled to sit in the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="30"
-        android:translateY="30"
-        android:scaleX="2"
-        android:scaleY="2">
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.9"
+        android:scaleY="0.9">
+        <!-- Microphone capsule -->
         <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M3,9v6h4l5,5V4L7,9H3zM16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v8.05c1.48,-0.73 2.5,-2.25 2.5,-4.02zM14,3.23v2.06c2.89,0.86 5,3.54 5,6.71s-2.11,5.85 -5,6.71v2.06c4.01,-0.91 7,-4.49 7,-8.77s-2.99,-7.86 -7,-8.77z" />
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M54,26c5.52,0 10,4.48 10,10v14c0,5.52 -4.48,10 -10,10s-10,-4.48 -10,-10v-14c0,-5.52 4.48,-10 10,-10z" />
+        <!-- Holder arc, stem and base -->
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M39,49a15,15 0,0 0,30 0"
+            android:strokeWidth="4"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round" />
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M54,64v9M46,74h16"
+            android:strokeWidth="4"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round" />
+        <!-- Sound waves -->
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M75,35a14,14 0,0 1,0 20M33,35a14,14 0,0 0,0 20"
+            android:strokeAlpha="0.9"
+            android:strokeWidth="3.5"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round" />
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M81,29a22,22 0,0 1,0 32M27,29a22,22 0,0 0,0 32"
+            android:strokeAlpha="0.55"
+            android:strokeWidth="3.5"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round" />
+        <!-- Star accent -->
+        <path
+            android:fillColor="#FFFF8AB3"
+            android:pathData="M71,15l1.8,5.2l5.2,1.8l-5.2,1.8l-1.8,5.2l-1.8,-5.2l-5.2,-1.8l5.2,-1.8z" />
     </group>
 </vector>

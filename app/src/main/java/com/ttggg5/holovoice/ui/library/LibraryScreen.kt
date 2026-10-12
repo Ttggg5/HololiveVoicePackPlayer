@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Face
@@ -102,6 +103,9 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let(viewModel::importFolder)
     }
+    val pickLibrary = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let(viewModel::importLibrary)
+    }
     val pickZip = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::importZip)
     }
@@ -148,7 +152,33 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                 )
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("Import folder") },
+                        text = {
+                            Column {
+                                Text("Import many topics…")
+                                Text(
+                                    "Pick a folder; each sub-folder becomes a topic",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        leadingIcon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            pickLibrary.launch(null)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text("Import one topic")
+                                Text(
+                                    "The folder is one topic; sub-folders become categories",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
                         leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null) },
                         onClick = {
                             menuOpen = false
@@ -173,12 +203,12 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                 packs == null -> Unit
                 packs!!.isEmpty() -> EmptyMessage(
                     title = "No topics yet",
-                    body = "Choose a folder (or a .zip) with your voice files — mp3, m4a, ogg, opus, wav or flac. " +
-                        "The folder becomes a topic and its sub-folders become categories. " +
+                    body = "Pick the folder that holds all your voice packs — each sub-folder becomes a topic " +
+                        "(mp3, m4a, ogg, opus, wav or flac). Or use Import for a single folder or a .zip. " +
                         "Imported folders stay in sync automatically.",
                     icon = Icons.Filled.LibraryMusic,
-                    actionLabel = "Import a folder",
-                    onAction = { pickFolder.launch(null) },
+                    actionLabel = "Import many topics",
+                    onAction = { pickLibrary.launch(null) },
                 )
                 else -> {
                     val shown = sort.sorted(packs!!).filter { p ->

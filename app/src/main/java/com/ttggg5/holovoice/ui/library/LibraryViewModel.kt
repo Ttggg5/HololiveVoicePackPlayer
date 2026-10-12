@@ -37,6 +37,28 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
 
     fun importZip(uri: Uri) = runImport { repository.importZip(uri) }
 
+    /** "Import many topics": each sub-folder of the picked folder becomes a topic. */
+    fun importLibrary(uri: Uri) {
+        viewModelScope.launch {
+            _importing.value = true
+            val message = try {
+                val r = repository.importLibrary(uri)
+                val loose = if (r.looseFiles) " Audio files directly in \"${r.rootName}\" were skipped — put them in a sub-folder." else ""
+                when {
+                    r.topics == 0 -> "No sub-folders with audio found in \"${r.rootName}\".$loose"
+                    r.topicsAdded == r.topics -> "Imported ${r.topics} topics (${r.clipsAdded} clips) from \"${r.rootName}\".$loose"
+                    r.changed -> "Updated \"${r.rootName}\": ${r.topicsAdded} new topics, ${r.topicsRemoved} removed, ${r.clipsAdded} new clips.$loose"
+                    else -> "\"${r.rootName}\" is already up to date (${r.topics} topics).$loose"
+                }
+            } catch (e: Exception) {
+                "Import failed: ${e.message ?: e::class.simpleName}"
+            } finally {
+                _importing.value = false
+            }
+            _messages.send(message)
+        }
+    }
+
     private fun runImport(block: suspend () -> PackImporter.SyncResult) {
         viewModelScope.launch {
             _importing.value = true

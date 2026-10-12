@@ -33,7 +33,62 @@ class PackImporter(
         val changed: Boolean get() = added > 0 || removed > 0 || created
     }
 
+    /** What syncing a library folder (one topic per sub-folder) changed. */
+    data class LibraryResult(
+        val rootName: String,
+        val topicsAdded: Int,
+        val topicsRemoved: Int,
+        val clipsAdded: Int,
+        val clipsRemoved: Int,
+        val topics: Int,
+        val looseFiles: Boolean,
+    ) {
+        val changed: Boolean get() = topicsAdded > 0 || topicsRemoved > 0 || clipsAdded > 0 || clipsRemoved > 0
+    }
+
     val packsDir: File get() = File(context.filesDir, "packs")
+
+    /** Imports a folder whose sub-folders are each a topic ("Import many topics"). */
+    suspend fun importLibrary(treeUri: Uri, excluded: Set<String>): LibraryResult = withContext(Dispatchers.IO) {
+        context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        syncLibrary(treeUri.toString(), excluded) ?: error("Cannot read folder")
+    }
+
+    /**
+     * Rescans a library folder: every sub-folder becomes (or stays) a topic, topics whose
+     * sub-folder is gone are removed. Returns null, changing nothing, if the folder can't be read.
+     */
+    suspend fun syncLibrary(rootUri: String, excluded: Set<String>): LibraryResult? = withContext(Dispatchers.IO) {
+        val root = runCatching { DocumentFile.fromTreeUri(context, Uri.parse(rootUri)) }.getOrNull()
+        if (root == null || !root.isDirectory || !root.canRead()) return@withContext null
+        val children = runCatching { root.listFiles().toList() }.getOrNull() ?: return@withContext null
+        val subDirs = children.filter { it.isDirectory && !FileNames.isJunk(it.name.orEmpty()) }
+        val looseFiles = children.any { !it.isDirectory && FileNames.isAudio(it.name.orEmpty()) }
+
+        var topicsAdded = 0
+        var clipsAdded = 0
+        var clipsRemoved = 0
+        val present = HashSet<String>()
+        for (dir in subDirs) {
+            val uri = dir.uri.toString()
+            present += uri
+            if (uri in excluded) continue
+            val result = syncFolder(uri) ?: continue
+            if (result.created) topicsAdded++
+            clipsAdded += result.added
+            clipsRemoved += result.removed
+        }
+        // Topics whose sub-folder was deleted or renamed.
+        var topicsRemoved = 0
+        for (pack in db.packDao().getPacksWithSourceLike(childPrefix(rootUri) + "%")) {
+            if (pack.sourceUri !in present) {
+                db.packDao().delete(pack.id)
+                topicsRemoved++
+            }
+        }
+        val topics = db.packDao().getPacksWithSourceLike(childPrefix(rootUri) + "%").size
+        LibraryResult(root.name ?: "Library", topicsAdded, topicsRemoved, clipsAdded, clipsRemoved, topics, looseFiles)
+    }
 
     /**
      * Imports a folder picked with ACTION_OPEN_DOCUMENT_TREE. Picking a folder that is already

@@ -28,6 +28,9 @@ interface PackDao {
     @Query("SELECT * FROM packs WHERE sourceUri = :sourceUri ORDER BY id")
     suspend fun getPacksBySource(sourceUri: String): List<Pack>
 
+    @Query("SELECT * FROM packs WHERE sourceUri LIKE :pattern")
+    suspend fun getPacksWithSourceLike(pattern: String): List<Pack>
+
     @Query("SELECT DISTINCT sourceUri FROM packs WHERE source = 'FOLDER'")
     suspend fun folderSources(): List<String>
 

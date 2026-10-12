@@ -19,6 +19,7 @@ class PackRepository(
     private val db: AppDatabase,
     private val importer: PackImporter,
     private val talentLinker: TalentLinker,
+    private val libraryRoots: LibraryRoots,
 ) {
     val packs: Flow<List<PackWithCount>> = db.packDao().observePacks()
     val favorites: Flow<List<ClipWithPack>> = db.clipDao().observeFavorites()
@@ -107,7 +108,20 @@ class PackRepository(
 
     private var lastSyncAt = 0L
 
-    suspend fun importFolder(uri: Uri): PackImporter.SyncResult = syncMutex.withLock { importer.importFolder(uri) }
+    suspend fun importFolder(uri: Uri): PackImporter.SyncResult = syncMutex.withLock {
+        libraryRoots.include(uri.toString())
+        importer.importFolder(uri)
+    }
+
+    /** "Import many topics": each sub-folder of [uri] becomes a topic, kept in sync from now on. */
+    suspend fun importLibrary(uri: Uri): PackImporter.LibraryResult = syncMutex.withLock {
+        libraryRoots.include(uri.toString())
+        // If this folder was imported before as a single topic, its sub-folders now become topics instead.
+        db.packDao().getPacksBySource(uri.toString()).forEach { db.packDao().delete(it.id) }
+        val result = importer.importLibrary(uri, libraryRoots.excluded)
+        libraryRoots.add(uri.toString())
+        result
+    }
 
     suspend fun importZip(uri: Uri): PackImporter.SyncResult = syncMutex.withLock { importer.importZip(uri) }
 
@@ -122,8 +136,23 @@ class PackRepository(
             try {
                 var added = 0
                 var removed = 0
+                var topicsAdded = 0
+                var topicsRemoved = 0
                 val unreadable = mutableListOf<String>()
-                for (source in db.packDao().folderSources()) {
+                val roots = libraryRoots.roots
+                for (root in roots) {
+                    val result = runCatching { importer.syncLibrary(root, libraryRoots.excluded) }.getOrNull()
+                    if (result == null) {
+                        unreadable += Uri.parse(root).lastPathSegment?.substringAfterLast(':') ?: "a library folder"
+                    } else {
+                        added += result.clipsAdded
+                        removed += result.clipsRemoved
+                        topicsAdded += result.topicsAdded
+                        topicsRemoved += result.topicsRemoved
+                    }
+                }
+                // Stand-alone folders; topics inside a library folder were synced above.
+                for (source in db.packDao().folderSources().filter { libraryRoots.rootOf(it) == null }) {
                     val result = runCatching { importer.syncFolder(source) }.getOrNull()
                     if (result == null) {
                         db.packDao().getPacksBySource(source).firstOrNull()?.let { unreadable += it.name }
@@ -134,8 +163,10 @@ class PackRepository(
                 }
                 lastSyncAt = System.currentTimeMillis()
                 val parts = buildList {
-                    if (added > 0) add("$added new")
-                    if (removed > 0) add("$removed removed")
+                    if (topicsAdded > 0) add("$topicsAdded new topics")
+                    if (topicsRemoved > 0) add("$topicsRemoved topics removed")
+                    if (added > 0) add("$added new clips")
+                    if (removed > 0) add("$removed clips removed")
                 }
                 if (parts.isNotEmpty()) _syncMessages.emit("Library updated: ${parts.joinToString(", ")}")
                 if (unreadable.isNotEmpty()) {
@@ -158,7 +189,13 @@ class PackRepository(
         db.packDao().delete(packId)
         when (pack.source) {
             PackSource.ZIP -> importer.deleteExtracted(pack, clips)
-            PackSource.FOLDER -> importer.releaseTreeIfUnused(pack.sourceUri)
+            PackSource.FOLDER ->
+                // A topic from a library folder: remember not to bring it back on the next sync.
+                if (libraryRoots.rootOf(pack.sourceUri) != null) {
+                    libraryRoots.exclude(pack.sourceUri)
+                } else {
+                    importer.releaseTreeIfUnused(pack.sourceUri)
+                }
         }
     }
 }

@@ -6,6 +6,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.ttggg5.holovoice.data.AppDatabase
 import com.ttggg5.holovoice.data.PackImporter
+import com.ttggg5.holovoice.data.LibraryRoots
 import com.ttggg5.holovoice.data.PackRepository
 import com.ttggg5.holovoice.data.UiPrefs
 import com.ttggg5.holovoice.data.talents.TalentDirectory
@@ -32,7 +33,7 @@ class HoloVoiceApp : Application(), ImageLoaderFactory {
 class AppContainer(context: Context) {
     private val db = AppDatabase.create(context)
     private val talentLinker = TalentLinker(db, TalentDirectory(context))
-    val repository = PackRepository(db, PackImporter(context, db, talentLinker), talentLinker)
+    val repository = PackRepository(db, PackImporter(context, db, talentLinker), talentLinker, LibraryRoots(context))
     val player = PlayerController(context)
     val uiPrefs = UiPrefs(context)
 

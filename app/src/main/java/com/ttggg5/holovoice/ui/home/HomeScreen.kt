@@ -99,8 +99,8 @@ fun HomeScreen(
             HomeHeader(onShowHelp = onShowHelp, onShuffle = null)
             EmptyMessage(
                 "Welcome to Holo Voice!",
-                "Start by importing a folder of voice files. Each folder becomes a topic, and files named after " +
-                    "a talent get their profile picture automatically.",
+                "Start by importing the folder that holds your voice packs — each sub-folder becomes a topic, " +
+                    "and files named after a talent get their profile picture automatically.",
                 icon = Icons.Filled.Waves,
                 actionLabel = "Go to Topics to import",
                 onAction = onBrowseTopics,

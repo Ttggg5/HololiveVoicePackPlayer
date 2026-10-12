@@ -44,9 +44,9 @@ private data class Page(val icon: ImageVector, val title: String, val body: Stri
 private val PAGES = listOf(
     Page(
         Icons.Filled.CreateNewFolder,
-        "Import a folder",
-        "Pick a folder of voice files. It becomes a topic, and its sub-folders become categories. " +
-            "New files are picked up automatically every time you open the app.",
+        "Import your voice packs",
+        "Use \"Import many topics\" and pick the folder that holds all your packs: each sub-folder becomes a topic. " +
+            "New files and folders are picked up automatically every time you open the app.",
     ),
     Page(
         Icons.Filled.Face,
