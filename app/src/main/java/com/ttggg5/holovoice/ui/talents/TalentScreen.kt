@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.ui.components.Artwork
+import com.ttggg5.holovoice.ui.components.ClipArt
 import com.ttggg5.holovoice.ui.components.ClipBrowser
 
 /** All clips of one talent across every topic, with a profile header. */
@@ -79,6 +80,8 @@ fun TalentScreen(viewModel: TalentViewModel, player: PlayerController, onBack: (
                 onToggleFavorite = viewModel::toggleFavorite,
                 modifier = Modifier.padding(padding),
                 emptyTitle = "No clips",
+                // All clips share this talent's picture, so show each clip's topic thumbnail instead.
+                artwork = ClipArt.TOPIC,
                 header = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         Artwork(

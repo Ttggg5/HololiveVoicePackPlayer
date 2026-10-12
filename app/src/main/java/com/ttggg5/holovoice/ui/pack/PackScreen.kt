@@ -11,6 +11,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -46,9 +50,10 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
     val allClips by viewModel.clips.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
-    // 0 = All, i = categories[i - 1]
-    var selected by rememberSaveable { mutableIntStateOf(0) }
-    val current = if (selected <= categories.size) selected else 0
+    // Page 0 = All, page i = categories[i - 1]; swipe left/right to change category.
+    val pager = rememberPagerState { categories.size + 1 }
+    val scope = rememberCoroutineScope()
+    val current = pager.currentPage.coerceAtMost(categories.size)
     val category = categories.getOrNull(current - 1)
     val clips = if (category == null) allClips else allClips.filter { it.clip.category == category }
 
@@ -92,22 +97,13 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                     (listOf("All") + categories).forEachIndexed { index, title ->
                         Tab(
                             selected = current == index,
-                            onClick = { selected = index },
+                            onClick = { scope.launch { pager.animateScrollToPage(index) } },
                             text = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         )
                     }
                 }
             }
-            // The grid slides in from the side of the tab that was picked.
-            AnimatedContent(
-                targetState = current,
-                transitionSpec = {
-                    val forward = targetState > initialState
-                    (slideInHorizontally(tween(300)) { if (forward) it / 4 else -it / 4 } + fadeIn(tween(300))) togetherWith
-                        (slideOutHorizontally(tween(250)) { if (forward) -it / 4 else it / 4 } + fadeOut(tween(200)))
-                },
-                label = "categoryTab",
-            ) { tab ->
+            HorizontalPager(state = pager, key = { it }) { tab ->
                 val tabCategory = categories.getOrNull(tab - 1)
                 ClipBrowser(
                     clips = if (tabCategory == null) allClips else allClips.filter { it.clip.category == tabCategory },

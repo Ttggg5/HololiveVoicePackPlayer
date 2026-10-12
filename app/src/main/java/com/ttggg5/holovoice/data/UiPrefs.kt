@@ -27,6 +27,18 @@ class UiPrefs(context: Context) {
     private val _clipView = MutableStateFlow(read("clipView", ClipView.GRID))
     val clipView: StateFlow<ClipView> = _clipView.asStateFlow()
 
+    private val _gridCellDp = MutableStateFlow(prefs.getInt("gridCellDp", DEFAULT_GRID_DP))
+
+    /** Minimum width of a grid tile; pinch on a grid to change it. */
+    val gridCellDp: StateFlow<Int> = _gridCellDp.asStateFlow()
+
+    fun setGridCellDp(dp: Int) {
+        val clamped = dp.coerceIn(MIN_GRID_DP, MAX_GRID_DP)
+        if (clamped == _gridCellDp.value) return
+        _gridCellDp.value = clamped
+        prefs.edit().putInt("gridCellDp", clamped).apply()
+    }
+
     private val _onboardingDone = MutableStateFlow(prefs.getBoolean("onboardingDone", false))
     val onboardingDone: StateFlow<Boolean> = _onboardingDone.asStateFlow()
 
@@ -43,5 +55,11 @@ class UiPrefs(context: Context) {
 
     private fun save(key: String, value: Enum<*>) {
         prefs.edit().putString(key, value.name).apply()
+    }
+
+    companion object {
+        const val DEFAULT_GRID_DP = 160
+        const val MIN_GRID_DP = 110
+        const val MAX_GRID_DP = 260
     }
 }

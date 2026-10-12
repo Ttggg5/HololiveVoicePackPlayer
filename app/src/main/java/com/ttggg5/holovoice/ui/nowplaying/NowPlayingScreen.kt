@@ -62,6 +62,19 @@ import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
 import com.ttggg5.holovoice.ui.components.AddToPlaylistDialog
 import com.ttggg5.holovoice.ui.components.Artwork
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.ui.components.PlayPauseIcon
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
@@ -104,7 +117,34 @@ fun NowPlayingScreen(
     val clip by viewModel.currentClip.collectAsStateWithLifecycle()
     var sheet by remember { mutableStateOf<Sheet?>(null) }
 
+    // Drag the whole screen down to minimize it back into the mini player.
+    val scope = rememberCoroutineScope()
+    val dragY = remember { Animatable(0f) }
+    var screenHeight by remember { mutableIntStateOf(1) }
+    val dismissDrag = rememberDraggableState { delta ->
+        scope.launch { dragY.snapTo((dragY.value + delta).coerceAtLeast(0f)) }
+    }
     Scaffold(
+        modifier = Modifier
+            .onSizeChanged { screenHeight = it.height }
+            .draggable(
+                state = dismissDrag,
+                orientation = Orientation.Vertical,
+                onDragStopped = { velocity ->
+                    if (dragY.value > screenHeight * 0.25f || velocity > 2500f) {
+                        onBack()
+                    } else {
+                        dragY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                    }
+                },
+            )
+            .graphicsLayer {
+                translationY = dragY.value
+                val progress = (dragY.value / screenHeight).coerceIn(0f, 1f)
+                scaleX = 1f - progress * 0.08f
+                scaleY = 1f - progress * 0.08f
+                alpha = 1f - progress * 0.5f
+            },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
@@ -151,7 +191,7 @@ fun NowPlayingScreen(
                         (slideOutHorizontally { -it / 3 } + fadeOut(tween(250)))
                 },
                 label = "nowPlayingArt",
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth().artworkSwipe(player, state.hasNext),
             ) { s ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Box(
@@ -302,6 +342,42 @@ fun NowPlayingScreen(
 }
 
 private enum class Sheet { Speed, Sleep, Playlist }
+
+/** Swipe the artwork left/right for next/previous; it follows the finger and springs back. */
+@Composable
+private fun Modifier.artworkSwipe(player: PlayerController, hasNext: Boolean): Modifier {
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    val offset = remember { Animatable(0f) }
+    val canNext by rememberUpdatedState(hasNext)
+    return this
+        .pointerInput(player) {
+            val width = size.width.toFloat()
+            detectHorizontalDragGestures(
+                onDragEnd = {
+                    scope.launch {
+                        val x = offset.value
+                        if (x < -width * 0.2f && canNext) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            player.next()
+                        } else if (x > width * 0.2f) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            player.previous()
+                        }
+                        offset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                    }
+                },
+                onDragCancel = { scope.launch { offset.animateTo(0f) } },
+            ) { change, amount ->
+                change.consume()
+                scope.launch { offset.snapTo(offset.value + amount) }
+            }
+        }
+        .graphicsLayer {
+            translationX = offset.value
+            rotationZ = offset.value / size.width.coerceAtLeast(1f) * 6f
+        }
+}
 
 @Composable
 private fun SeekBar(state: PlayerState, player: PlayerController) {

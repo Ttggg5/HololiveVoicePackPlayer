@@ -56,6 +56,7 @@ import com.ttggg5.holovoice.ui.components.EmptyMessage
 import com.ttggg5.holovoice.ui.components.EqualizerBars
 import com.ttggg5.holovoice.ui.components.LocalUndo
 import com.ttggg5.holovoice.ui.components.SortMenu
+import com.ttggg5.holovoice.ui.components.pinchToResize
 
 /** Every talent in the library with their picture; tap one to see all their clips. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,8 +106,11 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                         query.isBlank() || TalentMatcher.normalize(t.name ?: "").contains(TalentMatcher.normalize(query)) ||
                             (t.name ?: "").contains(query.trim(), ignoreCase = true)
                     }
+                    val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 112.dp),
+                        // Talent cards are smaller than clip tiles but follow the same pinch size.
+                        columns = GridCells.Adaptive(minSize = (cellDp * 0.7f).dp),
+                        modifier = Modifier.pinchToResize(prefs),
                         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),

@@ -78,6 +78,7 @@ import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.TopicSort
 import com.ttggg5.holovoice.playback.PlayerState
 import com.ttggg5.holovoice.ui.components.SortMenu
+import com.ttggg5.holovoice.ui.components.pinchToResize
 import com.ttggg5.holovoice.ui.components.EmptyMessage
 import com.ttggg5.holovoice.ui.components.EqualizerBars
 import com.ttggg5.holovoice.ui.components.TalentPickerDialog
@@ -200,7 +201,7 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                         )
                     }
-                    PackGrid(shown, grouped = sort == TopicSort.TALENT, playerState, onOpenPack, onLongPress = { editing = it })
+                    PackGrid(shown, playerState, onOpenPack, onLongPress = { editing = it })
                 }
             }
         }
@@ -230,30 +231,22 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
 @Composable
 private fun PackGrid(
     packs: List<PackWithCount>,
-    grouped: Boolean,
     playerState: PlayerState,
     onOpen: (Long) -> Unit,
     onLongPress: (Pack) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
-    // Talent headers only when sorted by talent; otherwise one flat grid.
-    val byTalent = if (grouped) packs.groupBy { it.pack.talent } else mapOf("" to packs)
+    val prefs = LocalContext.current.appContainer.uiPrefs
+    val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 150.dp),
+        columns = GridCells.Adaptive(minSize = cellDp.dp),
+        modifier = Modifier.pinchToResize(prefs),
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        byTalent.forEach { (talent, talentPacks) ->
-            if (talent.isNotEmpty()) item(key = "header-$talent", span = { GridItemSpan(maxLineSpan) }) {
-                Text(
-                    modifier = Modifier.animateItem().padding(top = 12.dp, start = 4.dp),
-                    text =
-                    talent,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+        run {
+            val talentPacks = packs
             items(talentPacks, key = { it.pack.id }) { item ->
                 val playingHere = playerState.packId == item.pack.id
                 Card(
@@ -307,7 +300,7 @@ private fun PackGrid(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            "${item.clipCount} clips" +
+                            "${item.pack.talent} · ${item.clipCount} clips" +
                                 if (item.categoryCount > 0) " · ${item.categoryCount} categories" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

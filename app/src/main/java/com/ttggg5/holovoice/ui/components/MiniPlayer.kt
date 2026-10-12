@@ -38,6 +38,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
@@ -57,6 +72,7 @@ fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit,
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
+                    .playerSwipes(state, player, onOpen)
                     .clickable(onClick = onOpen)
                     .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             ) {
@@ -114,6 +130,63 @@ fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit,
             }
         }
     }
+}
+
+/**
+ * Mini player gestures: swipe left/right for next/previous, swipe up to open Now Playing.
+ * The bar follows the finger and springs back.
+ */
+@Composable
+private fun Modifier.playerSwipes(state: PlayerState, player: PlayerController, onOpen: () -> Unit): Modifier {
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    val offsetX = remember { Animatable(0f) }
+    val offsetY = remember { Animatable(0f) }
+    val latestState by rememberUpdatedState(state)
+    val latestOpen by rememberUpdatedState(onOpen)
+    val upThreshold = with(LocalDensity.current) { 48.dp.toPx() }
+    return this
+        .pointerInput(player) {
+            val width = size.width.toFloat()
+            fun settle() {
+                scope.launch {
+                    val x = offsetX.value
+                    val y = offsetY.value
+                    when {
+                        y < -upThreshold -> {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            latestOpen()
+                        }
+                        x < -width * 0.25f && latestState.hasNext -> {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            offsetX.animateTo(-width, tween(140))
+                            player.next()
+                            offsetX.snapTo(width * 0.4f)
+                        }
+                        x > width * 0.25f -> {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            offsetX.animateTo(width, tween(140))
+                            player.previous()
+                            offsetX.snapTo(-width * 0.4f)
+                        }
+                    }
+                    launch { offsetY.animateTo(0f, spring()) }
+                    offsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                }
+            }
+            detectDragGestures(onDragEnd = ::settle, onDragCancel = ::settle) { change, drag ->
+                change.consume()
+                scope.launch {
+                    offsetX.snapTo(offsetX.value + drag.x)
+                    offsetY.snapTo((offsetY.value + drag.y).coerceIn(-upThreshold * 2, 0f))
+                }
+            }
+        }
+        .graphicsLayer {
+            translationX = offsetX.value
+            translationY = offsetY.value * 0.5f
+            alpha = 1f - (abs(offsetX.value) / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.6f)
+        }
 }
 
 /** "📁 Topic › Category" in one muted line. */

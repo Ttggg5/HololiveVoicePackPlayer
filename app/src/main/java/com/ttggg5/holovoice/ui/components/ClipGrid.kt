@@ -60,7 +60,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -79,6 +82,9 @@ import com.ttggg5.holovoice.data.speaker
 import com.ttggg5.holovoice.data.talents.TalentMatcher
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
+
+/** Which picture a clip tile shows. */
+enum class ClipArt { TALENT, TOPIC }
 
 /**
  * A browsable clip collection: optional filter field, sort menu and grid/list toggle on top,
@@ -99,10 +105,12 @@ fun ClipBrowser(
     header: (@Composable () -> Unit)? = null,
     emptyTitle: String = "No clips here",
     emptyBody: String = "",
+    artwork: ClipArt = ClipArt.TALENT,
 ) {
     val prefs = LocalContext.current.appContainer.uiPrefs
     val sort by prefs.clipSort.collectAsStateWithLifecycle()
     val view by prefs.clipView.collectAsStateWithLifecycle()
+    val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
     val undo = LocalUndo.current
     val haptics = LocalHapticFeedback.current
     var query by rememberSaveable { mutableStateOf("") }
@@ -123,6 +131,10 @@ fun ClipBrowser(
                 onToggleFavorite(item.copy(clip = item.clip.copy(isFavorite = false)))
             }
         }
+    }
+    val playNext: (ClipWithPack) -> Unit = { item ->
+        player.playNext(listOf(item))
+        undo?.show("Playing next: ${item.clip.title}")
     }
     val onLongPress: (ClipWithPack) -> Unit = {
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -169,8 +181,8 @@ fun ClipBrowser(
 
     if (view == ClipView.GRID) {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 160.dp),
-            modifier = modifier.fillMaxSize(),
+            columns = GridCells.Adaptive(minSize = cellDp.dp),
+            modifier = modifier.fillMaxSize().pinchToResize(prefs),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -179,17 +191,25 @@ fun ClipBrowser(
             item(key = "toolbar", span = { GridItemSpan(maxLineSpan) }) { toolbar() }
             if (shown.isEmpty()) item(key = "empty", span = { GridItemSpan(maxLineSpan) }) { empty() }
             itemsIndexed(shown, key = { _, it -> it.clip.id }) { index, item ->
+                ClipSwipeActions(
+                    isFavorite = item.clip.isFavorite,
+                    onPlayNext = { playNext(item) },
+                    onToggleFavorite = { toggleFavorite(item) },
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.animateItem(),
+                ) {
                 ClipTile(
                     item = item,
+                    artwork = artwork,
                     isCurrent = playerState.clipId == item.clip.id,
                     isPlaying = playerState.clipId == item.clip.id && playerState.isPlaying,
                     showPack = showPack,
                     showCategory = showCategory,
-                    modifier = Modifier.animateItem(),
                     onClick = { play(index) },
                     onLongClick = { onLongPress(item) },
                     onToggleFavorite = { toggleFavorite(item) },
                 )
+                }
             }
         }
     } else {
@@ -198,21 +218,32 @@ fun ClipBrowser(
             item(key = "toolbar") { Box(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) { toolbar() } }
             if (shown.isEmpty()) item(key = "empty") { empty() }
             itemsIndexed(shown, key = { _, it -> it.clip.id }) { index, item ->
+                ClipSwipeActions(
+                    isFavorite = item.clip.isFavorite,
+                    onPlayNext = { playNext(item) },
+                    onToggleFavorite = { toggleFavorite(item) },
+                    shape = RectangleShape,
+                    modifier = Modifier.animateItem(),
+                ) {
                 ClipRow(
                     item = item,
+                    artwork = artwork,
                     isCurrent = playerState.clipId == item.clip.id,
                     isPlaying = playerState.clipId == item.clip.id && playerState.isPlaying,
                     showPack = showPack,
                     showCategory = showCategory,
-                    modifier = Modifier.animateItem(),
                     onClick = { play(index) },
                     onLongClick = { onLongPress(item) },
                     onToggleFavorite = { toggleFavorite(item) },
                 )
+                }
             }
         }
     }
 }
+
+private fun ClipWithPack.picture(art: ClipArt): String? =
+    if (art == ClipArt.TOPIC) coverUri ?: clip.talentImageUrl else clip.talentImageUrl ?: coverUri
 
 /** Matches the filter text against title, talent, topic and category (any script / width). */
 private fun ClipWithPack.matches(query: String): Boolean {
@@ -236,6 +267,7 @@ private fun ClipWithPack.metaLine(showPack: Boolean, showCategory: Boolean): Str
 @Composable
 private fun ClipTile(
     item: ClipWithPack,
+    artwork: ClipArt,
     isCurrent: Boolean,
     isPlaying: Boolean,
     showPack: Boolean,
@@ -257,6 +289,13 @@ private fun ClipTile(
     )
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    var pop by remember { mutableStateOf(false) }
+    LaunchedEffect(pop) {
+        if (pop) {
+            delay(650)
+            pop = false
+        }
+    }
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "tilePress")
     Card(
         colors = CardDefaults.cardColors(containerColor = container),
@@ -274,10 +313,28 @@ private fun ClipTile(
                 indication = LocalIndication.current,
                 onClick = onClick,
                 onLongClick = onLongClick,
+                onDoubleClick = {
+                    // Double-tap: favorite with a little pop.
+                    if (!item.clip.isFavorite) pop = true
+                    onToggleFavorite()
+                },
             ),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
-            Artwork(item.clip.talentImageUrl ?: item.coverUri, Modifier.fillMaxSize(), iconSize = 44.dp)
+            Artwork(item.picture(artwork), Modifier.fillMaxSize(), iconSize = 44.dp)
+            androidx.compose.animation.AnimatedVisibility(
+                visible = pop,
+                enter = scaleIn(initialScale = 0.3f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                exit = scaleOut(targetScale = 1.6f) + fadeOut(),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                Icon(
+                    Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(84.dp),
+                )
+            }
             androidx.compose.animation.AnimatedVisibility(
                 visible = isCurrent,
                 enter = scaleIn() + fadeIn(),
@@ -338,6 +395,7 @@ private fun ClipTile(
 @Composable
 private fun ClipRow(
     item: ClipWithPack,
+    artwork: ClipArt,
     isCurrent: Boolean,
     isPlaying: Boolean,
     showPack: Boolean,
@@ -348,7 +406,8 @@ private fun ClipRow(
     modifier: Modifier = Modifier,
 ) {
     val background by animateColorAsState(
-        if (isCurrent) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        // Opaque so the swipe-action background only shows beside the row while it moves.
+        if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         animationSpec = tween(350),
         label = "rowColor",
     )
@@ -357,11 +416,15 @@ private fun ClipRow(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onDoubleClick = onToggleFavorite)
             .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
     ) {
         Box {
-            Artwork(item.clip.talentImageUrl ?: item.coverUri, Modifier.size(48.dp).clip(CircleShape), iconSize = 22.dp)
+            Artwork(
+                item.picture(artwork),
+                Modifier.size(48.dp).clip(if (artwork == ClipArt.TOPIC) RoundedCornerShape(10.dp) else CircleShape),
+                iconSize = 22.dp,
+            )
             if (isCurrent) EqualizerBars(isPlaying, size = 14.dp, modifier = Modifier.align(Alignment.BottomEnd))
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {

@@ -15,6 +15,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Grid or list**: switch clip collections between big picture tiles and a compact list.
 - **Search and filters**: a filter box on every clip list, plus *Favorites*, *Talent* and *Topic* filter chips in Search.
 - **Undo**: removing from favorites, the queue or a playlist, or deleting a playlist, shows an *Undo* button.
+- **Talent page**: each clip shows its topic's thumbnail.
 - **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories, shown as tabs on the topic screen. Long-press a topic to rename it, change its talent, or delete it.
 - **Auto-sync**: imported folders are rescanned when you open the app, so files you add or delete show up without importing again. Picking a folder that is already in the library updates it instead of creating a duplicate.
 - **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.
@@ -31,6 +32,21 @@ The app ships no audio of its own. You import your packs from your phone.
   - Library ⋮ menu → *Match talents automatically* re-runs matching. *Refresh talent list* downloads the list again.
   - The list is cached and refreshed weekly, so an internet connection is only needed the first time.
 - **Favorites and search**: star any clip, and search titles, packs and talents.
+
+## Gestures
+| Where | Gesture | Action |
+|---|---|---|
+| Mini player | Swipe left / right | Next / previous clip |
+| Mini player | Swipe up | Open Now Playing |
+| Now Playing | Drag down | Minimize back to the mini player |
+| Now Playing | Swipe the artwork left / right | Next / previous clip |
+| Clip tile or row | Swipe right | Play next |
+| Clip tile or row | Swipe left | Favorite / unfavorite (with Undo) |
+| Clip tile or row | Double-tap | Favorite |
+| Clip tile or row | Long-press | More actions |
+| Clip, topic and talent grids | Pinch | Bigger or smaller tiles (remembered) |
+| Inside a topic | Swipe left / right | Change category |
+| Main tabs | Fling left / right on an empty area | Next / previous tab |
 
 ## Importing topics
 Tap **Import** on the Topics tab:

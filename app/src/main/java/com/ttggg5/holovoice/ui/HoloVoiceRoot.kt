@@ -54,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.ttggg5.holovoice.ui.components.LocalUndo
+import com.ttggg5.holovoice.ui.components.swipeBetweenTabs
 import com.ttggg5.holovoice.ui.components.UndoController
 import com.ttggg5.holovoice.ui.home.HomeScreen
 import com.ttggg5.holovoice.ui.home.HomeViewModel
@@ -89,6 +90,25 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 
 private const val NOW_PLAYING = "now_playing"
 private const val FAVORITES = "favorites"
+
+/** +1 when moving to a tab further right, -1 further left, 0 when not a tab-to-tab change. */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabDirection(): Int {
+    val from = Tab.entries.indexOfFirst { it.route == initialState.destination.route }
+    val to = Tab.entries.indexOfFirst { it.route == targetState.destination.route }
+    return if (from < 0 || to < 0) 0 else (to - from).coerceIn(-1, 1)
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterTransition = when (tabDirection()) {
+    1 -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(280)) + fadeIn(tween(280))
+    -1 -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeIn(tween(280))
+    else -> fadeIn(tween(220))
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabExit(): ExitTransition = when (tabDirection()) {
+    1 -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(280)) + fadeOut(tween(200))
+    -1 -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeOut(tween(200))
+    else -> fadeOut(tween(180))
+}
 
 /** Drill-down screens slide in from the end and back out to it. */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.pushIn(): EnterTransition =
@@ -163,12 +183,18 @@ fun HoloVoiceRoot(container: AppContainer) {
         NavHost(
             nav,
             startDestination = Tab.Home.route,
-            modifier = Modifier.padding(padding),
-            // Tabs crossfade; drill-down screens override these with slides below.
-            enterTransition = { fadeIn(tween(220)) },
-            exitTransition = { fadeOut(tween(180)) },
-            popEnterTransition = { fadeIn(tween(220)) },
-            popExitTransition = { fadeOut(tween(180)) },
+            modifier = Modifier
+                .padding(padding)
+                // Fling left/right on a tab to move to the neighbouring tab.
+                .swipeBetweenTabs(enabled = topLevel) { direction ->
+                    val index = Tab.entries.indexOfFirst { it.route == route }
+                    Tab.entries.getOrNull(index + direction)?.let(::goToTab)
+                },
+            // Tabs slide in the direction of travel; drill-down screens override these below.
+            enterTransition = { tabEnter() },
+            exitTransition = { tabExit() },
+            popEnterTransition = { tabEnter() },
+            popExitTransition = { tabExit() },
         ) {
             composable(Tab.Home.route) {
                 HomeScreen(
