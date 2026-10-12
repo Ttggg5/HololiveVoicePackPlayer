@@ -270,6 +270,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                     onBack = { nav.popBackStack() },
                     onOpenQueue = { nav.navigate(QUEUE) { launchSingleTop = true } },
                     onOpenTopic = { id -> nav.navigate("pack/$id") },
+                    onOpenTalent = { slug -> nav.navigate("talent/$slug") },
                 )
             }
             composable(QUEUE,

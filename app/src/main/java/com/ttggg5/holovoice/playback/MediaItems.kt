@@ -9,6 +9,8 @@ import androidx.media3.common.MediaMetadata
 import com.ttggg5.holovoice.data.ClipWithPack
 import com.ttggg5.holovoice.data.artwork
 import com.ttggg5.holovoice.data.speaker
+import com.ttggg5.holovoice.data.orderedTalents
+import com.ttggg5.holovoice.data.talentImages
 
 /** Builds a playable item whose media id is the clip id, so queues can be saved and restored by id. */
 @OptIn(UnstableApi::class)
@@ -28,7 +30,9 @@ fun ClipWithPack.toMediaItem(): MediaItem {
                 .setExtras(
                     Bundle().apply {
                         putLong(ItemExtras.PACK_ID, clip.packId)
-                        putString(ItemExtras.TALENT_IMAGE, clip.talentImageUrl)
+                        putString(ItemExtras.TALENT_IMAGE, talentImages.firstOrNull() ?: clip.talentImageUrl)
+                        putStringArray(ItemExtras.TALENT_IMAGES, talentImages.toTypedArray())
+                        putString(ItemExtras.TALENT_SLUGS, orderedTalents.joinToString("\n") { it.slug })
                         putString(ItemExtras.COVER, coverUri)
                         putString(ItemExtras.CATEGORY, clip.category)
                     },
@@ -44,6 +48,8 @@ fun ClipWithPack.toMediaItem(): MediaItem {
 object ItemExtras {
     const val PACK_ID = "packId"
     const val TALENT_IMAGE = "talentImage"
+    const val TALENT_IMAGES = "talentImages"
+    const val TALENT_SLUGS = "talentSlugs"
     const val COVER = "cover"
     const val CATEGORY = "category"
 }

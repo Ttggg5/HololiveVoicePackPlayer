@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -68,19 +69,19 @@ class PackRepository(
         return talentLinker.matchClips(clips, talents) to clips.size
     }
 
-    suspend fun setClipTalent(clipIds: List<Long>, talent: Talent?) = talentLinker.setTalent(clipIds, talent)
+    suspend fun setClipTalents(clipIds: List<Long>, talents: List<Talent>) = talentLinker.setTalents(clipIds, talents)
 
-    /** Sets [talent] on every clip of the pack and, when not null, as the pack's talent. */
-    suspend fun setPackTalent(pack: Pack, talent: Talent?) {
-        talentLinker.setTalent(db.clipDao().getClips(pack.id).map { it.id }, talent)
-        if (talent != null) db.packDao().update(pack.copy(talent = talent.nameEn))
+    /** Sets [talents] on every clip of the pack; the first one also becomes the pack's talent. */
+    suspend fun setPackTalents(pack: Pack, talents: List<Talent>) {
+        talentLinker.setTalents(db.clipDao().getClips(pack.id).map { it.id }, talents)
+        talents.firstOrNull()?.let { db.packDao().update(pack.copy(talent = it.nameEn)) }
     }
 
     val allClips: Flow<List<ClipWithPack>> = db.clipDao().observeAllClips()
 
     suspend fun getAllClips(): List<ClipWithPack> = db.clipDao().getAllClips()
 
-    val talentSummaries: Flow<List<TalentSummary>> = db.clipDao().observeTalents()
+    val talentSummaries: Flow<List<TalentSummary>> = db.clipDao().observeTalents().map { list -> list.filter { it.clipCount > 0 } }
 
     /** Clips of one talent; a null [slug] gives the clips that have no talent yet. */
     fun clipsByTalent(slug: String?): Flow<List<ClipWithPack>> =

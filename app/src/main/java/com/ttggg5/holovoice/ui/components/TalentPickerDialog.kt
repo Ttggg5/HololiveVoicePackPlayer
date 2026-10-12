@@ -1,6 +1,8 @@
 package com.ttggg5.holovoice.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,15 +12,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PersonOff
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,15 +47,24 @@ import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.talents.Talent
 import com.ttggg5.holovoice.data.talents.TalentMatcher
 
-/** Searchable list of all talents with their profile pictures. [onPick] gets null for "No talent". */
+/**
+ * Searchable, multi-select list of all talents with their pictures. Picks keep the order they were
+ * chosen in (the first one is the clip's main picture). [onConfirm] gets an empty list for "no talent".
+ */
 @Composable
-fun TalentPickerDialog(title: String, onPick: (Talent?) -> Unit, onDismiss: () -> Unit) {
+fun TalentPickerDialog(
+    title: String,
+    initialSlugs: List<String>,
+    onConfirm: (List<Talent>) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
     val repository = remember(context) { context.appContainer.repository }
     var talents by remember { mutableStateOf<List<Talent>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
+    val picked = remember { mutableStateListOf<String>().apply { addAll(initialSlugs) } }
 
     LaunchedEffect(reload) {
         error = null
@@ -60,6 +75,11 @@ fun TalentPickerDialog(title: String, onPick: (Talent?) -> Unit, onDismiss: () -
             error = e.message ?: "Couldn't download the talent list"
             emptyList()
         }
+    }
+    val bySlug = talents.orEmpty().associateBy { it.slug }
+
+    fun toggle(slug: String) {
+        if (slug in picked) picked.remove(slug) else picked.add(slug)
     }
 
     AlertDialog(
@@ -74,6 +94,23 @@ fun TalentPickerDialog(title: String, onPick: (Talent?) -> Unit, onDismiss: () -
         },
         text = {
             Column {
+                if (picked.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp),
+                    ) {
+                        picked.forEach { slug ->
+                            val t = bySlug[slug]
+                            InputChip(
+                                selected = true,
+                                onClick = { picked.remove(slug) },
+                                label = { Text(t?.nameEn ?: slug, maxLines = 1) },
+                                avatar = { Artwork(t?.imageUrl, Modifier.size(24.dp).clip(CircleShape), iconSize = 14.dp) },
+                                trailingIcon = { Icon(Icons.Filled.Close, contentDescription = "Remove", modifier = Modifier.size(16.dp)) },
+                            )
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -94,17 +131,13 @@ fun TalentPickerDialog(title: String, onPick: (Talent?) -> Unit, onDismiss: () -
                     )
                     else -> {
                         val filtered = remember(list, query) { list.filter { TalentMatcher.matchesSearch(query, it) } }
-                        LazyColumn(Modifier.padding(top = 8.dp).height(360.dp)) {
-                            item {
-                                PickerRow(onClick = { onPick(null) }) {
-                                    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Filled.PersonOff, contentDescription = null)
-                                    }
-                                    Text("No talent", modifier = Modifier.padding(start = 12.dp))
-                                }
-                            }
+                        LazyColumn(Modifier.padding(top = 8.dp).height(340.dp)) {
                             items(filtered, key = { it.slug }) { t ->
-                                PickerRow(onClick = { onPick(t) }) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().clickable { toggle(t.slug) }.padding(vertical = 6.dp),
+                                ) {
+                                    Checkbox(checked = t.slug in picked, onCheckedChange = { toggle(t.slug) })
                                     Artwork(t.imageUrl, Modifier.size(40.dp).clip(CircleShape), iconSize = 20.dp)
                                     Column(Modifier.padding(start = 12.dp)) {
                                         Text(t.nameEn, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -124,15 +157,16 @@ fun TalentPickerDialog(title: String, onPick: (Talent?) -> Unit, onDismiss: () -
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(picked.mapNotNull { bySlug[it] }) }, enabled = talents != null) {
+                Text(if (picked.isEmpty()) "Save (no talent)" else "Save ${picked.size}")
+            }
+        },
+        dismissButton = {
+            Row {
+                if (picked.isNotEmpty()) TextButton(onClick = { picked.clear() }) { Text("Clear") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
     )
-}
-
-@Composable
-private fun PickerRow(onClick: () -> Unit, content: @Composable () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
-    ) { content() }
 }

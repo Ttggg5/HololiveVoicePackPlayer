@@ -8,6 +8,7 @@ import com.ttggg5.holovoice.data.PackWithCount
 import com.ttggg5.holovoice.data.TalentSort
 import com.ttggg5.holovoice.data.TalentSummary
 import com.ttggg5.holovoice.data.speaker
+import com.ttggg5.holovoice.data.orderedTalents
 import com.ttggg5.holovoice.data.talents.TalentMatcher
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,7 +58,10 @@ class SearchViewModel(private val repository: PackRepository) : ViewModel() {
     private fun ClipWithPack.passes(f: SearchFilters): Boolean {
         if (f.favoritesOnly && !clip.isFavorite) return false
         if (f.packId != null && clip.packId != f.packId) return false
-        if (f.talentSlug != null && (clip.talentSlug ?: "") != f.talentSlug) return false
+        if (f.talentSlug != null) {
+            val slugs = orderedTalents.map { it.slug }
+            if (if (f.talentSlug.isEmpty()) slugs.isNotEmpty() else f.talentSlug !in slugs) return false
+        }
         if (f.query.isBlank()) return true
         val q = f.query.trim().lowercase()
         val nq = TalentMatcher.normalize(f.query)

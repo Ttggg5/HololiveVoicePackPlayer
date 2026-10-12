@@ -43,6 +43,9 @@ data class PlayerState(
     val packId: Long? = null,
     val category: String? = null,
     val talentImageUrl: String? = null,
+    /** Pictures and ids of every talent in the clip, in order. */
+    val talentImages: List<String> = emptyList(),
+    val talentSlugs: List<String> = emptyList(),
     val coverUri: String? = null,
     val isPlaying: Boolean = false,
     val hasNext: Boolean = false,
@@ -274,6 +277,8 @@ class PlayerController(context: Context) {
             packId = metadata?.extras?.getLong(ItemExtras.PACK_ID, -1L)?.takeIf { it >= 0 },
             category = metadata?.extras?.getString(ItemExtras.CATEGORY),
             talentImageUrl = metadata?.extras?.getString(ItemExtras.TALENT_IMAGE),
+            talentImages = metadata?.extras?.getStringArray(ItemExtras.TALENT_IMAGES)?.toList().orEmpty(),
+            talentSlugs = metadata?.extras?.getString(ItemExtras.TALENT_SLUGS)?.split('\n')?.filter { it.isNotEmpty() }.orEmpty(),
             coverUri = metadata?.extras?.getString(ItemExtras.COVER),
             isPlaying = player.isPlaying,
             hasNext = player.hasNextMediaItem(),

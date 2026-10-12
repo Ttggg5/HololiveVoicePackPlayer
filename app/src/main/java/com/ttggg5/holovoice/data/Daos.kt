@@ -2,6 +2,7 @@ package com.ttggg5.holovoice.data
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -58,6 +59,7 @@ private const val CLIP_WITH_PACK =
 
 @Dao
 interface ClipDao {
+    @Transaction
     @Query(
         "$CLIP_WITH_PACK WHERE clips.packId = :packId ORDER BY clips.category IS NOT NULL, " +
             "clips.category COLLATE NOCASE, clips.trackNo IS NULL, clips.trackNo, clips.title COLLATE NOCASE",
@@ -67,27 +69,37 @@ interface ClipDao {
     @Query("SELECT DISTINCT category FROM clips WHERE packId = :packId AND category IS NOT NULL ORDER BY category COLLATE NOCASE")
     fun observeCategories(packId: Long): Flow<List<String>>
 
+    @Transaction
     @Query("$CLIP_WITH_PACK")
     fun observeAllClips(): Flow<List<ClipWithPack>>
 
+    @Transaction
     @Query("$CLIP_WITH_PACK")
     suspend fun getAllClips(): List<ClipWithPack>
 
-    @Query("$CLIP_WITH_PACK WHERE clips.talentSlug = :slug")
+    @Transaction
+    @Query("$CLIP_WITH_PACK WHERE clips.id IN (SELECT clipId FROM clip_talents WHERE slug = :slug)")
     fun observeClipsByTalent(slug: String): Flow<List<ClipWithPack>>
 
-    @Query("$CLIP_WITH_PACK WHERE clips.talentSlug IS NULL")
+    @Transaction
+    @Query("$CLIP_WITH_PACK WHERE clips.id NOT IN (SELECT clipId FROM clip_talents)")
     fun observeClipsWithoutTalent(): Flow<List<ClipWithPack>>
 
+    @Transaction
     @Query("$CLIP_WITH_PACK WHERE clips.lastPlayedAt > 0 ORDER BY clips.lastPlayedAt DESC LIMIT :limit")
     fun observeRecentlyPlayed(limit: Int): Flow<List<ClipWithPack>>
 
     @Query(
         """
-        SELECT talentSlug AS slug, MAX(talentName) AS name, MAX(talentImageUrl) AS imageUrl,
-            COUNT(*) AS clipCount, SUM(playCount) AS plays, MAX(lastPlayedAt) AS lastPlayed,
+        SELECT ct.slug AS slug, MAX(ct.name) AS name, MAX(ct.imageUrl) AS imageUrl,
+            COUNT(*) AS clipCount, SUM(c.playCount) AS plays, MAX(c.lastPlayedAt) AS lastPlayed,
+            COUNT(DISTINCT c.packId) AS topicCount
+        FROM clip_talents ct INNER JOIN clips c ON c.id = ct.clipId GROUP BY ct.slug
+        UNION ALL
+        SELECT NULL AS slug, NULL AS name, NULL AS imageUrl,
+            COUNT(*) AS clipCount, COALESCE(SUM(playCount), 0) AS plays, COALESCE(MAX(lastPlayedAt), 0) AS lastPlayed,
             COUNT(DISTINCT packId) AS topicCount
-        FROM clips GROUP BY talentSlug
+        FROM clips WHERE id NOT IN (SELECT clipId FROM clip_talents)
         """,
     )
     fun observeTalents(): Flow<List<TalentSummary>>
@@ -104,9 +116,11 @@ interface ClipDao {
     @Query("DELETE FROM clips WHERE id IN (:ids)")
     suspend fun deleteClips(ids: List<Long>)
 
+    @Transaction
     @Query("$CLIP_WITH_PACK WHERE clips.isFavorite = 1 ORDER BY packs.talent COLLATE NOCASE, packs.name COLLATE NOCASE, clips.title COLLATE NOCASE")
     fun observeFavorites(): Flow<List<ClipWithPack>>
 
+    @Transaction
     @Query(
         "$CLIP_WITH_PACK WHERE clips.title LIKE '%' || :query || '%' " +
             "OR packs.name LIKE '%' || :query || '%' OR packs.talent LIKE '%' || :query || '%' " +
@@ -115,9 +129,11 @@ interface ClipDao {
     )
     fun search(query: String): Flow<List<ClipWithPack>>
 
+    @Transaction
     @Query("$CLIP_WITH_PACK WHERE clips.id = :id")
     fun observeClip(id: Long): Flow<ClipWithPack?>
 
+    @Transaction
     @Query("$CLIP_WITH_PACK WHERE clips.id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<ClipWithPack>
 
@@ -159,6 +175,7 @@ abstract class PlaylistDao {
     @Query("SELECT * FROM playlists WHERE id = :id")
     abstract fun observe(id: Long): Flow<Playlist?>
 
+    @Transaction
     @Query(
         "SELECT $CLIP_COLUMNS, e.id AS entryId FROM playlist_entries e " +
             "INNER JOIN clips ON clips.id = e.clipId INNER JOIN packs ON packs.id = clips.packId " +
@@ -214,5 +231,29 @@ abstract class PlaylistDao {
     @Transaction
     open suspend fun move(playlistId: Long, from: Int, to: Int) {
         entryIds(playlistId).moved(from, to).forEachIndexed { index, entryId -> setPosition(entryId, index) }
+    }
+}
+
+@Dao
+abstract class ClipTalentDao {
+    @Query("DELETE FROM clip_talents WHERE clipId = :clipId")
+    abstract suspend fun deleteFor(clipId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun insertAll(talents: List<ClipTalent>)
+
+    @Query(
+        "UPDATE clips SET talentSlug = :slug, talentName = :name, talentImageUrl = :imageUrl, " +
+            "talentManual = :manual WHERE id = :clipId",
+    )
+    abstract suspend fun setPrimary(clipId: Long, slug: String?, name: String?, imageUrl: String?, manual: Boolean)
+
+    /** Replaces all talents of a clip; the first one is also stored as the clip's primary talent. */
+    @Transaction
+    open suspend fun replace(clipId: Long, talents: List<ClipTalent>, manual: Boolean) {
+        deleteFor(clipId)
+        if (talents.isNotEmpty()) insertAll(talents.mapIndexed { i, t -> t.copy(clipId = clipId, position = i) })
+        val first = talents.firstOrNull()
+        setPrimary(clipId, first?.slug, first?.name, first?.imageUrl, manual)
     }
 }

@@ -134,8 +134,7 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                         items(shown, key = { it.slug ?: UNASSIGNED_SLUG }) { t ->
                             TalentCard(
                                 talent = t,
-                                playing = playerState.isPlaying && playerState.talentImageUrl != null &&
-                                    playerState.talentImageUrl == t.imageUrl,
+                                playing = playerState.isPlaying && t.slug != null && t.slug in playerState.talentSlugs,
                                 modifier = Modifier.animateItem(),
                                 onClick = { onOpen(t.slug ?: UNASSIGNED_SLUG) },
                             )

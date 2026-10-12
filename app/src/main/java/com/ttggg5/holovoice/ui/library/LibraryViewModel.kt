@@ -111,10 +111,13 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
         }
     }
 
-    fun setPackTalent(pack: Pack, talent: Talent?) {
+    fun setPackTalents(pack: Pack, talents: List<Talent>) {
         viewModelScope.launch {
-            repository.setPackTalent(pack, talent)
-            _messages.send(if (talent == null) "Cleared talent for ${pack.name}" else "Set ${talent.nameEn} for ${pack.name}")
+            repository.setPackTalents(pack, talents)
+            _messages.send(
+                if (talents.isEmpty()) "Cleared talents for ${pack.name}"
+                else "Set ${talents.joinToString(" & ") { it.nameEn }} for ${pack.name}",
+            )
         }
     }
 

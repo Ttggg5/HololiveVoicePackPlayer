@@ -21,7 +21,7 @@ object TalentMatcher {
         return toHiragana(s.lowercase()).replace(NON_LETTER, "")
     }
 
-    private fun toHiragana(s: String): String = buildString(s.length) {
+    fun toHiragana(s: String): String = buildString(s.length) {
         for (c in s) append(if (c in 'ァ'..'ヶ') c - 0x60 else c)
     }
 
@@ -55,7 +55,120 @@ object TalentMatcher {
         return 1.0 - levenshtein(query, variant).toDouble() / longer
     }
 
-    fun match(fileName: String, talents: List<Talent>): Talent? {
+    private val WORD_SEPARATORS = Regex("""[\s_\-.,・、&×+()\[\]【】「」『』/]+""")
+    private val KANJI_RUN = Regex("""^[\u4E00-\u9FFF\u3400-\u4DBF々]+$""")
+
+    /** How one talent can be recognised inside a file name. */
+    private class NameForms(val anywhere: List<String>, val wholeWord: List<String>)
+
+    private val formsCache = java.util.concurrent.ConcurrentHashMap<Talent, NameForms>()
+
+    private fun forms(t: Talent): NameForms = formsCache.getOrPut(t) {
+        val anywhere = mutableListOf<String>()
+        val wholeWord = mutableListOf<String>()
+        val enTokens = t.nameEn.split(' ', '-', '_').map(::normalize).filter { it.isNotEmpty() }
+        // Full names (English, reversed English, slug, Japanese) count anywhere in the file name.
+        anywhere += normalize(t.nameEn)
+        if (enTokens.size > 1) anywhere += enTokens.reversed().joinToString("")
+        anywhere += normalize(t.slug)
+        val ja = t.nameJa?.let(::normalize).orEmpty()
+        if (ja.length >= 2) anywhere += ja
+        // Japanese family/given names: kanji runs of 2+ and kana runs of 3+ anywhere, shorter kana only as a word.
+        t.nameJa?.let { raw ->
+            SCRIPT_RUN.findAll(Normalizer.normalize(raw, Normalizer.Form.NFKC)).map { normalize(it.value) }.forEach { run ->
+                when {
+                    KANJI_RUN.matches(run) -> if (run.length >= 2) anywhere += run
+                    run.length >= 3 -> anywhere += run
+                    run.length == 2 -> wholeWord += run
+                }
+            }
+        }
+        // Latin given/family names only as whole words, so "Ao" doesn't hit "chaos".
+        wholeWord += enTokens.filter { it.length >= 2 }
+        // Given names written in kana ("そら" for ときのそら): romaji converted to kana, but only if
+        // the Japanese name really starts or ends with it. Whole words only.
+        if (ja.isNotEmpty()) {
+            enTokens.mapNotNull(::romajiToHiragana).filter { it.length >= 2 && it != ja && (ja.startsWith(it) || ja.endsWith(it)) }
+                .forEach { wholeWord += it }
+        }
+        NameForms(anywhere.filter { it.length >= 2 }.distinct(), wholeWord.distinct())
+    }
+
+    /**
+     * Every talent whose name appears in [fileName] (full name anywhere, given/family names as
+     * words), in the order they appear. Falls back to a strict fuzzy match for typos.
+     */
+    fun matchAll(fileName: String, talents: List<Talent>): List<Talent> {
+        val full = normalize(fileName)
+        if (full.isEmpty()) return emptyList()
+        val prepared = toHiragana(Normalizer.normalize(fileName, Normalizer.Form.NFKC).lowercase())
+        val words = prepared.split(WORD_SEPARATORS).map { it.replace(NON_LETTER, "") }.filter { it.isNotEmpty() }.toSet()
+        val hits = talents.mapNotNull { t ->
+            val f = forms(t)
+            val anywhere = f.anywhere.mapNotNull { form -> full.indexOf(form).takeIf { it >= 0 } }
+            val asWord = f.wholeWord.filter { it in words }.map { full.indexOf(it).coerceAtLeast(0) }
+            (anywhere + asWord).minOrNull()?.let { position -> t to position }
+        }
+        if (hits.isNotEmpty()) return hits.sortedBy { it.second }.map { it.first }.distinctBy { it.slug }
+        return listOfNotNull(match(fileName, talents, threshold = STRICT_THRESHOLD))
+    }
+
+    private const val STRICT_THRESHOLD = 0.85
+
+    private val ROMAJI = mapOf(
+        "a" to "あ", "i" to "い", "u" to "う", "e" to "え", "o" to "お",
+        "ka" to "か", "ki" to "き", "ku" to "く", "ke" to "け", "ko" to "こ",
+        "ga" to "が", "gi" to "ぎ", "gu" to "ぐ", "ge" to "げ", "go" to "ご",
+        "sa" to "さ", "shi" to "し", "si" to "し", "su" to "す", "se" to "せ", "so" to "そ",
+        "za" to "ざ", "ji" to "じ", "zi" to "じ", "zu" to "ず", "ze" to "ぜ", "zo" to "ぞ",
+        "ta" to "た", "chi" to "ち", "ti" to "ち", "tsu" to "つ", "tu" to "つ", "te" to "て", "to" to "と",
+        "da" to "だ", "di" to "ぢ", "du" to "づ", "de" to "で", "do" to "ど",
+        "na" to "な", "ni" to "に", "nu" to "ぬ", "ne" to "ね", "no" to "の",
+        "ha" to "は", "hi" to "ひ", "fu" to "ふ", "hu" to "ふ", "he" to "へ", "ho" to "ほ",
+        "ba" to "ば", "bi" to "び", "bu" to "ぶ", "be" to "べ", "bo" to "ぼ",
+        "pa" to "ぱ", "pi" to "ぴ", "pu" to "ぷ", "pe" to "ぺ", "po" to "ぽ",
+        "ma" to "ま", "mi" to "み", "mu" to "む", "me" to "め", "mo" to "も",
+        "ya" to "や", "yu" to "ゆ", "yo" to "よ",
+        "ra" to "ら", "ri" to "り", "ru" to "る", "re" to "れ", "ro" to "ろ",
+        "wa" to "わ", "wo" to "を",
+        "kya" to "きゃ", "kyu" to "きゅ", "kyo" to "きょ", "gya" to "ぎゃ", "gyu" to "ぎゅ", "gyo" to "ぎょ",
+        "sha" to "しゃ", "shu" to "しゅ", "sho" to "しょ", "ja" to "じゃ", "ju" to "じゅ", "jo" to "じょ",
+        "cha" to "ちゃ", "chu" to "ちゅ", "cho" to "ちょ", "nya" to "にゃ", "nyu" to "にゅ", "nyo" to "にょ",
+        "hya" to "ひゃ", "hyu" to "ひゅ", "hyo" to "ひょ", "bya" to "びゃ", "byu" to "びゅ", "byo" to "びょ",
+        "pya" to "ぴゃ", "pyu" to "ぴゅ", "pyo" to "ぴょ", "mya" to "みゃ", "myu" to "みゅ", "myo" to "みょ",
+        "rya" to "りゃ", "ryu" to "りゅ", "ryo" to "りょ",
+    )
+
+    /** Hepburn romaji → hiragana ("sora" → "そら"); null if it isn't plain romaji. */
+    fun romajiToHiragana(romaji: String): String? {
+        val s = romaji.lowercase()
+        if (s.isEmpty() || s.any { it !in 'a'..'z' }) return null
+        val out = StringBuilder()
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            val next = s.getOrNull(i + 1)
+            when {
+                c == 'n' && (next == null || (next !in "aiueoy")) -> {
+                    out.append('ん')
+                    i += if (next == '\'') 2 else 1
+                }
+                next != null && c == next && c !in "aiueon" -> {
+                    out.append('っ')
+                    i++
+                }
+                else -> {
+                    val len = (3 downTo 1).firstOrNull { l -> i + l <= s.length && ROMAJI.containsKey(s.substring(i, i + l)) }
+                        ?: return null
+                    out.append(ROMAJI.getValue(s.substring(i, i + len)))
+                    i += len
+                }
+            }
+        }
+        return out.toString()
+    }
+
+    fun match(fileName: String, talents: List<Talent>, threshold: Double = THRESHOLD): Talent? {
         val query = normalize(fileName)
         if (query.length < 2) return null
         var best: Talent? = null
@@ -71,7 +184,7 @@ object TalentMatcher {
                 }
             }
         }
-        return if (bestScore >= THRESHOLD) best else null
+        return if (bestScore >= threshold) best else null
     }
 
     /** Whether [t] should be shown for the search text [query] in the talent picker. */

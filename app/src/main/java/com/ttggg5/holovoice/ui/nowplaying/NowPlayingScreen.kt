@@ -76,6 +76,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.ui.components.PlayPauseIcon
+import com.ttggg5.holovoice.ui.components.TalentAvatars
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -112,6 +115,7 @@ fun NowPlayingScreen(
     onBack: () -> Unit,
     onOpenQueue: () -> Unit,
     onOpenTopic: (Long) -> Unit,
+    onOpenTalent: (String) -> Unit,
 ) {
     val state by player.state.collectAsStateWithLifecycle()
     val clip by viewModel.currentClip.collectAsStateWithLifecycle()
@@ -209,7 +213,9 @@ fun NowPlayingScreen(
                             Modifier.fillMaxSize().padding(bottom = 28.dp).clip(RoundedCornerShape(20.dp)),
                             iconSize = 96.dp,
                         )
-                        if (s.talentImageUrl != null && s.coverUri != null) {
+                        if (s.talentImages.size > 1 && s.coverUri != null) {
+                            TalentAvatars(s.talentImages, Modifier.align(Alignment.BottomCenter), size = 64.dp, max = 4)
+                        } else if (s.talentImageUrl != null && s.coverUri != null) {
                             Artwork(
                                 s.talentImageUrl,
                                 Modifier
@@ -248,8 +254,31 @@ fun NowPlayingScreen(
                             modifier = Modifier.padding(top = 6.dp),
                         ) {
                             if (s.subtitle.isNotEmpty()) {
+                                var talentMenu by remember { mutableStateOf(false) }
+                                val names = s.subtitle.split(" & ")
+                                Box {
+                                DropdownMenu(expanded = talentMenu, onDismissRequest = { talentMenu = false }) {
+                                    s.talentSlugs.forEachIndexed { i, slug ->
+                                        DropdownMenuItem(
+                                            text = { Text(names.getOrElse(i) { slug }) },
+                                            leadingIcon = {
+                                                Artwork(s.talentImages.getOrNull(i), Modifier.size(28.dp).clip(CircleShape), iconSize = 16.dp)
+                                            },
+                                            onClick = {
+                                                talentMenu = false
+                                                onOpenTalent(slug)
+                                            },
+                                        )
+                                    }
+                                }
                                 AssistChip(
-                                    onClick = {},
+                                    onClick = {
+                                        when (s.talentSlugs.size) {
+                                            0 -> Unit
+                                            1 -> onOpenTalent(s.talentSlugs.first())
+                                            else -> talentMenu = true
+                                        }
+                                    },
                                     label = { Text(s.subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     leadingIcon = {
                                         if (s.talentImageUrl != null) {
@@ -260,6 +289,7 @@ fun NowPlayingScreen(
                                     },
                                     modifier = Modifier.widthIn(max = 180.dp),
                                 )
+                                }
                             }
                             if (s.album.isNotEmpty()) {
                                 AssistChip(

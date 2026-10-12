@@ -8,19 +8,20 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Pack::class, Clip::class, Playlist::class, PlaylistEntry::class],
-    version = 5,
+    entities = [Pack::class, Clip::class, Playlist::class, PlaylistEntry::class, ClipTalent::class],
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun packDao(): PackDao
     abstract fun clipDao(): ClipDao
     abstract fun playlistDao(): PlaylistDao
+    abstract fun clipTalentDao(): ClipTalentDao
 
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "holovoice.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
     }
 }
@@ -68,5 +69,21 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("ALTER TABLE `clips` ADD COLUMN `playCount` INTEGER NOT NULL DEFAULT 0")
         // Existing clips count as added when their topic was imported.
         db.execSQL("UPDATE clips SET addedAt = (SELECT importedAt FROM packs WHERE packs.id = clips.packId)")
+    }
+}
+
+/** v6 lets a clip have several talents; existing single talents are copied over. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `clip_talents` (`clipId` INTEGER NOT NULL, `slug` TEXT NOT NULL, " +
+                "`name` TEXT NOT NULL, `imageUrl` TEXT, `position` INTEGER NOT NULL, PRIMARY KEY(`clipId`, `slug`), " +
+                "FOREIGN KEY(`clipId`) REFERENCES `clips`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_clip_talents_slug` ON `clip_talents` (`slug`)")
+        db.execSQL(
+            "INSERT OR IGNORE INTO clip_talents (clipId, slug, name, imageUrl, position) " +
+                "SELECT id, talentSlug, COALESCE(talentName, talentSlug), talentImageUrl, 0 FROM clips WHERE talentSlug IS NOT NULL",
+        )
     }
 }

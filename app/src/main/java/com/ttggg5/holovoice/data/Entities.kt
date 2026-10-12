@@ -6,6 +6,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.Relation
 
 enum class PackSource { FOLDER, ZIP }
 
@@ -55,19 +56,48 @@ data class Clip(
     @ColumnInfo(defaultValue = "0") val playCount: Int = 0,
 )
 
-/** A clip together with the name/talent/cover of the pack it belongs to. */
+/** One of possibly several talents heard in a clip; [position] keeps their order. */
+@Entity(
+    tableName = "clip_talents",
+    primaryKeys = ["clipId", "slug"],
+    foreignKeys = [
+        ForeignKey(entity = Clip::class, parentColumns = ["id"], childColumns = ["clipId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("slug")],
+)
+data class ClipTalent(
+    val clipId: Long,
+    val slug: String,
+    val name: String,
+    val imageUrl: String?,
+    val position: Int,
+)
+
+/** A clip together with the name/talent/cover of the pack it belongs to, and all its talents. */
 data class ClipWithPack(
     @Embedded val clip: Clip,
     @ColumnInfo(name = "packName") val packName: String,
     @ColumnInfo(name = "talent") val talent: String,
     @ColumnInfo(name = "coverUri") val coverUri: String?,
+    @Relation(parentColumn = "id", entityColumn = "clipId")
+    val talents: List<ClipTalent> = emptyList(),
 )
 
 /** Picture to show for a clip: the talent's profile picture, else the pack cover. */
 val ClipWithPack.artwork: String? get() = clip.talentImageUrl ?: coverUri
 
-/** Who is speaking: the matched talent, else the pack's talent. */
-val ClipWithPack.speaker: String get() = clip.talentName ?: talent
+/** The clip's talents in order (falls back to the single primary talent from older data). */
+val ClipWithPack.orderedTalents: List<ClipTalent>
+    get() = talents.sortedBy { it.position }.ifEmpty {
+        listOfNotNull(clip.talentSlug?.let { ClipTalent(clip.id, it, clip.talentName ?: it, clip.talentImageUrl, 0) })
+    }
+
+/** Who is speaking: "A & B" for the matched talents, else the pack's talent. */
+val ClipWithPack.speaker: String
+    get() = orderedTalents.takeIf { it.isNotEmpty() }?.joinToString(" & ") { it.name } ?: talent
+
+/** Profile pictures of all talents in the clip, in order. */
+val ClipWithPack.talentImages: List<String> get() = orderedTalents.mapNotNull { it.imageUrl }
 
 data class PackWithCount(
     @Embedded val pack: Pack,

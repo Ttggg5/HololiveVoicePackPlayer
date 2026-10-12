@@ -34,6 +34,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.ClipWithPack
 import com.ttggg5.holovoice.data.artwork
+import com.ttggg5.holovoice.data.orderedTalents
+import androidx.compose.foundation.layout.Box
 import com.ttggg5.holovoice.data.speaker
 import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.playback.PlayerController
@@ -56,9 +58,10 @@ fun ClipActionsSheet(
     if (pickTalent) {
         val container = LocalContext.current.appContainer
         TalentPickerDialog(
-            title = "Whose voice is this?",
-            onPick = { talent ->
-                container.appScope.launch { container.repository.setClipTalent(listOf(clip.clip.id), talent) }
+            title = "Who is in this clip?",
+            initialSlugs = clip.orderedTalents.map { it.slug },
+            onConfirm = { talents ->
+                container.appScope.launch { container.repository.setClipTalents(listOf(clip.clip.id), talents) }
                 onDismiss()
             },
             onDismiss = onDismiss,
@@ -68,7 +71,9 @@ fun ClipActionsSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Artwork(clip.artwork, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), iconSize = 22.dp)
+                Box {
+                    Artwork(clip.artwork, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), iconSize = 22.dp)
+                }
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(clip.clip.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(
@@ -89,7 +94,7 @@ fun ClipActionsSheet(
                 onDismiss()
             }
             Action(Icons.AutoMirrored.Filled.PlaylistAdd, "Add to playlist…") { pickPlaylist = true }
-            Action(Icons.Filled.Person, if (clip.clip.talentName == null) "Set talent…" else "Change talent (${clip.clip.talentName})…") {
+            Action(Icons.Filled.Person, if (clip.orderedTalents.isEmpty()) "Set talents…" else "Talents: ${clip.speaker}…") {
                 pickTalent = true
             }
             Action(

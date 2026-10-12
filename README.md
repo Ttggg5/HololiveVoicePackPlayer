@@ -26,11 +26,13 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Sleep timer**: pause after 5 to 90 minutes or at the end of the current clip. It keeps working when the app is closed.
 - **Resume**: the queue, position, speed, shuffle and repeat are restored after the app is closed. On Android 13+ the system media controls can resume playback.
 - **Background play**: playback continues with the screen off, and you can control it from the notification, lock screen, or headset.
-- **Talent pictures**: the app matches each clip to a talent from the [official talent list](https://hololive.hololivepro.com/talents) and shows that talent's profile picture. The picture appears on the clip tile, in the queue and playlists, on Now Playing, and in the notification.
-  - Name each file after the talent, in Japanese or English (`兎田ぺこら.mp3`, `Usada Pekora.mp3`, `Pekora (2).mp3`). The closest name wins, and matching tolerates full-width characters, katakana/hiragana differences, first names only, and small typos.
-  - If a match is wrong, long-press the clip and choose *Change talent…*, or long-press a pack and choose *Set talent picture for all clips…*.
-  - Library ⋮ menu → *Match talents automatically* re-runs matching. *Refresh talent list* downloads the list again.
-  - The list is cached and refreshed weekly, so an internet connection is only needed the first time.
+- **Talent pictures**: the app shows the profile picture of every talent whose name appears in a clip's file name. Names come from the [official talent list](https://hololive.hololivepro.com/talents).
+  - Full names count anywhere in the file name, in English or 日本語: `兎田ぺこら_おはよう.mp3`, `UsadaPekora 01.mp3`.
+  - Given or family names count too: `Pekora`, `ぺこら`, `宝鐘`. Short names such as `Ao` or `そら` only count as separate words.
+  - **Several talents per clip**: `ぺこら×マリン.mp3` or `Pekora & Marine.mp3` gets both talents. The clip shows a stack of their pictures and appears under each talent in the Talents tab.
+  - If a match is wrong, long-press the clip and choose *Talents…* to pick one or more talents. You can also long-press a topic and choose *Set talents for all clips…*.
+  - Talents ⋮ → *Match talents automatically* re-runs matching.
+  - The talent list is cached and refreshed weekly.
 - **Favorites and search**: star any clip, and search titles, packs and talents.
 
 ## Gestures

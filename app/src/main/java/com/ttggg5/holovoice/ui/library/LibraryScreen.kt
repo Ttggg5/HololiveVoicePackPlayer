@@ -71,10 +71,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.TopicSort
 import com.ttggg5.holovoice.playback.PlayerState
@@ -144,57 +148,11 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
         },
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
-            Box {
-                ExtendedFloatingActionButton(
-                    onClick = { if (!importing) menuOpen = true },
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text(if (importing) "Importing…" else "Import") },
-                )
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text("Import many topics…")
-                                Text(
-                                    "Pick a folder; each sub-folder becomes a topic",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        leadingIcon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            pickLibrary.launch(null)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text("Import one topic")
-                                Text(
-                                    "The folder is one topic; sub-folders become categories",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            pickFolder.launch(null)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Import ZIP") },
-                        leadingIcon = { Icon(Icons.Filled.FolderZip, contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            pickZip.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
-                        },
-                    )
-                }
-            }
+            ExtendedFloatingActionButton(
+                onClick = { if (!importing) menuOpen = true },
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text(if (importing) "Importing…" else "Import") },
+            )
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
@@ -237,6 +195,24 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
         }
     }
 
+    if (menuOpen) {
+        ImportSheet(
+            onDismiss = { menuOpen = false },
+            onImportMany = {
+                menuOpen = false
+                pickLibrary.launch(null)
+            },
+            onImportOne = {
+                menuOpen = false
+                pickFolder.launch(null)
+            },
+            onImportZip = {
+                menuOpen = false
+                pickZip.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+            },
+        )
+    }
+
     editing?.let { pack ->
         EditPackDialog(
             pack = pack,
@@ -249,8 +225,8 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                 viewModel.delete(pack)
                 editing = null
             },
-            onSetTalent = { talent ->
-                viewModel.setPackTalent(pack, talent)
+            onSetTalents = { talents ->
+                viewModel.setPackTalents(pack, talents)
                 editing = null
             },
         )
@@ -348,7 +324,7 @@ private fun EditPackDialog(
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit,
     onDelete: () -> Unit,
-    onSetTalent: (Talent?) -> Unit,
+    onSetTalents: (List<Talent>) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(pack.name) }
     var talent by rememberSaveable { mutableStateOf(pack.talent) }
@@ -357,8 +333,9 @@ private fun EditPackDialog(
 
     if (pickTalent) {
         TalentPickerDialog(
-            title = "Talent for all clips",
-            onPick = onSetTalent,
+            title = "Talents for all clips",
+            initialSlugs = emptyList(),
+            onConfirm = onSetTalents,
             onDismiss = { pickTalent = false },
         )
         return
@@ -388,7 +365,7 @@ private fun EditPackDialog(
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
                 OutlinedTextField(value = talent, onValueChange = { talent = it }, label = { Text("Talent") }, singleLine = true)
                 TextButton(onClick = { pickTalent = true }) {
-                    Text("Set talent picture for all clips…")
+                    Text("Set talents for all clips…")
                 }
                 TextButton(onClick = { confirmDelete = true }) {
                     Text("Delete topic", color = MaterialTheme.colorScheme.error)
@@ -400,4 +377,66 @@ private fun EditPackDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** "Add voice packs" bottom sheet with one roomy card per import mode. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImportSheet(onDismiss: () -> Unit, onImportMany: () -> Unit, onImportOne: () -> Unit, onImportZip: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        ) {
+            Text("Add voice packs", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 4.dp))
+            ImportOption(
+                icon = Icons.Filled.CreateNewFolder,
+                title = "Import many topics",
+                body = "Pick the folder that holds all your packs. Each sub-folder becomes its own topic and new ones are added automatically.",
+                highlighted = true,
+                onClick = onImportMany,
+            )
+            ImportOption(
+                icon = Icons.Filled.Folder,
+                title = "Import one topic",
+                body = "Pick a single folder. It becomes one topic; its sub-folders become categories.",
+                onClick = onImportOne,
+            )
+            ImportOption(
+                icon = Icons.Filled.FolderZip,
+                title = "Import ZIP",
+                body = "Extract a .zip into the app. You can delete the ZIP afterwards.",
+                onClick = onImportZip,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImportOption(icon: ImageVector, title: String, body: String, onClick: () -> Unit, highlighted: Boolean = false) {
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+            Column(Modifier.padding(start = 16.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+    }
 }
