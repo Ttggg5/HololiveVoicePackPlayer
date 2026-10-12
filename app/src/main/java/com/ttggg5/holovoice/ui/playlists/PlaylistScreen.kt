@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
@@ -28,7 +29,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.data.ClipWithPack
 import com.ttggg5.holovoice.data.artwork
 import com.ttggg5.holovoice.data.speaker
+import androidx.compose.ui.platform.LocalContext
+import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.playback.PlayerController
+import com.ttggg5.holovoice.ui.components.LocalUndo
+import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.ui.components.ClipActionsSheet
 import com.ttggg5.holovoice.ui.components.EmptyMessage
 import com.ttggg5.holovoice.ui.components.TrackList
@@ -46,6 +51,8 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
     var renaming by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var actionsFor by remember { mutableStateOf<ClipWithPack?>(null) }
+    val undo = LocalUndo.current
+    val appScope = LocalContext.current.appContainer.appScope
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -92,6 +99,7 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
                 "This playlist is empty",
                 "Long-press any clip and choose \"Add to playlist\".",
                 Modifier.padding(padding),
+                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
             )
             else -> TrackList(
                 items = list,
@@ -112,7 +120,12 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
                 },
                 onClick = { _, index -> player.playFrom(clips, index) },
                 onLongClick = { actionsFor = it.item },
-                onRemove = viewModel::remove,
+                onRemove = { item ->
+                    val index = list.indexOf(item)
+                    viewModel.remove(item, index) { undoRemove ->
+                        undo?.show("Removed \"${item.item.clip.title}\"", undoRemove)
+                    }
+                },
                 onMove = viewModel::move,
                 modifier = Modifier.padding(padding),
             )
@@ -143,7 +156,11 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
-                    viewModel.delete(onDeleted = onBack)
+                    val name = playlist?.name.orEmpty()
+                    viewModel.delete { recreate ->
+                        onBack()
+                        undo?.show("Deleted playlist \"$name\"") { appScope.launch { recreate() } }
+                    }
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },

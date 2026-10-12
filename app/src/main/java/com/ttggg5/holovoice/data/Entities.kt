@@ -50,6 +50,9 @@ data class Clip(
     @ColumnInfo(defaultValue = "0") val talentManual: Boolean = false,
     /** Sub-folder path inside the topic ("Morning", "Extra / Short"); null for files in the topic's root. */
     val category: String? = null,
+    @ColumnInfo(defaultValue = "0") val addedAt: Long = 0,
+    @ColumnInfo(defaultValue = "0") val lastPlayedAt: Long = 0,
+    @ColumnInfo(defaultValue = "0") val playCount: Int = 0,
 )
 
 /** A clip together with the name/talent/cover of the pack it belongs to. */
@@ -104,4 +107,15 @@ data class PlaylistWithCount(
 data class PlaylistItem(
     @Embedded val item: ClipWithPack,
     @ColumnInfo(name = "entryId") val entryId: Long,
+)
+
+/** One talent in the library (or, with a null [slug], all clips without a talent). */
+data class TalentSummary(
+    @ColumnInfo(name = "slug") val slug: String?,
+    @ColumnInfo(name = "name") val name: String?,
+    @ColumnInfo(name = "imageUrl") val imageUrl: String?,
+    @ColumnInfo(name = "clipCount") val clipCount: Int,
+    @ColumnInfo(name = "plays") val plays: Int,
+    @ColumnInfo(name = "lastPlayed") val lastPlayed: Long,
+    @ColumnInfo(name = "topicCount") val topicCount: Int,
 )

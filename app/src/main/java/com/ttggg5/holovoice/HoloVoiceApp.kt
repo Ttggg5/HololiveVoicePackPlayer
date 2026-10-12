@@ -7,6 +7,7 @@ import coil.ImageLoaderFactory
 import com.ttggg5.holovoice.data.AppDatabase
 import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.PackRepository
+import com.ttggg5.holovoice.data.UiPrefs
 import com.ttggg5.holovoice.data.talents.TalentDirectory
 import com.ttggg5.holovoice.data.talents.TalentLinker
 import com.ttggg5.holovoice.playback.PlayerController
@@ -33,6 +34,7 @@ class AppContainer(context: Context) {
     private val talentLinker = TalentLinker(db, TalentDirectory(context))
     val repository = PackRepository(db, PackImporter(context, db, talentLinker), talentLinker)
     val player = PlayerController(context)
+    val uiPrefs = UiPrefs(context)
 
     /** For writes that must finish even if the screen that started them goes away. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

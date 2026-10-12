@@ -4,6 +4,17 @@ An Android app for listening to the Hololive voice packs you own (for example, o
 The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
+- **Home**: Continue listening, recently played, your talents, recently added topics and favorites, plus a *Shuffle all* button. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
+- **Talents tab**: every talent in your library with their picture and clip count. Tap one to see all their clips across topics, filter by topic, then use *Play all* or *Shuffle*.
+- **Sorting everywhere**:
+  - clips by track order, name, talent, duration, recently added or most played
+  - topics by name, talent, recently added or most clips
+  - playlists by name, recently created or size
+  - talents by name, most clips or most played
+  - Your choices are remembered.
+- **Grid or list**: switch clip collections between big picture tiles and a compact list.
+- **Search and filters**: a filter box on every clip list, plus *Favorites*, *Talent* and *Topic* filter chips in Search.
+- **Undo**: removing from favorites, the queue or a playlist, or deleting a playlist, shows an *Undo* button.
 - **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories, shown as tabs on the topic screen. Long-press a topic to rename it, change its talent, or delete it.
 - **Auto-sync**: imported folders are rescanned when you open the app, so files you add or delete show up without importing again. Picking a folder that is already in the library updates it instead of creating a duplicate.
 - **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.

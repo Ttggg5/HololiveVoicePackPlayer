@@ -175,7 +175,19 @@ class PlaybackService : MediaSessionService() {
     }
 
     private inner class PlayerListener : Player.Listener {
+        /** Whether the current item has already been counted as played. */
+        private var counted = false
+
         override fun onEvents(player: Player, events: Player.Events) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) || player.playbackState == Player.STATE_ENDED) {
+                counted = false
+            }
+            if (player.isPlaying && !counted) {
+                counted = true
+                player.currentMediaItem?.mediaId?.toLongOrNull()?.let { id ->
+                    scope.launch { runCatching { appContainer.repository.markPlayed(id) } }
+                }
+            }
             if (events.containsAny(
                     Player.EVENT_TIMELINE_CHANGED,
                     Player.EVENT_MEDIA_ITEM_TRANSITION,

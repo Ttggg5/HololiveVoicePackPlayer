@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.ui.components.EmptyMessage
+import com.ttggg5.holovoice.ui.components.LocalUndo
 import com.ttggg5.holovoice.ui.components.TrackList
 import com.ttggg5.holovoice.ui.components.TrackRow
 
@@ -30,6 +31,7 @@ import com.ttggg5.holovoice.ui.components.TrackRow
 fun QueueScreen(player: PlayerController, onBack: () -> Unit) {
     val state by player.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val undo = LocalUndo.current
 
     // Start with the current item in view.
     LaunchedEffect(Unit) {
@@ -56,7 +58,12 @@ fun QueueScreen(player: PlayerController, onBack: () -> Unit) {
         },
     ) { padding ->
         if (state.queue.isEmpty()) {
-            EmptyMessage("The queue is empty", "Play a pack, playlist or clip to fill it.", Modifier.padding(padding))
+            EmptyMessage(
+                "The queue is empty",
+                "Play a topic, talent, playlist or clip to fill it.",
+                Modifier.padding(padding),
+                icon = Icons.Filled.ClearAll,
+            )
             return@Scaffold
         }
         Column(Modifier.padding(padding)) {
@@ -75,7 +82,11 @@ fun QueueScreen(player: PlayerController, onBack: () -> Unit) {
                     TrackRow(item.title, item.subtitle, item.artworkUri, highlighted = current, playing = current && state.isPlaying)
                 },
                 onClick = { item, _ -> player.skipTo(item.index) },
-                onRemove = { player.removeQueueItem(it.index) },
+                onRemove = { item ->
+                    player.removeQueueItem(item.index) { removed ->
+                        undo?.show("Removed \"${item.title}\" from the queue") { player.restoreQueueItem(item.index, removed) }
+                    }
+                },
                 // Without shuffle the play order is the item order, so list positions map to player indices.
                 onMove = if (state.shuffle) null else { from, to -> player.moveQueueItem(from, to) },
                 listState = listState,

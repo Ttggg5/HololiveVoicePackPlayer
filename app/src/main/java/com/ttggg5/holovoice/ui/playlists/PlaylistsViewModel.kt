@@ -37,15 +37,27 @@ class PlaylistViewModel(private val playlistId: Long, private val repository: Pa
         viewModelScope.launch { repository.renamePlaylist(playlistId, name) }
     }
 
-    fun delete(onDeleted: () -> Unit) {
+    /** Deletes the playlist; [onDeleted] gets a function that recreates it (undo). */
+    fun delete(onDeleted: (undo: suspend () -> Unit) -> Unit) {
         viewModelScope.launch {
+            val name = playlist.value?.name ?: return@launch
+            val clipIds = repository.playlistItems(playlistId).first().map { it.item.clip.id }
             repository.deletePlaylist(playlistId)
-            onDeleted()
+            onDeleted {
+                val id = repository.createPlaylist(name)
+                repository.addToPlaylist(id, clipIds)
+            }
         }
     }
 
-    fun remove(item: PlaylistItem) {
-        viewModelScope.launch { repository.removeFromPlaylist(item.entryId) }
+    /** Removes one row; returns an undo action. */
+    fun remove(item: PlaylistItem, index: Int, onRemoved: (undo: () -> Unit) -> Unit) {
+        viewModelScope.launch {
+            repository.removeFromPlaylist(item.entryId)
+            onRemoved {
+                viewModelScope.launch { repository.insertPlaylistEntryAt(playlistId, item.item.clip.id, index) }
+            }
+        }
     }
 
     fun move(from: Int, to: Int) {

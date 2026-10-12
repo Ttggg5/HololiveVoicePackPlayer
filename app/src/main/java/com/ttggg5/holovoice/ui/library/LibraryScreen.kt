@@ -67,7 +67,17 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import com.ttggg5.holovoice.appContainer
+import com.ttggg5.holovoice.data.TopicSort
 import com.ttggg5.holovoice.playback.PlayerState
+import com.ttggg5.holovoice.ui.components.SortMenu
 import com.ttggg5.holovoice.ui.components.EmptyMessage
 import com.ttggg5.holovoice.ui.components.EqualizerBars
 import com.ttggg5.holovoice.ui.components.TalentPickerDialog
@@ -80,6 +90,9 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
     val snackbar = remember { SnackbarHostState() }
     var menuOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Pack?>(null) }
+    val prefs = LocalContext.current.appContainer.uiPrefs
+    val sort by prefs.topicSort.collectAsStateWithLifecycle()
+    var query by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.messages.collect { snackbar.showSnackbar(it) }
@@ -98,6 +111,7 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
             TopAppBar(
                 title = { Text("Topics") },
                 actions = {
+                    SortMenu(TopicSort.entries, sort, { it.label }, prefs::setTopicSort)
                     var overflow by remember { mutableStateOf(false) }
                     IconButton(onClick = { overflow = true }, enabled = !importing) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More")
@@ -158,11 +172,36 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                 packs == null -> Unit
                 packs!!.isEmpty() -> EmptyMessage(
                     title = "No topics yet",
-                    body = "Tap Import and choose a folder or a .zip containing your voice pack audio files " +
-                        "(mp3, m4a, ogg, opus, wav, flac). The folder becomes a topic and its sub-folders become " +
-                        "categories. Imported folders stay in sync automatically.",
+                    body = "Choose a folder (or a .zip) with your voice files — mp3, m4a, ogg, opus, wav or flac. " +
+                        "The folder becomes a topic and its sub-folders become categories. " +
+                        "Imported folders stay in sync automatically.",
+                    icon = Icons.Filled.LibraryMusic,
+                    actionLabel = "Import a folder",
+                    onAction = { pickFolder.launch(null) },
                 )
-                else -> PackGrid(packs!!, playerState, onOpenPack, onLongPress = { editing = it })
+                else -> {
+                    val shown = sort.sorted(packs!!).filter { p ->
+                        query.isBlank() || p.pack.name.contains(query.trim(), ignoreCase = true) ||
+                            p.pack.talent.contains(query.trim(), ignoreCase = true)
+                    }
+                    if (packs!!.size > 3) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            placeholder = { Text("Find a topic") },
+                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (query.isNotEmpty()) {
+                                    IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(28.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                        )
+                    }
+                    PackGrid(shown, grouped = sort == TopicSort.TALENT, playerState, onOpenPack, onLongPress = { editing = it })
+                }
             }
         }
     }
@@ -189,8 +228,16 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PackGrid(packs: List<PackWithCount>, playerState: PlayerState, onOpen: (Long) -> Unit, onLongPress: (Pack) -> Unit) {
-    val byTalent = packs.groupBy { it.pack.talent }
+private fun PackGrid(
+    packs: List<PackWithCount>,
+    grouped: Boolean,
+    playerState: PlayerState,
+    onOpen: (Long) -> Unit,
+    onLongPress: (Pack) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    // Talent headers only when sorted by talent; otherwise one flat grid.
+    val byTalent = if (grouped) packs.groupBy { it.pack.talent } else mapOf("" to packs)
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 150.dp),
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
@@ -198,7 +245,7 @@ private fun PackGrid(packs: List<PackWithCount>, playerState: PlayerState, onOpe
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         byTalent.forEach { (talent, talentPacks) ->
-            item(key = "header-$talent", span = { GridItemSpan(maxLineSpan) }) {
+            if (talent.isNotEmpty()) item(key = "header-$talent", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     modifier = Modifier.animateItem().padding(top = 12.dp, start = 4.dp),
                     text =
@@ -212,7 +259,10 @@ private fun PackGrid(packs: List<PackWithCount>, playerState: PlayerState, onOpe
                 Card(
                     Modifier.animateItem().fillMaxWidth().combinedClickable(
                         onClick = { onOpen(item.pack.id) },
-                        onLongClick = { onLongPress(item.pack) },
+                        onLongClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongPress(item.pack)
+                        },
                     ),
                 ) {
                     Box(

@@ -44,6 +44,25 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ttggg5.holovoice.AppContainer
 import com.ttggg5.holovoice.ui.components.MiniPlayer
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.ttggg5.holovoice.ui.components.LocalUndo
+import com.ttggg5.holovoice.ui.components.UndoController
+import com.ttggg5.holovoice.ui.home.HomeScreen
+import com.ttggg5.holovoice.ui.home.HomeViewModel
+import com.ttggg5.holovoice.ui.onboarding.OnboardingDialog
+import com.ttggg5.holovoice.ui.talents.TalentScreen
+import com.ttggg5.holovoice.ui.talents.TalentViewModel
+import com.ttggg5.holovoice.ui.talents.TalentsScreen
+import com.ttggg5.holovoice.ui.talents.TalentsViewModel
+import com.ttggg5.holovoice.ui.talents.UNASSIGNED_SLUG
 import com.ttggg5.holovoice.ui.favorites.FavoritesScreen
 import com.ttggg5.holovoice.ui.favorites.FavoritesViewModel
 import com.ttggg5.holovoice.ui.nowplaying.NowPlayingScreen
@@ -61,13 +80,15 @@ import com.ttggg5.holovoice.ui.search.SearchScreen
 import com.ttggg5.holovoice.ui.search.SearchViewModel
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
+    Home("home", "Home", Icons.Filled.Home),
     Library("library", "Topics", Icons.Filled.LibraryMusic),
+    Talents("talents", "Talents", Icons.Filled.Face),
     Playlists("playlists", "Playlists", Icons.AutoMirrored.Filled.QueueMusic),
-    Favorites("favorites", "Favorites", Icons.Filled.Star),
     Search("search", "Search", Icons.Filled.Search),
 }
 
 private const val NOW_PLAYING = "now_playing"
+private const val FAVORITES = "favorites"
 
 /** Drill-down screens slide in from the end and back out to it. */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.pushIn(): EnterTransition =
@@ -87,8 +108,27 @@ fun HoloVoiceRoot(container: AppContainer) {
 
     val topLevel = Tab.entries.any { it.route == route }
 
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val undo = remember(snackbar, scope) { UndoController(snackbar, scope) }
+    val onboardingDone by container.uiPrefs.onboardingDone.collectAsStateWithLifecycle()
+    var showHelp by remember { mutableStateOf(false) }
+    if (!onboardingDone || showHelp) {
+        OnboardingDialog(onDone = {
+            container.uiPrefs.setOnboardingDone(true)
+            showHelp = false
+        })
+    }
+    fun goToTab(tab: Tab) = nav.navigate(tab.route) {
+        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+
+    CompositionLocalProvider(LocalUndo provides undo) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             Column {
                 AnimatedVisibility(
@@ -107,13 +147,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                         Tab.entries.forEach { tab ->
                             NavigationBarItem(
                                 selected = route == tab.route,
-                                onClick = {
-                                    nav.navigate(tab.route) {
-                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
+                                onClick = { goToTab(tab) },
                                 icon = { Icon(tab.icon, contentDescription = null) },
                                 label = { Text(tab.label) },
                             )
@@ -128,7 +162,7 @@ fun HoloVoiceRoot(container: AppContainer) {
     ) { padding ->
         NavHost(
             nav,
-            startDestination = Tab.Library.route,
+            startDestination = Tab.Home.route,
             modifier = Modifier.padding(padding),
             // Tabs crossfade; drill-down screens override these with slides below.
             enterTransition = { fadeIn(tween(220)) },
@@ -136,6 +170,40 @@ fun HoloVoiceRoot(container: AppContainer) {
             popEnterTransition = { fadeIn(tween(220)) },
             popExitTransition = { fadeOut(tween(180)) },
         ) {
+            composable(Tab.Home.route) {
+                HomeScreen(
+                    viewModel = viewModel { HomeViewModel(repository) },
+                    player = container.player,
+                    onOpenTopic = { id -> nav.navigate("pack/$id") },
+                    onOpenTalent = { slug -> nav.navigate("talent/$slug") },
+                    onOpenFavorites = { nav.navigate(FAVORITES) },
+                    onOpenNowPlaying = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } },
+                    onBrowseTopics = { goToTab(Tab.Library) },
+                    onShowHelp = { showHelp = true },
+                )
+            }
+            composable(Tab.Talents.route) {
+                TalentsScreen(
+                    viewModel = viewModel { TalentsViewModel(repository) },
+                    playerState = playerState,
+                    onOpen = { slug -> nav.navigate("talent/$slug") },
+                )
+            }
+            composable(
+                "talent/{slug}",
+                arguments = listOf(navArgument("slug") { type = NavType.StringType }),
+                enterTransition = { pushIn() },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { pushOut() },
+            ) { entry ->
+                val slug = entry.arguments?.getString("slug") ?: UNASSIGNED_SLUG
+                TalentScreen(
+                    viewModel = viewModel { TalentViewModel(slug, repository) },
+                    player = container.player,
+                    onBack = { nav.popBackStack() },
+                )
+            }
             composable(Tab.Library.route) {
                 LibraryScreen(
                     viewModel = viewModel { LibraryViewModel(repository) },
@@ -186,8 +254,14 @@ fun HoloVoiceRoot(container: AppContainer) {
             ) {
                 QueueScreen(player = container.player, onBack = { nav.popBackStack() })
             }
-            composable(Tab.Favorites.route) {
-                FavoritesScreen(viewModel { FavoritesViewModel(repository) }, container.player)
+            composable(
+                FAVORITES,
+                enterTransition = { pushIn() },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { pushOut() },
+            ) {
+                FavoritesScreen(viewModel { FavoritesViewModel(repository) }, container.player, onBack = { nav.popBackStack() })
             }
             composable(Tab.Search.route) {
                 SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
@@ -206,5 +280,6 @@ fun HoloVoiceRoot(container: AppContainer) {
                 )
             }
         }
+    }
     }
 }

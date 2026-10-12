@@ -3,6 +3,7 @@ package com.ttggg5.holovoice.ui.favorites
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,12 +17,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
-import com.ttggg5.holovoice.ui.components.ClipGrid
-import com.ttggg5.holovoice.ui.components.EmptyMessage
+import com.ttggg5.holovoice.ui.components.ClipBrowser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FavoritesScreen(viewModel: FavoritesViewModel, player: PlayerController) {
+fun FavoritesScreen(viewModel: FavoritesViewModel, player: PlayerController, onBack: () -> Unit) {
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
     val clips = favorites.orEmpty()
@@ -31,6 +31,11 @@ fun FavoritesScreen(viewModel: FavoritesViewModel, player: PlayerController) {
         topBar = {
             TopAppBar(
                 title = { Text("Favorites") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
                 actions = {
                     IconButton(onClick = { player.playQueue(clips, shuffle = false) }, enabled = clips.isNotEmpty()) {
                         Icon(Icons.Filled.PlayArrow, contentDescription = "Play all")
@@ -42,20 +47,15 @@ fun FavoritesScreen(viewModel: FavoritesViewModel, player: PlayerController) {
             )
         },
     ) { padding ->
-        if (favorites?.isEmpty() == true) {
-            EmptyMessage(
-                title = "No favorites yet",
-                body = "Tap the star on any clip to collect it here.",
-                modifier = Modifier.padding(padding),
-            )
-        } else {
-            ClipGrid(
+        if (favorites != null) {
+            ClipBrowser(
                 clips = clips,
                 playerState = playerState,
-                showPack = true,
                 player = player,
                 onToggleFavorite = viewModel::toggleFavorite,
                 modifier = Modifier.padding(padding),
+                emptyTitle = "No favorites yet",
+                emptyBody = "Tap the star on any clip to collect it here.",
             )
         }
     }

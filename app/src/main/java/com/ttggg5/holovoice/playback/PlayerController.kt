@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
@@ -212,8 +213,18 @@ class PlayerController(context: Context) {
         if (from in 0 until c.mediaItemCount && to in 0 until c.mediaItemCount) c.moveMediaItem(from, to)
     }
 
-    fun removeQueueItem(index: Int) = withController { c ->
-        if (index in 0 until c.mediaItemCount) c.removeMediaItem(index)
+    /** Removes the item at player index [index]; [onRemoved] gets it back so the removal can be undone. */
+    fun removeQueueItem(index: Int, onRemoved: (MediaItem) -> Unit = {}) = withController { c ->
+        if (index in 0 until c.mediaItemCount) {
+            val item = c.getMediaItemAt(index)
+            c.removeMediaItem(index)
+            onRemoved(item)
+        }
+    }
+
+    /** Puts a removed item back at [index] (undo). */
+    fun restoreQueueItem(index: Int, item: MediaItem) = withController { c ->
+        c.addMediaItem(index.coerceIn(0, c.mediaItemCount), item)
     }
 
     fun clearQueue() = withController { c ->

@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
-import com.ttggg5.holovoice.ui.components.ClipGrid
+import com.ttggg5.holovoice.ui.components.ClipBrowser
 
 /** A topic: its clips, split into category tabs when the topic folder had sub-folders. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,13 +109,15 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                 label = "categoryTab",
             ) { tab ->
                 val tabCategory = categories.getOrNull(tab - 1)
-                ClipGrid(
+                ClipBrowser(
                     clips = if (tabCategory == null) allClips else allClips.filter { it.clip.category == tabCategory },
                     playerState = playerState,
-                    showPack = false,
-                    showCategory = tabCategory == null && categories.isNotEmpty(),
                     player = player,
                     onToggleFavorite = viewModel::toggleFavorite,
+                    showPack = false,
+                    showCategory = tabCategory == null && categories.isNotEmpty(),
+                    emptyTitle = "No clips in this topic",
+                    emptyBody = "Add audio files to the folder; they appear the next time you open the app.",
                 )
             }
         }

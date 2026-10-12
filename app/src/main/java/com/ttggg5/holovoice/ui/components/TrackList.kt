@@ -38,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.data.moved
@@ -75,6 +77,7 @@ fun <T> TrackList(
     var local by remember { mutableStateOf(items) }
     var dragging by remember { mutableStateOf(false) }
     val currentItems by rememberUpdatedState(items)
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(items) {
         if (!dragging) local = items
     }
@@ -151,7 +154,10 @@ fun <T> TrackList(
                                 IconButton(
                                     onClick = {},
                                     modifier = Modifier.draggableHandle(
-                                        onDragStarted = { dragging = true },
+                                        onDragStarted = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            dragging = true
+                                        },
                                         onDragStopped = {
                                             val k = key(item)
                                             val from = currentItems.indexOfFirst { key(it) == k }

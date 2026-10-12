@@ -64,6 +64,34 @@ interface ClipDao {
     @Query("SELECT DISTINCT category FROM clips WHERE packId = :packId AND category IS NOT NULL ORDER BY category COLLATE NOCASE")
     fun observeCategories(packId: Long): Flow<List<String>>
 
+    @Query("$CLIP_WITH_PACK")
+    fun observeAllClips(): Flow<List<ClipWithPack>>
+
+    @Query("$CLIP_WITH_PACK")
+    suspend fun getAllClips(): List<ClipWithPack>
+
+    @Query("$CLIP_WITH_PACK WHERE clips.talentSlug = :slug")
+    fun observeClipsByTalent(slug: String): Flow<List<ClipWithPack>>
+
+    @Query("$CLIP_WITH_PACK WHERE clips.talentSlug IS NULL")
+    fun observeClipsWithoutTalent(): Flow<List<ClipWithPack>>
+
+    @Query("$CLIP_WITH_PACK WHERE clips.lastPlayedAt > 0 ORDER BY clips.lastPlayedAt DESC LIMIT :limit")
+    fun observeRecentlyPlayed(limit: Int): Flow<List<ClipWithPack>>
+
+    @Query(
+        """
+        SELECT talentSlug AS slug, MAX(talentName) AS name, MAX(talentImageUrl) AS imageUrl,
+            COUNT(*) AS clipCount, SUM(playCount) AS plays, MAX(lastPlayedAt) AS lastPlayed,
+            COUNT(DISTINCT packId) AS topicCount
+        FROM clips GROUP BY talentSlug
+        """,
+    )
+    fun observeTalents(): Flow<List<TalentSummary>>
+
+    @Query("UPDATE clips SET lastPlayedAt = :now, playCount = playCount + 1 WHERE id = :id")
+    suspend fun markPlayed(id: Long, now: Long)
+
     @Query("SELECT clips.* FROM clips INNER JOIN packs ON packs.id = clips.packId WHERE packs.sourceUri = :sourceUri")
     suspend fun getClipsBySource(sourceUri: String): List<Clip>
 
@@ -158,6 +186,19 @@ abstract class PlaylistDao {
 
     @Query("UPDATE playlist_entries SET position = :position WHERE id = :entryId")
     abstract suspend fun setPosition(entryId: Long, position: Int)
+
+    @Query("UPDATE playlist_entries SET position = position + 1 WHERE playlistId = :playlistId AND position >= :position")
+    abstract suspend fun shiftFrom(playlistId: Long, position: Int)
+
+    /** Inserts [clipId] at [index] (used to undo a removal). */
+    @Transaction
+    open suspend fun insertAt(playlistId: Long, clipId: Long, index: Int) {
+        val ids = entryIds(playlistId)
+        ids.forEachIndexed { i, entryId -> setPosition(entryId, i) }
+        val position = index.coerceIn(0, ids.size)
+        shiftFrom(playlistId, position)
+        insertEntries(listOf(PlaylistEntry(playlistId = playlistId, clipId = clipId, position = position)))
+    }
 
     /** Appends [clipIds] to the end of the playlist. */
     @Transaction

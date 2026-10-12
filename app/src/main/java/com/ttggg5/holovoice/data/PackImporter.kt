@@ -161,6 +161,7 @@ class PackImporter(
                     durationMs = durationOf(file.uri),
                     trackNo = track,
                     category = category,
+                    addedAt = System.currentTimeMillis(),
                 )
             }
         }

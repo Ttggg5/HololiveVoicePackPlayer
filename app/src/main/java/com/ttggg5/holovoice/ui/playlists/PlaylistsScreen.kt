@@ -35,7 +35,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import com.ttggg5.holovoice.appContainer
+import com.ttggg5.holovoice.data.PlaylistSort
 import com.ttggg5.holovoice.playback.PlayerController
+import com.ttggg5.holovoice.ui.components.SortMenu
 import com.ttggg5.holovoice.ui.components.Artwork
 import com.ttggg5.holovoice.ui.components.EmptyMessage
 
@@ -43,11 +47,18 @@ import com.ttggg5.holovoice.ui.components.EmptyMessage
 @Composable
 fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onOpen: (Long) -> Unit) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val prefs = LocalContext.current.appContainer.uiPrefs
+    val sort by prefs.playlistSort.collectAsStateWithLifecycle()
     var creating by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = { TopAppBar(title = { Text("Playlists") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Playlists") },
+                actions = { SortMenu(PlaylistSort.entries, sort, { it.label }, prefs::setPlaylistSort) },
+            )
+        },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { creating = true },
@@ -56,17 +67,21 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
             )
         },
     ) { padding ->
-        val list = playlists
+        val list = playlists?.let(sort::sorted)
         when {
             list == null -> Unit
             list.isEmpty() -> EmptyMessage(
                 "No playlists yet",
-                "Create one here, or long-press any clip and choose \"Add to playlist\".",
+                "Mix clips from any topic. Create one here, or long-press any clip and choose \"Add to playlist\".",
                 Modifier.padding(padding),
+                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                actionLabel = "New playlist",
+                onAction = { creating = true },
             )
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
                 items(list, key = { it.playlist.id }) { p ->
                     ListItem(
+                        modifier = Modifier.animateItem().clickable { onOpen(p.playlist.id) },
                         headlineContent = { Text(p.playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text("${p.entryCount} clips") },
                         leadingContent = {
@@ -85,7 +100,6 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
                                 Icon(Icons.Filled.PlayArrow, contentDescription = "Play ${p.playlist.name}")
                             }
                         },
-                        modifier = Modifier.clickable { onOpen(p.playlist.id) },
                     )
                 }
             }

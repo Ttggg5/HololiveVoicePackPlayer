@@ -75,6 +75,23 @@ class PackRepository(
         if (talent != null) db.packDao().update(pack.copy(talent = talent.nameEn))
     }
 
+    val allClips: Flow<List<ClipWithPack>> = db.clipDao().observeAllClips()
+
+    suspend fun getAllClips(): List<ClipWithPack> = db.clipDao().getAllClips()
+
+    val talentSummaries: Flow<List<TalentSummary>> = db.clipDao().observeTalents()
+
+    /** Clips of one talent; a null [slug] gives the clips that have no talent yet. */
+    fun clipsByTalent(slug: String?): Flow<List<ClipWithPack>> =
+        if (slug == null) db.clipDao().observeClipsWithoutTalent() else db.clipDao().observeClipsByTalent(slug)
+
+    fun recentlyPlayed(limit: Int = 20): Flow<List<ClipWithPack>> = db.clipDao().observeRecentlyPlayed(limit)
+
+    suspend fun markPlayed(clipId: Long) = db.clipDao().markPlayed(clipId, System.currentTimeMillis())
+
+    suspend fun insertPlaylistEntryAt(playlistId: Long, clipId: Long, index: Int) =
+        db.playlistDao().insertAt(playlistId, clipId, index)
+
     fun categories(packId: Long): Flow<List<String>> = db.clipDao().observeCategories(packId)
 
     private val syncMutex = Mutex()

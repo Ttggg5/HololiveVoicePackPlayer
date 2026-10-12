@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Pack::class, Clip::class, Playlist::class, PlaylistEntry::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,7 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "holovoice.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
     }
 }
@@ -57,5 +57,16 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
 val MIGRATION_3_4 = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE `clips` ADD COLUMN `category` TEXT")
+    }
+}
+
+/** v5 tracks when clips were added and played, for sorting and the Home screen. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `clips` ADD COLUMN `addedAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `clips` ADD COLUMN `lastPlayedAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `clips` ADD COLUMN `playCount` INTEGER NOT NULL DEFAULT 0")
+        // Existing clips count as added when their topic was imported.
+        db.execSQL("UPDATE clips SET addedAt = (SELECT importedAt FROM packs WHERE packs.id = clips.packId)")
     }
 }
