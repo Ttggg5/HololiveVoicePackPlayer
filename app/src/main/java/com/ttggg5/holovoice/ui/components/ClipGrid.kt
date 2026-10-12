@@ -13,7 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Star
@@ -31,18 +38,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.data.ClipWithPack
+import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
 
-/** Soundboard grid of clip tiles; tap to play, star to favorite. */
+/**
+ * Soundboard grid of clip tiles. Tap plays the list from that clip (or pauses the current one),
+ * long-press opens the clip actions, the star toggles favorite.
+ */
 @Composable
 fun ClipGrid(
     clips: List<ClipWithPack>,
     playerState: PlayerState,
     showPack: Boolean,
-    onPlay: (ClipWithPack) -> Unit,
+    player: PlayerController,
     onToggleFavorite: (ClipWithPack) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var actionsFor by remember { mutableStateOf<ClipWithPack?>(null) }
+    actionsFor?.let { target ->
+        // Show the latest favorite state if it changed while the sheet is open.
+        val fresh = clips.firstOrNull { it.clip.id == target.clip.id } ?: target
+        ClipActionsSheet(fresh, player, onToggleFavorite, onDismiss = { actionsFor = null })
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 150.dp),
         modifier = modifier.fillMaxSize(),
@@ -50,19 +67,21 @@ fun ClipGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        items(clips, key = { it.clip.id }) { item ->
+        itemsIndexed(clips, key = { _, it -> it.clip.id }) { index, item ->
             ClipTile(
                 item = item,
                 isCurrent = playerState.clipId == item.clip.id,
                 isPlaying = playerState.clipId == item.clip.id && playerState.isPlaying,
                 showPack = showPack,
-                onClick = { onPlay(item) },
+                onClick = { player.playFrom(clips, index) },
+                onLongClick = { actionsFor = item },
                 onToggleFavorite = { onToggleFavorite(item) },
             )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ClipTile(
     item: ClipWithPack,
@@ -70,6 +89,7 @@ private fun ClipTile(
     isPlaying: Boolean,
     showPack: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
 ) {
     val colors = if (isCurrent) {
@@ -78,10 +98,13 @@ private fun ClipTile(
         CardDefaults.cardColors()
     }
     Card(
-        onClick = onClick,
         colors = colors,
         border = if (isCurrent) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 104.dp)
+            .clip(CardDefaults.shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Column(Modifier.padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

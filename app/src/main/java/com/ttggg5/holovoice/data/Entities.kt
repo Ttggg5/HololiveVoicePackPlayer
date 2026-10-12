@@ -56,3 +56,37 @@ data class PackWithCount(
     @Embedded val pack: Pack,
     @ColumnInfo(name = "clipCount") val clipCount: Int,
 )
+
+@Entity(tableName = "playlists")
+data class Playlist(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val createdAt: Long = System.currentTimeMillis(),
+)
+
+@Entity(
+    tableName = "playlist_entries",
+    foreignKeys = [
+        ForeignKey(entity = Playlist::class, parentColumns = ["id"], childColumns = ["playlistId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = Clip::class, parentColumns = ["id"], childColumns = ["clipId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("playlistId"), Index("clipId")],
+)
+data class PlaylistEntry(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val playlistId: Long,
+    val clipId: Long,
+    val position: Int,
+)
+
+data class PlaylistWithCount(
+    @Embedded val playlist: Playlist,
+    @ColumnInfo(name = "entryCount") val entryCount: Int,
+    @ColumnInfo(name = "coverUri") val coverUri: String?,
+)
+
+/** One row of a playlist: the clip plus the entry id that identifies this occurrence. */
+data class PlaylistItem(
+    @Embedded val item: ClipWithPack,
+    @ColumnInfo(name = "entryId") val entryId: Long,
+)

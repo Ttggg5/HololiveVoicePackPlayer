@@ -50,7 +50,7 @@ fun SearchScreen(viewModel: SearchViewModel, player: PlayerController) {
                 clips = results,
                 playerState = playerState,
                 showPack = true,
-                onPlay = player::playClip,
+                player = player,
                 onToggleFavorite = viewModel::toggleFavorite,
             )
         }

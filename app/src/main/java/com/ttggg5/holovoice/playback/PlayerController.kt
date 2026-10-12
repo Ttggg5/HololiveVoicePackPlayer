@@ -3,27 +3,51 @@ package com.ttggg5.holovoice.playback
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import androidx.core.content.ContextCompat
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.ttggg5.holovoice.data.ClipWithPack
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
+
+/** One entry of the play queue. [index] is the position in the player's (unshuffled) item list. */
+data class QueueItem(
+    val index: Int,
+    val key: String,
+    val clipId: Long?,
+    val title: String,
+    val subtitle: String,
+    val artworkUri: Uri?,
+)
 
 data class PlayerState(
     val clipId: Long? = null,
     val title: String = "",
     val subtitle: String = "",
+    val album: String = "",
     val artworkUri: Uri? = null,
     val isPlaying: Boolean = false,
     val hasNext: Boolean = false,
+    val hasPrevious: Boolean = false,
+    val durationMs: Long = 0,
     val shuffle: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    val speed: Float = 1f,
+    /** Queue in play order (shuffle order when shuffle is on). */
+    val queue: List<QueueItem> = emptyList(),
+    val currentIndex: Int = C.INDEX_UNSET,
+    /** Wall-clock time the sleep timer fires, or 0 when no timed sleep is set. */
+    val sleepEndsAt: Long = 0,
+    val sleepAtEndOfTrack: Boolean = false,
 )
 
 /** App-wide entry point for playback; talks to [PlaybackService] through a [MediaController]. */
@@ -36,21 +60,45 @@ class PlayerController(context: Context) {
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    /** Current playback position, polled while collected. */
+    val position: Flow<Long> = flow {
+        while (true) {
+            emit(controller?.currentPosition ?: 0L)
+            delay(250)
+        }
+    }
+
+    private var queueCache: List<QueueItem> = emptyList()
+
     private val listener = object : Player.Listener {
-        override fun onEvents(player: Player, events: Player.Events) = publish(player)
+        override fun onEvents(player: Player, events: Player.Events) {
+            val queueChanged = events.containsAny(
+                Player.EVENT_TIMELINE_CHANGED,
+                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+            )
+            publish(player, rebuildQueue = queueChanged)
+        }
+    }
+
+    private val sessionListener = object : MediaController.Listener {
+        override fun onExtrasChanged(controller: MediaController, extras: Bundle) = publishSleep(extras)
     }
 
     /** Binds to the playback service. Call from the main thread (e.g. Activity.onStart). */
     fun connect() {
         if (future != null) return
         val token = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        val f = MediaController.Builder(appContext, token).buildAsync()
+        val f = MediaController.Builder(appContext, token).setListener(sessionListener).buildAsync()
         future = f
         f.addListener({
-            val c = runCatching { f.get() }.getOrNull() ?: run { future = null; return@addListener }
+            val c = runCatching { f.get() }.getOrNull() ?: run {
+                future = null
+                return@addListener
+            }
             controller = c
             c.addListener(listener)
-            publish(c)
+            publish(c, rebuildQueue = true)
+            publishSleep(c.sessionExtras)
             pending.forEach { it(c) }
             pending.clear()
         }, ContextCompat.getMainExecutor(appContext))
@@ -67,46 +115,99 @@ class PlayerController(context: Context) {
 
     private fun withController(block: (MediaController) -> Unit) {
         val c = controller
-        if (c != null) block(c) else {
+        if (c != null) {
+            block(c)
+        } else {
             pending += block
             connect()
         }
     }
 
-    /** Soundboard tap: play a single clip, or pause it if it is the one currently playing. */
-    fun playClip(clip: ClipWithPack) = withController { c ->
-        if (c.currentMediaItem?.mediaId == clip.clip.id.toString() && c.isPlaying) {
-            c.pause()
-            return@withController
+    /**
+     * Plays [clips] as the queue starting at [index]. Tapping the clip that is already
+     * current toggles play/pause instead of restarting it.
+     */
+    fun playFrom(clips: List<ClipWithPack>, index: Int) {
+        val target = clips.getOrNull(index) ?: return
+        if (_state.value.clipId == target.clip.id) {
+            togglePlayPause()
+            return
         }
-        c.shuffleModeEnabled = false
-        c.setMediaItem(clip.toMediaItem())
-        c.prepare()
-        c.play()
+        playQueue(clips, index)
     }
 
-    /** Queues [clips] as a playlist starting at [startIndex], optionally shuffled. */
-    fun playQueue(clips: List<ClipWithPack>, startIndex: Int = 0, shuffle: Boolean = false) {
+    /**
+     * Queues [clips] starting at [startIndex]. [shuffle] turns shuffle on (random start) or off;
+     * null keeps the current shuffle mode.
+     */
+    fun playQueue(clips: List<ClipWithPack>, startIndex: Int = 0, shuffle: Boolean? = null) {
         if (clips.isEmpty()) return
         withController { c ->
-            c.shuffleModeEnabled = shuffle
-            val start = if (shuffle) clips.indices.random() else startIndex.coerceIn(clips.indices)
+            if (shuffle != null) c.shuffleModeEnabled = shuffle
+            val start = if (shuffle == true) clips.indices.random() else startIndex.coerceIn(clips.indices)
             c.setMediaItems(clips.map { it.toMediaItem() }, start, 0L)
             c.prepare()
             c.play()
         }
     }
 
+    /** Inserts [clips] right after the current item. */
+    fun playNext(clips: List<ClipWithPack>) {
+        if (clips.isEmpty()) return
+        withController { c ->
+            if (c.mediaItemCount == 0) {
+                playQueue(clips, shuffle = false)
+            } else {
+                c.addMediaItems(c.currentMediaItemIndex + 1, clips.map { it.toMediaItem() })
+            }
+        }
+    }
+
+    /** Appends [clips] to the end of the queue. */
+    fun addToQueue(clips: List<ClipWithPack>) {
+        if (clips.isEmpty()) return
+        withController { c ->
+            if (c.mediaItemCount == 0) playQueue(clips, shuffle = false) else c.addMediaItems(clips.map { it.toMediaItem() })
+        }
+    }
+
     fun togglePlayPause() = withController { c ->
-        if (c.isPlaying) c.pause() else {
-            if (c.playbackState == Player.STATE_ENDED) c.seekToDefaultPosition(0)
+        if (c.isPlaying) {
+            c.pause()
+        } else {
+            when (c.playbackState) {
+                Player.STATE_IDLE -> c.prepare()
+                Player.STATE_ENDED -> c.seekToDefaultPosition(c.currentTimeline.getFirstWindowIndex(c.shuffleModeEnabled).coerceAtLeast(0))
+                else -> Unit
+            }
             c.play()
         }
     }
 
-    fun next() = withController { it.seekToNextMediaItem() }
+    fun next() = withController { it.seekToNext() }
 
-    fun stop() = withController { c ->
+    /** Restarts the current clip, or goes to the previous one when near the start. */
+    fun previous() = withController { it.seekToPrevious() }
+
+    fun seekTo(positionMs: Long) = withController { it.seekTo(positionMs) }
+
+    /** Jumps to the queue item at player index [index]. */
+    fun skipTo(index: Int) = withController { c ->
+        if (index !in 0 until c.mediaItemCount) return@withController
+        c.seekToDefaultPosition(index)
+        if (c.playbackState == Player.STATE_IDLE) c.prepare()
+        c.play()
+    }
+
+    fun moveQueueItem(from: Int, to: Int) = withController { c ->
+        if (from in 0 until c.mediaItemCount && to in 0 until c.mediaItemCount) c.moveMediaItem(from, to)
+    }
+
+    fun removeQueueItem(index: Int) = withController { c ->
+        if (index in 0 until c.mediaItemCount) c.removeMediaItem(index)
+    }
+
+    fun clearQueue() = withController { c ->
         c.stop()
         c.clearMediaItems()
     }
@@ -121,34 +222,68 @@ class PlayerController(context: Context) {
         }
     }
 
-    private fun publish(player: Player) {
-        val item = player.currentMediaItem
-        _state.value = PlayerState(
-            clipId = item?.mediaId?.toLongOrNull(),
-            title = item?.mediaMetadata?.title?.toString().orEmpty(),
-            subtitle = item?.mediaMetadata?.artist?.toString().orEmpty(),
-            artworkUri = item?.mediaMetadata?.artworkUri,
-            isPlaying = player.isPlaying,
-            hasNext = player.hasNextMediaItem(),
-            shuffle = player.shuffleModeEnabled,
-            repeatMode = player.repeatMode,
+    fun setSpeed(speed: Float) = withController { it.setPlaybackSpeed(speed) }
+
+    /** Sets the sleep timer: [minutes] > 0 pauses after that long, [endOfTrack] pauses when the current clip ends. */
+    fun setSleepTimer(minutes: Int = 0, endOfTrack: Boolean = false) = withController { c ->
+        val args = Bundle().apply {
+            putInt(SleepTimer.ARG_MINUTES, minutes)
+            putBoolean(SleepTimer.ARG_END_OF_TRACK, endOfTrack)
+        }
+        c.sendCustomCommand(SessionCommand(SleepTimer.COMMAND, Bundle.EMPTY), args)
+    }
+
+    private fun publishSleep(extras: Bundle) {
+        _state.value = _state.value.copy(
+            sleepEndsAt = extras.getLong(SleepTimer.EXTRA_ENDS_AT, 0L),
+            sleepAtEndOfTrack = extras.getBoolean(SleepTimer.EXTRA_END_OF_TRACK, false),
         )
     }
-}
 
-private fun ClipWithPack.toMediaItem(): MediaItem {
-    val uri = Uri.parse(clip.fileUri)
-    return MediaItem.Builder()
-        .setMediaId(clip.id.toString())
-        .setUri(uri)
-        .setRequestMetadata(MediaItem.RequestMetadata.Builder().setMediaUri(uri).build())
-        .setMediaMetadata(
-            MediaMetadata.Builder()
-                .setTitle(clip.title)
-                .setArtist(talent)
-                .setAlbumTitle(packName)
-                .setArtworkUri(coverUri?.let(Uri::parse))
-                .build(),
+    private fun publish(player: Player, rebuildQueue: Boolean) {
+        if (rebuildQueue) queueCache = buildQueue(player)
+        val item = player.currentMediaItem
+        val metadata = item?.mediaMetadata
+        val duration = player.duration
+        _state.value = _state.value.copy(
+            clipId = item?.mediaId?.toLongOrNull(),
+            title = metadata?.title?.toString().orEmpty(),
+            subtitle = metadata?.artist?.toString().orEmpty(),
+            album = metadata?.albumTitle?.toString().orEmpty(),
+            artworkUri = metadata?.artworkUri,
+            isPlaying = player.isPlaying,
+            hasNext = player.hasNextMediaItem(),
+            hasPrevious = player.hasPreviousMediaItem(),
+            durationMs = if (duration == C.TIME_UNSET) 0L else duration,
+            shuffle = player.shuffleModeEnabled,
+            repeatMode = player.repeatMode,
+            speed = player.playbackParameters.speed,
+            queue = queueCache,
+            currentIndex = if (item == null) C.INDEX_UNSET else player.currentMediaItemIndex,
         )
-        .build()
+    }
+
+    private fun buildQueue(player: Player): List<QueueItem> {
+        val timeline = player.currentTimeline
+        if (timeline.isEmpty) return emptyList()
+        val shuffle = player.shuffleModeEnabled
+        val seen = HashMap<String, Int>()
+        val result = ArrayList<QueueItem>(timeline.windowCount)
+        var index = timeline.getFirstWindowIndex(shuffle)
+        while (index != C.INDEX_UNSET && result.size < timeline.windowCount) {
+            val item = player.getMediaItemAt(index)
+            val occurrence = (seen[item.mediaId] ?: 0) + 1
+            seen[item.mediaId] = occurrence
+            result += QueueItem(
+                index = index,
+                key = "${item.mediaId}#$occurrence",
+                clipId = item.mediaId.toLongOrNull(),
+                title = item.mediaMetadata.title?.toString().orEmpty(),
+                subtitle = listOfNotNull(item.mediaMetadata.artist, item.mediaMetadata.albumTitle).joinToString(" · "),
+                artworkUri = item.mediaMetadata.artworkUri,
+            )
+            index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffle)
+        }
+        return result
+    }
 }

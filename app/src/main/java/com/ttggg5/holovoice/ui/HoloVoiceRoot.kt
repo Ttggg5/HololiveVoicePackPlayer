@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -32,6 +33,13 @@ import com.ttggg5.holovoice.AppContainer
 import com.ttggg5.holovoice.ui.components.MiniPlayer
 import com.ttggg5.holovoice.ui.favorites.FavoritesScreen
 import com.ttggg5.holovoice.ui.favorites.FavoritesViewModel
+import com.ttggg5.holovoice.ui.nowplaying.NowPlayingScreen
+import com.ttggg5.holovoice.ui.nowplaying.NowPlayingViewModel
+import com.ttggg5.holovoice.ui.playlists.PlaylistScreen
+import com.ttggg5.holovoice.ui.playlists.PlaylistViewModel
+import com.ttggg5.holovoice.ui.playlists.PlaylistsScreen
+import com.ttggg5.holovoice.ui.playlists.PlaylistsViewModel
+import com.ttggg5.holovoice.ui.queue.QueueScreen
 import com.ttggg5.holovoice.ui.library.LibraryScreen
 import com.ttggg5.holovoice.ui.library.LibraryViewModel
 import com.ttggg5.holovoice.ui.pack.PackScreen
@@ -41,9 +49,13 @@ import com.ttggg5.holovoice.ui.search.SearchViewModel
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     Library("library", "Library", Icons.Filled.LibraryMusic),
+    Playlists("playlists", "Playlists", Icons.AutoMirrored.Filled.QueueMusic),
     Favorites("favorites", "Favorites", Icons.Filled.Star),
     Search("search", "Search", Icons.Filled.Search),
 }
+
+private const val NOW_PLAYING = "now_playing"
+private const val QUEUE = "queue"
 
 @Composable
 fun HoloVoiceRoot(container: AppContainer) {
@@ -57,8 +69,8 @@ fun HoloVoiceRoot(container: AppContainer) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Column {
-                if (playerState.clipId != null) {
-                    MiniPlayer(playerState, container.player)
+                if (playerState.clipId != null && route != NOW_PLAYING) {
+                    MiniPlayer(playerState, container.player, onOpen = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } })
                 }
                 if (Tab.entries.any { it.route == route }) {
                     NavigationBar {
@@ -89,6 +101,32 @@ fun HoloVoiceRoot(container: AppContainer) {
                     viewModel = viewModel { LibraryViewModel(repository) },
                     onOpenPack = { id -> nav.navigate("pack/$id") },
                 )
+            }
+            composable(Tab.Playlists.route) {
+                PlaylistsScreen(
+                    viewModel = viewModel { PlaylistsViewModel(repository) },
+                    player = container.player,
+                    onOpen = { id -> nav.navigate("playlist/$id") },
+                )
+            }
+            composable("playlist/{playlistId}", arguments = listOf(navArgument("playlistId") { type = NavType.LongType })) { entry ->
+                val playlistId = entry.arguments!!.getLong("playlistId")
+                PlaylistScreen(
+                    viewModel = viewModel { PlaylistViewModel(playlistId, repository) },
+                    player = container.player,
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(NOW_PLAYING) {
+                NowPlayingScreen(
+                    viewModel = viewModel { NowPlayingViewModel(repository, container.player) },
+                    player = container.player,
+                    onBack = { nav.popBackStack() },
+                    onOpenQueue = { nav.navigate(QUEUE) { launchSingleTop = true } },
+                )
+            }
+            composable(QUEUE) {
+                QueueScreen(player = container.player, onBack = { nav.popBackStack() })
             }
             composable(Tab.Favorites.route) {
                 FavoritesScreen(viewModel { FavoritesViewModel(repository) }, container.player)

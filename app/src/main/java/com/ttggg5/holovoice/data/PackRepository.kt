@@ -18,6 +18,32 @@ class PackRepository(
 
     fun search(query: String): Flow<List<ClipWithPack>> = db.clipDao().search(query)
 
+    fun clip(id: Long): Flow<ClipWithPack?> = db.clipDao().observeClip(id)
+
+    /** Looks up clips by id, preserving the order (and repeats) of [ids] and skipping missing ones. */
+    suspend fun clipsByIds(ids: List<Long>): List<ClipWithPack> {
+        val byId = ids.distinct().chunked(900).flatMap { db.clipDao().getByIds(it) }.associateBy { it.clip.id }
+        return ids.mapNotNull(byId::get)
+    }
+
+    val playlists: Flow<List<PlaylistWithCount>> = db.playlistDao().observeAll()
+
+    fun playlist(id: Long): Flow<Playlist?> = db.playlistDao().observe(id)
+
+    fun playlistItems(id: Long): Flow<List<PlaylistItem>> = db.playlistDao().observeEntries(id)
+
+    suspend fun createPlaylist(name: String): Long = db.playlistDao().insert(Playlist(name = name.trim()))
+
+    suspend fun renamePlaylist(id: Long, name: String) = db.playlistDao().rename(id, name.trim())
+
+    suspend fun deletePlaylist(id: Long) = db.playlistDao().delete(id)
+
+    suspend fun addToPlaylist(playlistId: Long, clipIds: List<Long>) = db.playlistDao().addClips(playlistId, clipIds)
+
+    suspend fun removeFromPlaylist(entryId: Long) = db.playlistDao().removeEntry(entryId)
+
+    suspend fun movePlaylistEntry(playlistId: Long, from: Int, to: Int) = db.playlistDao().move(playlistId, from, to)
+
     suspend fun importFolder(uri: Uri): Int = importer.importFolder(uri)
 
     suspend fun importZip(uri: Uri): Int = importer.importZip(uri)

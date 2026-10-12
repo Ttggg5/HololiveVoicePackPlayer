@@ -3,6 +3,7 @@ package com.ttggg5.holovoice.data
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -35,9 +36,11 @@ interface PackDao {
     suspend fun delete(id: Long)
 }
 
+private const val CLIP_COLUMNS =
+    "clips.*, packs.name AS packName, packs.talent AS talent, packs.coverUri AS coverUri"
+
 private const val CLIP_WITH_PACK =
-    "SELECT clips.*, packs.name AS packName, packs.talent AS talent, packs.coverUri AS coverUri " +
-        "FROM clips INNER JOIN packs ON packs.id = clips.packId"
+    "SELECT $CLIP_COLUMNS FROM clips INNER JOIN packs ON packs.id = clips.packId"
 
 @Dao
 interface ClipDao {
@@ -54,6 +57,12 @@ interface ClipDao {
     )
     fun search(query: String): Flow<List<ClipWithPack>>
 
+    @Query("$CLIP_WITH_PACK WHERE clips.id = :id")
+    fun observeClip(id: Long): Flow<ClipWithPack?>
+
+    @Query("$CLIP_WITH_PACK WHERE clips.id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<ClipWithPack>
+
     @Query("SELECT * FROM clips WHERE packId = :packId")
     suspend fun getClips(packId: Long): List<Clip>
 
@@ -62,4 +71,68 @@ interface ClipDao {
 
     @Query("UPDATE clips SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean)
+}
+
+@Dao
+abstract class PlaylistDao {
+    @Query(
+        """
+        SELECT playlists.*,
+            (SELECT COUNT(*) FROM playlist_entries e WHERE e.playlistId = playlists.id) AS entryCount,
+            (SELECT packs.coverUri FROM playlist_entries e
+                INNER JOIN clips ON clips.id = e.clipId
+                INNER JOIN packs ON packs.id = clips.packId
+                WHERE e.playlistId = playlists.id AND packs.coverUri IS NOT NULL
+                ORDER BY e.position LIMIT 1) AS coverUri
+        FROM playlists ORDER BY name COLLATE NOCASE
+        """,
+    )
+    abstract fun observeAll(): Flow<List<PlaylistWithCount>>
+
+    @Query("SELECT * FROM playlists WHERE id = :id")
+    abstract fun observe(id: Long): Flow<Playlist?>
+
+    @Query(
+        "SELECT $CLIP_COLUMNS, e.id AS entryId FROM playlist_entries e " +
+            "INNER JOIN clips ON clips.id = e.clipId INNER JOIN packs ON packs.id = clips.packId " +
+            "WHERE e.playlistId = :playlistId ORDER BY e.position",
+    )
+    abstract fun observeEntries(playlistId: Long): Flow<List<PlaylistItem>>
+
+    @Insert
+    abstract suspend fun insert(playlist: Playlist): Long
+
+    @Query("UPDATE playlists SET name = :name WHERE id = :id")
+    abstract suspend fun rename(id: Long, name: String)
+
+    @Query("DELETE FROM playlists WHERE id = :id")
+    abstract suspend fun delete(id: Long)
+
+    @Query("SELECT COALESCE(MAX(position), -1) FROM playlist_entries WHERE playlistId = :playlistId")
+    abstract suspend fun maxPosition(playlistId: Long): Int
+
+    @Insert
+    abstract suspend fun insertEntries(entries: List<PlaylistEntry>)
+
+    @Query("DELETE FROM playlist_entries WHERE id = :entryId")
+    abstract suspend fun removeEntry(entryId: Long)
+
+    @Query("SELECT id FROM playlist_entries WHERE playlistId = :playlistId ORDER BY position")
+    abstract suspend fun entryIds(playlistId: Long): List<Long>
+
+    @Query("UPDATE playlist_entries SET position = :position WHERE id = :entryId")
+    abstract suspend fun setPosition(entryId: Long, position: Int)
+
+    /** Appends [clipIds] to the end of the playlist. */
+    @Transaction
+    open suspend fun addClips(playlistId: Long, clipIds: List<Long>) {
+        val start = maxPosition(playlistId) + 1
+        insertEntries(clipIds.mapIndexed { i, clipId -> PlaylistEntry(playlistId = playlistId, clipId = clipId, position = start + i) })
+    }
+
+    /** Moves the entry at index [from] to index [to] and renumbers all positions. */
+    @Transaction
+    open suspend fun move(playlistId: Long, from: Int, to: Int) {
+        entryIds(playlistId).moved(from, to).forEachIndexed { index, entryId -> setPosition(entryId, index) }
+    }
 }

@@ -5,10 +5,15 @@ The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
 - **Library**: imported packs, grouped by talent, with cover art. Long-press a pack to rename it, change its talent, or delete it.
-- **Soundboard**: each pack is a grid of clips. Tap a clip to play it, and tap it again while it plays to pause.
-- **Playlist & background play**: *Play all* or *Shuffle* queues a whole pack or your favorites. Playback continues with the screen off, and you can control it from the notification, lock screen, or headset. Repeat (all/one) and shuffle are on the mini player.
-- **Favorites**: star any clip to collect it in the Favorites tab.
-- **Search**: search clip titles, pack names, and talents across your whole library.
+- **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.
+- **Now Playing**: tap the mini player to open it. It has large cover art, a seek bar, previous/next, shuffle, repeat (all/one), favorite, and add to playlist.
+- **Queue (Up next)**: jump to any clip, drag to reorder, swipe left to remove, or clear the queue.
+- **Playlists**: create your own playlists that mix clips from any pack. You can reorder and remove clips, and rename or delete playlists.
+- **Playback speed**: 0.5× to 2×.
+- **Sleep timer**: pause after 5 to 90 minutes or at the end of the current clip. It keeps working when the app is closed.
+- **Resume**: the queue, position, speed, shuffle and repeat are restored after the app is closed. On Android 13+ the system media controls can resume playback.
+- **Background play**: playback continues with the screen off, and you can control it from the notification, lock screen, or headset.
+- **Favorites and search**: star any clip, and search titles, packs and talents.
 
 ## Importing packs
 Tap **Import** on the Library tab:

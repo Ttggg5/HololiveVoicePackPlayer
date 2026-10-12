@@ -40,7 +40,7 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                     }
                 },
                 actions = {
-                    IconButton(onClick = { player.playQueue(clips) }, enabled = clips.isNotEmpty()) {
+                    IconButton(onClick = { player.playQueue(clips, shuffle = false) }, enabled = clips.isNotEmpty()) {
                         Icon(Icons.Filled.PlayArrow, contentDescription = "Play all")
                     }
                     IconButton(onClick = { player.playQueue(clips, shuffle = true) }, enabled = clips.isNotEmpty()) {
@@ -54,7 +54,7 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
             clips = clips,
             playerState = playerState,
             showPack = false,
-            onPlay = player::playClip,
+            player = player,
             onToggleFavorite = viewModel::toggleFavorite,
             modifier = Modifier.padding(padding),
         )
