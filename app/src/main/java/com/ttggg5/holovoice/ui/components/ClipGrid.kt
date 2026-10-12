@@ -278,7 +278,7 @@ private fun ClipTile(
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
             Artwork(item.clip.talentImageUrl ?: item.coverUri, Modifier.fillMaxSize(), iconSize = 44.dp)
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = isCurrent,
                 enter = scaleIn() + fadeIn(),
                 exit = scaleOut() + fadeOut(),
