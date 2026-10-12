@@ -5,6 +5,8 @@ import android.content.Context
 import com.ttggg5.holovoice.data.AppDatabase
 import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.PackRepository
+import com.ttggg5.holovoice.data.talents.TalentDirectory
+import com.ttggg5.holovoice.data.talents.TalentLinker
 import com.ttggg5.holovoice.playback.PlayerController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +25,8 @@ class HoloVoiceApp : Application() {
 /** Hand-rolled dependency container shared by the whole app. */
 class AppContainer(context: Context) {
     private val db = AppDatabase.create(context)
-    val repository = PackRepository(db, PackImporter(context, db))
+    private val talentLinker = TalentLinker(db, TalentDirectory(context))
+    val repository = PackRepository(db, PackImporter(context, db, talentLinker), talentLinker)
     val player = PlayerController(context)
 
     /** For writes that must finish even if the screen that started them goes away. */

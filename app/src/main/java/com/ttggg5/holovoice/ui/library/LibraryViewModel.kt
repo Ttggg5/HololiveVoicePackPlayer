@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.ttggg5.holovoice.data.Pack
 import com.ttggg5.holovoice.data.PackRepository
 import com.ttggg5.holovoice.data.PackWithCount
+import com.ttggg5.holovoice.data.talents.Talent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,6 +46,46 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
                 _importing.value = false
             }
             _messages.send(message)
+        }
+    }
+
+    /** Re-runs automatic talent matching on the whole library. */
+    fun matchTalents() {
+        viewModelScope.launch {
+            _importing.value = true
+            val message = try {
+                val (matched, total) = repository.rematchAllTalents()
+                "Matched a talent for $matched of $total clips"
+            } catch (e: Exception) {
+                e.message ?: "Talent matching failed"
+            } finally {
+                _importing.value = false
+            }
+            _messages.send(message)
+        }
+    }
+
+    /** Downloads the talent list again, then re-matches. */
+    fun refreshTalents() {
+        viewModelScope.launch {
+            _importing.value = true
+            val message = try {
+                val count = repository.talents(forceRefresh = true).size
+                val (matched, total) = repository.rematchAllTalents()
+                "Talent list updated ($count talents). Matched $matched of $total clips"
+            } catch (e: Exception) {
+                "Couldn't update the talent list: ${e.message ?: e::class.simpleName}"
+            } finally {
+                _importing.value = false
+            }
+            _messages.send(message)
+        }
+    }
+
+    fun setPackTalent(pack: Pack, talent: Talent?) {
+        viewModelScope.launch {
+            repository.setPackTalent(pack, talent)
+            _messages.send(if (talent == null) "Cleared talent for ${pack.name}" else "Set ${talent.nameEn} for ${pack.name}")
         }
     }
 

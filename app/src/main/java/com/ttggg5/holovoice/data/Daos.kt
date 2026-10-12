@@ -53,6 +53,7 @@ interface ClipDao {
     @Query(
         "$CLIP_WITH_PACK WHERE clips.title LIKE '%' || :query || '%' " +
             "OR packs.name LIKE '%' || :query || '%' OR packs.talent LIKE '%' || :query || '%' " +
+            "OR clips.talentName LIKE '%' || :query || '%' " +
             "ORDER BY packs.talent COLLATE NOCASE, packs.name COLLATE NOCASE, clips.title COLLATE NOCASE LIMIT 500",
     )
     fun search(query: String): Flow<List<ClipWithPack>>
@@ -66,8 +67,17 @@ interface ClipDao {
     @Query("SELECT * FROM clips WHERE packId = :packId")
     suspend fun getClips(packId: Long): List<Clip>
 
+    @Query("SELECT * FROM clips")
+    suspend fun getAll(): List<Clip>
+
+    @Query(
+        "UPDATE clips SET talentSlug = :slug, talentName = :name, talentImageUrl = :imageUrl, " +
+            "talentManual = :manual WHERE id IN (:ids)",
+    )
+    suspend fun setTalent(ids: List<Long>, slug: String?, name: String?, imageUrl: String?, manual: Boolean)
+
     @Insert
-    suspend fun insertAll(clips: List<Clip>)
+    suspend fun insertAll(clips: List<Clip>): List<Long>
 
     @Query("UPDATE clips SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean)

@@ -23,7 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -56,7 +60,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.ttggg5.holovoice.data.Pack
 import com.ttggg5.holovoice.data.PackWithCount
+import com.ttggg5.holovoice.data.talents.Talent
 import com.ttggg5.holovoice.ui.components.EmptyMessage
+import com.ttggg5.holovoice.ui.components.TalentPickerDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +86,35 @@ fun LibraryScreen(viewModel: LibraryViewModel, onOpenPack: (Long) -> Unit) {
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = { TopAppBar(title = { Text("Voice packs") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Voice packs") },
+                actions = {
+                    var overflow by remember { mutableStateOf(false) }
+                    IconButton(onClick = { overflow = true }, enabled = !importing) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More")
+                    }
+                    DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Match talents automatically") },
+                            leadingIcon = { Icon(Icons.Filled.Face, contentDescription = null) },
+                            onClick = {
+                                overflow = false
+                                viewModel.matchTalents()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Refresh talent list") },
+                            leadingIcon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                            onClick = {
+                                overflow = false
+                                viewModel.refreshTalents()
+                            },
+                        )
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             Box {
@@ -134,6 +168,10 @@ fun LibraryScreen(viewModel: LibraryViewModel, onOpenPack: (Long) -> Unit) {
             },
             onDelete = {
                 viewModel.delete(pack)
+                editing = null
+            },
+            onSetTalent = { talent ->
+                viewModel.setPackTalent(pack, talent)
                 editing = null
             },
         )
@@ -210,10 +248,21 @@ private fun EditPackDialog(
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit,
     onDelete: () -> Unit,
+    onSetTalent: (Talent?) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(pack.name) }
     var talent by rememberSaveable { mutableStateOf(pack.talent) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var pickTalent by remember { mutableStateOf(false) }
+
+    if (pickTalent) {
+        TalentPickerDialog(
+            title = "Talent for all clips",
+            onPick = onSetTalent,
+            onDismiss = { pickTalent = false },
+        )
+        return
+    }
 
     if (confirmDelete) {
         AlertDialog(
@@ -238,6 +287,9 @@ private fun EditPackDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
                 OutlinedTextField(value = talent, onValueChange = { talent = it }, label = { Text("Talent") }, singleLine = true)
+                TextButton(onClick = { pickTalent = true }) {
+                    Text("Set talent picture for all clips…")
+                }
                 TextButton(onClick = { confirmDelete = true }) {
                     Text("Delete pack", color = MaterialTheme.colorScheme.error)
                 }

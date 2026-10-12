@@ -42,6 +42,12 @@ data class Clip(
     val durationMs: Long?,
     val trackNo: Int?,
     val isFavorite: Boolean = false,
+    /** Talent matched from the file name (or picked by the user), with their profile picture. */
+    val talentSlug: String? = null,
+    val talentName: String? = null,
+    val talentImageUrl: String? = null,
+    /** True when the user chose the talent; automatic matching then leaves it alone. */
+    @ColumnInfo(defaultValue = "0") val talentManual: Boolean = false,
 )
 
 /** A clip together with the name/talent/cover of the pack it belongs to. */
@@ -51,6 +57,12 @@ data class ClipWithPack(
     @ColumnInfo(name = "talent") val talent: String,
     @ColumnInfo(name = "coverUri") val coverUri: String?,
 )
+
+/** Picture to show for a clip: the talent's profile picture, else the pack cover. */
+val ClipWithPack.artwork: String? get() = clip.talentImageUrl ?: coverUri
+
+/** Who is speaking: the matched talent, else the pack's talent. */
+val ClipWithPack.speaker: String get() = clip.talentName ?: talent
 
 data class PackWithCount(
     @Embedded val pack: Pack,

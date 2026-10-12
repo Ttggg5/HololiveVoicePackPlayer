@@ -6,6 +6,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.ttggg5.holovoice.data.ClipWithPack
+import com.ttggg5.holovoice.data.artwork
+import com.ttggg5.holovoice.data.speaker
 
 /** Builds a playable item whose media id is the clip id, so queues can be saved and restored by id. */
 @OptIn(UnstableApi::class)
@@ -18,9 +20,9 @@ fun ClipWithPack.toMediaItem(): MediaItem {
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(clip.title)
-                .setArtist(talent)
+                .setArtist(speaker)
                 .setAlbumTitle(packName)
-                .setArtworkUri(coverUri?.let(Uri::parse))
+                .setArtworkUri(artwork?.let(Uri::parse))
                 .setIsPlayable(true)
                 .setIsBrowsable(false)
                 .build(),

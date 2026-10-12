@@ -1,6 +1,10 @@
 package com.ttggg5.holovoice.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -107,8 +111,21 @@ private fun ClipTile(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Column(Modifier.padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    // Profile picture of the talent whose voice this is.
+                    item.clip.talentImageUrl?.let { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = item.clip.talentName,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                        )
+                    }
                     item.clip.trackNo?.let {
                         Text(
                             text = "#$it",
@@ -142,6 +159,7 @@ private fun ClipTile(
                 modifier = Modifier.padding(end = 8.dp),
             )
             val meta = listOfNotNull(
+                item.clip.talentName?.takeIf { it != item.clip.title },
                 if (showPack) "${item.talent} · ${item.packName}" else null,
                 item.clip.durationMs?.let(::formatDuration),
             ).joinToString(" · ")

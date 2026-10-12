@@ -29,7 +29,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.platform.LocalContext
+import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.ClipWithPack
+import com.ttggg5.holovoice.data.artwork
+import com.ttggg5.holovoice.data.speaker
+import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.playback.PlayerController
 
 /** Long-press menu for a clip: play next, add to queue, add to playlist, favorite. */
@@ -42,18 +48,31 @@ fun ClipActionsSheet(
     onDismiss: () -> Unit,
 ) {
     var pickPlaylist by remember { mutableStateOf(false) }
+    var pickTalent by remember { mutableStateOf(false) }
     if (pickPlaylist) {
         AddToPlaylistDialog(listOf(clip.clip.id), onDismiss = onDismiss)
+        return
+    }
+    if (pickTalent) {
+        val container = LocalContext.current.appContainer
+        TalentPickerDialog(
+            title = "Whose voice is this?",
+            onPick = { talent ->
+                container.appScope.launch { container.repository.setClipTalent(listOf(clip.clip.id), talent) }
+                onDismiss()
+            },
+            onDismiss = onDismiss,
+        )
         return
     }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Artwork(clip.coverUri, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), iconSize = 22.dp)
+                Artwork(clip.artwork, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), iconSize = 22.dp)
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(clip.clip.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(
-                        "${clip.talent} · ${clip.packName}",
+                        "${clip.speaker} · ${clip.packName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -70,6 +89,9 @@ fun ClipActionsSheet(
                 onDismiss()
             }
             Action(Icons.AutoMirrored.Filled.PlaylistAdd, "Add to playlist…") { pickPlaylist = true }
+            Action(Icons.Filled.Person, if (clip.clip.talentName == null) "Set talent…" else "Change talent (${clip.clip.talentName})…") {
+                pickTalent = true
+            }
             Action(
                 if (clip.clip.isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 if (clip.clip.isFavorite) "Remove from favorites" else "Add to favorites",

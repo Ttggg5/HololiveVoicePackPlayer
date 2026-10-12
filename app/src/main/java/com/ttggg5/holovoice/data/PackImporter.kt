@@ -6,6 +6,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
+import com.ttggg5.holovoice.data.talents.TalentLinker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -20,6 +21,7 @@ import java.util.zip.ZipInputStream
 class PackImporter(
     private val context: Context,
     private val db: AppDatabase,
+    private val talentLinker: TalentLinker,
 ) {
     /** One directory that holds audio files, before it is written to the database. */
     private data class Candidate(
@@ -121,6 +123,8 @@ class PackImporter(
     }
 
     private suspend fun save(candidates: List<Candidate>): Int {
+        // Offline is fine: clips just stay without a talent until "Match talents" is run.
+        val talents = if (candidates.isEmpty()) emptyList() else runCatching { talentLinker.directory.load() }.getOrDefault(emptyList())
         for (c in candidates) {
             val packId = db.packDao().insert(
                 Pack(
@@ -136,9 +140,21 @@ class PackImporter(
                 val (track, title) = FileNames.parseClip(name)
                 Clip(packId = packId, title = title, fileUri = uri, durationMs = durationOf(uri), trackNo = track)
             }
-            db.clipDao().insertAll(clips)
+            val ids = db.clipDao().insertAll(clips)
+            val inserted = clips.zip(ids) { clip, id -> clip.copy(id = id) }
+            talentLinker.matchClips(inserted, talents)
+            adoptMostCommonTalent(packId)
         }
         return candidates.size
+    }
+
+    /** Gives a pack whose talent couldn't be guessed from its name the talent most of its clips matched. */
+    private suspend fun adoptMostCommonTalent(packId: Long) {
+        val pack = db.packDao().getPack(packId) ?: return
+        if (pack.talent != FileNames.UNKNOWN_TALENT) return
+        val name = db.clipDao().getClips(packId).mapNotNull { it.talentName }
+            .groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: return
+        db.packDao().update(pack.copy(talent = name))
     }
 
     private fun durationOf(uri: String): Long? {

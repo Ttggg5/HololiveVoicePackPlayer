@@ -13,6 +13,11 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Sleep timer**: pause after 5 to 90 minutes or at the end of the current clip. It keeps working when the app is closed.
 - **Resume**: the queue, position, speed, shuffle and repeat are restored after the app is closed. On Android 13+ the system media controls can resume playback.
 - **Background play**: playback continues with the screen off, and you can control it from the notification, lock screen, or headset.
+- **Talent pictures**: the app matches each clip to a talent from the [official talent list](https://hololive.hololivepro.com/talents) and shows that talent's profile picture. The picture appears on the clip tile, in the queue and playlists, on Now Playing, and in the notification.
+  - Name each file after the talent, in Japanese or English (`兎田ぺこら.mp3`, `Usada Pekora.mp3`, `Pekora (2).mp3`). The closest name wins, and matching tolerates full-width characters, katakana/hiragana differences, first names only, and small typos.
+  - If a match is wrong, long-press the clip and choose *Change talent…*, or long-press a pack and choose *Set talent picture for all clips…*.
+  - Library ⋮ menu → *Match talents automatically* re-runs matching. *Refresh talent list* downloads the list again.
+  - The list is cached and refreshed weekly, so an internet connection is only needed the first time.
 - **Favorites and search**: star any clip, and search titles, packs and talents.
 
 ## Importing packs

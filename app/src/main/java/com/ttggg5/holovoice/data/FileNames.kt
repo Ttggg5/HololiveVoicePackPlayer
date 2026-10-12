@@ -10,6 +10,8 @@ object FileNames {
 
     private val TRACK_PREFIX = Regex("""^\s*(?:track\s*)?(\d{1,3})(?:\s*[._\-)\]:]+\s*|\s+|$)(.*)$""", RegexOption.IGNORE_CASE)
 
+    const val UNKNOWN_TALENT = "Unknown"
+
     fun extension(name: String): String = name.substringAfterLast('.', "").lowercase()
 
     fun baseName(name: String): String =
@@ -46,7 +48,7 @@ object FileNames {
         val dash = packName.split(" - ", " – ", " — ").map { it.trim() }
         if (dash.size > 1 && dash[0].isNotEmpty()) return dash[0]
         if (!parentName.isNullOrBlank()) return parentName.trim()
-        return "Unknown"
+        return UNKNOWN_TALENT
     }
 
     /** Picks the most cover-like image from a list of file names, or null. */
