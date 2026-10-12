@@ -23,6 +23,7 @@ class SortingTest {
             fileUri = "file:///$id",
             durationMs = duration,
             trackNo = track,
+            talentSlug = talent?.lowercase(),
             talentName = talent,
             category = category,
             addedAt = added,
@@ -62,5 +63,19 @@ class SortingTest {
         assertEquals(listOf(gura, ao, none), TalentSort.NAME.sorted(listOf(none, ao, gura)))
         assertEquals(listOf(ao, gura, none), TalentSort.CLIPS.sorted(listOf(gura, none, ao)))
         assertEquals(listOf(ao, gura, none), TalentSort.PLAYS.sorted(listOf(none, gura, ao)))
+    }
+
+    @Test
+    fun speakerListsAllTalentsInOrder() {
+        val base = clip(9, "Duet")
+        val duet = base.copy(
+            talents = listOf(
+                ClipTalent(9, "houshou-marine", "Houshou Marine", "m.png", 1),
+                ClipTalent(9, "usada-pekora", "Usada Pekora", "p.png", 0),
+            ),
+        )
+        assertEquals("Usada Pekora & Houshou Marine", duet.speaker)
+        assertEquals(listOf("p.png", "m.png"), duet.talentImages)
+        assertEquals("Pack talent", base.speaker)
     }
 }
