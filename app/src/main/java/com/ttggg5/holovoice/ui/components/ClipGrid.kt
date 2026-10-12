@@ -1,6 +1,21 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.layout.ContentScale
@@ -57,6 +72,7 @@ fun ClipGrid(
     player: PlayerController,
     onToggleFavorite: (ClipWithPack) -> Unit,
     modifier: Modifier = Modifier,
+    showCategory: Boolean = false,
 ) {
     var actionsFor by remember { mutableStateOf<ClipWithPack?>(null) }
     actionsFor?.let { target ->
@@ -77,6 +93,8 @@ fun ClipGrid(
                 isCurrent = playerState.clipId == item.clip.id,
                 isPlaying = playerState.clipId == item.clip.id && playerState.isPlaying,
                 showPack = showPack,
+                showCategory = showCategory,
+                modifier = Modifier.animateItem(),
                 onClick = { player.playFrom(clips, index) },
                 onLongClick = { actionsFor = item },
                 onToggleFavorite = { onToggleFavorite(item) },
@@ -92,23 +110,42 @@ private fun ClipTile(
     isCurrent: Boolean,
     isPlaying: Boolean,
     showPack: Boolean,
+    showCategory: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val colors = if (isCurrent) {
-        CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    } else {
-        CardDefaults.cardColors()
-    }
+    val container by animateColorAsState(
+        if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+        animationSpec = tween(350),
+        label = "tileColor",
+    )
+    val borderColor by animateColorAsState(
+        if (isCurrent) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = tween(350),
+        label = "tileBorder",
+    )
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.94f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "tilePress")
     Card(
-        colors = colors,
-        border = if (isCurrent) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = Modifier
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(2.dp, borderColor),
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .fillMaxWidth()
             .heightIn(min = 104.dp)
             .clip(CardDefaults.shape)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
     ) {
         Column(Modifier.padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
@@ -134,13 +171,8 @@ private fun ClipTile(
                         )
                     }
                 }
-                if (isPlaying) {
-                    Icon(
-                        Icons.Filled.GraphicEq,
-                        contentDescription = "Playing",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                    )
+                AnimatedVisibility(visible = isCurrent, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
+                    EqualizerBars(playing = isPlaying)
                 }
                 IconButton(onClick = onToggleFavorite) {
                     Icon(
@@ -160,6 +192,7 @@ private fun ClipTile(
             )
             val meta = listOfNotNull(
                 item.clip.talentName?.takeIf { it != item.clip.title },
+                if (showCategory) item.clip.category else null,
                 if (showPack) "${item.talent} · ${item.packName}" else null,
                 item.clip.durationMs?.let(::formatDuration),
             ).joinToString(" · ")

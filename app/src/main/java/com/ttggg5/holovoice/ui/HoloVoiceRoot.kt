@@ -1,6 +1,19 @@
 package com.ttggg5.holovoice.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.Alignment
+import androidx.navigation.NavBackStackEntry
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -48,13 +61,20 @@ import com.ttggg5.holovoice.ui.search.SearchScreen
 import com.ttggg5.holovoice.ui.search.SearchViewModel
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    Library("library", "Library", Icons.Filled.LibraryMusic),
+    Library("library", "Topics", Icons.Filled.LibraryMusic),
     Playlists("playlists", "Playlists", Icons.AutoMirrored.Filled.QueueMusic),
     Favorites("favorites", "Favorites", Icons.Filled.Star),
     Search("search", "Search", Icons.Filled.Search),
 }
 
 private const val NOW_PLAYING = "now_playing"
+
+/** Drill-down screens slide in from the end and back out to it. */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.pushIn(): EnterTransition =
+    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(320)) + fadeIn(tween(320))
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.pushOut(): ExitTransition =
+    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeOut(tween(280))
 private const val QUEUE = "queue"
 
 @Composable
@@ -65,14 +85,24 @@ fun HoloVoiceRoot(container: AppContainer) {
     val playerState by container.player.state.collectAsStateWithLifecycle()
     val repository = container.repository
 
+    val topLevel = Tab.entries.any { it.route == route }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Column {
-                if (playerState.clipId != null && route != NOW_PLAYING) {
+                AnimatedVisibility(
+                    visible = playerState.clipId != null && route != NOW_PLAYING,
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit = slideOutVertically { it } + fadeOut(),
+                ) {
                     MiniPlayer(playerState, container.player, onOpen = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } })
                 }
-                if (Tab.entries.any { it.route == route }) {
+                AnimatedVisibility(
+                    visible = topLevel,
+                    enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
+                ) {
                     NavigationBar {
                         Tab.entries.forEach { tab ->
                             NavigationBarItem(
@@ -89,16 +119,27 @@ fun HoloVoiceRoot(container: AppContainer) {
                             )
                         }
                     }
-                } else {
+                }
+                if (!topLevel) {
                     Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
             }
         },
     ) { padding ->
-        NavHost(nav, startDestination = Tab.Library.route, modifier = Modifier.padding(padding)) {
+        NavHost(
+            nav,
+            startDestination = Tab.Library.route,
+            modifier = Modifier.padding(padding),
+            // Tabs crossfade; drill-down screens override these with slides below.
+            enterTransition = { fadeIn(tween(220)) },
+            exitTransition = { fadeOut(tween(180)) },
+            popEnterTransition = { fadeIn(tween(220)) },
+            popExitTransition = { fadeOut(tween(180)) },
+        ) {
             composable(Tab.Library.route) {
                 LibraryScreen(
                     viewModel = viewModel { LibraryViewModel(repository) },
+                    playerState = playerState,
                     onOpenPack = { id -> nav.navigate("pack/$id") },
                 )
             }
@@ -109,7 +150,12 @@ fun HoloVoiceRoot(container: AppContainer) {
                     onOpen = { id -> nav.navigate("playlist/$id") },
                 )
             }
-            composable("playlist/{playlistId}", arguments = listOf(navArgument("playlistId") { type = NavType.LongType })) { entry ->
+            composable("playlist/{playlistId}", arguments = listOf(navArgument("playlistId") { type = NavType.LongType }),
+                enterTransition = { pushIn() },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { pushOut() },
+            ) { entry ->
                 val playlistId = entry.arguments!!.getLong("playlistId")
                 PlaylistScreen(
                     viewModel = viewModel { PlaylistViewModel(playlistId, repository) },
@@ -117,15 +163,27 @@ fun HoloVoiceRoot(container: AppContainer) {
                     onBack = { nav.popBackStack() },
                 )
             }
-            composable(NOW_PLAYING) {
+            composable(
+                NOW_PLAYING,
+                enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, tween(380)) },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, tween(320)) },
+            ) {
                 NowPlayingScreen(
                     viewModel = viewModel { NowPlayingViewModel(repository, container.player) },
                     player = container.player,
                     onBack = { nav.popBackStack() },
                     onOpenQueue = { nav.navigate(QUEUE) { launchSingleTop = true } },
+                    onOpenTopic = { id -> nav.navigate("pack/$id") },
                 )
             }
-            composable(QUEUE) {
+            composable(QUEUE,
+                enterTransition = { pushIn() },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { pushOut() },
+            ) {
                 QueueScreen(player = container.player, onBack = { nav.popBackStack() })
             }
             composable(Tab.Favorites.route) {
@@ -134,7 +192,12 @@ fun HoloVoiceRoot(container: AppContainer) {
             composable(Tab.Search.route) {
                 SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
             }
-            composable("pack/{packId}", arguments = listOf(navArgument("packId") { type = NavType.LongType })) { entry ->
+            composable("pack/{packId}", arguments = listOf(navArgument("packId") { type = NavType.LongType }),
+                enterTransition = { pushIn() },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { pushOut() },
+            ) { entry ->
                 val packId = entry.arguments!!.getLong("packId")
                 PackScreen(
                     viewModel = viewModel { PackViewModel(packId, repository) },

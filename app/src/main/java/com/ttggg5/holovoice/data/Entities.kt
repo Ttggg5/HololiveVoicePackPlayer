@@ -48,6 +48,8 @@ data class Clip(
     val talentImageUrl: String? = null,
     /** True when the user chose the talent; automatic matching then leaves it alone. */
     @ColumnInfo(defaultValue = "0") val talentManual: Boolean = false,
+    /** Sub-folder path inside the topic ("Morning", "Extra / Short"); null for files in the topic's root. */
+    val category: String? = null,
 )
 
 /** A clip together with the name/talent/cover of the pack it belongs to. */
@@ -67,6 +69,7 @@ val ClipWithPack.speaker: String get() = clip.talentName ?: talent
 data class PackWithCount(
     @Embedded val pack: Pack,
     @ColumnInfo(name = "clipCount") val clipCount: Int,
+    @ColumnInfo(name = "categoryCount") val categoryCount: Int,
 )
 
 @Entity(tableName = "playlists")

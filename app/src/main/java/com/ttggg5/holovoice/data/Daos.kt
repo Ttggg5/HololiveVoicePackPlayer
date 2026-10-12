@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.Flow
 interface PackDao {
     @Query(
         """
-        SELECT packs.*, (SELECT COUNT(*) FROM clips WHERE clips.packId = packs.id) AS clipCount
+        SELECT packs.*,
+            (SELECT COUNT(*) FROM clips WHERE clips.packId = packs.id) AS clipCount,
+            (SELECT COUNT(DISTINCT category) FROM clips WHERE clips.packId = packs.id) AS categoryCount
         FROM packs ORDER BY talent COLLATE NOCASE, name COLLATE NOCASE
         """,
     )
@@ -22,6 +24,15 @@ interface PackDao {
 
     @Query("SELECT * FROM packs WHERE id = :id")
     suspend fun getPack(id: Long): Pack?
+
+    @Query("SELECT * FROM packs WHERE sourceUri = :sourceUri ORDER BY id")
+    suspend fun getPacksBySource(sourceUri: String): List<Pack>
+
+    @Query("SELECT DISTINCT sourceUri FROM packs WHERE source = 'FOLDER'")
+    suspend fun folderSources(): List<String>
+
+    @Query("SELECT COUNT(*) FROM packs WHERE sourceUri LIKE :pattern")
+    suspend fun countWithSourceLike(pattern: String): Int
 
     @Query("SELECT COUNT(*) FROM packs WHERE sourceUri = :sourceUri")
     suspend fun countWithSource(sourceUri: String): Int
@@ -44,8 +55,23 @@ private const val CLIP_WITH_PACK =
 
 @Dao
 interface ClipDao {
-    @Query("$CLIP_WITH_PACK WHERE clips.packId = :packId ORDER BY clips.trackNo IS NULL, clips.trackNo, clips.title COLLATE NOCASE")
+    @Query(
+        "$CLIP_WITH_PACK WHERE clips.packId = :packId ORDER BY clips.category IS NOT NULL, " +
+            "clips.category COLLATE NOCASE, clips.trackNo IS NULL, clips.trackNo, clips.title COLLATE NOCASE",
+    )
     fun observeClips(packId: Long): Flow<List<ClipWithPack>>
+
+    @Query("SELECT DISTINCT category FROM clips WHERE packId = :packId AND category IS NOT NULL ORDER BY category COLLATE NOCASE")
+    fun observeCategories(packId: Long): Flow<List<String>>
+
+    @Query("SELECT clips.* FROM clips INNER JOIN packs ON packs.id = clips.packId WHERE packs.sourceUri = :sourceUri")
+    suspend fun getClipsBySource(sourceUri: String): List<Clip>
+
+    @Query("UPDATE clips SET packId = :packId, category = :category, trackNo = :trackNo WHERE id = :id")
+    suspend fun updatePlacement(id: Long, packId: Long, category: String?, trackNo: Int?)
+
+    @Query("DELETE FROM clips WHERE id IN (:ids)")
+    suspend fun deleteClips(ids: List<Long>)
 
     @Query("$CLIP_WITH_PACK WHERE clips.isFavorite = 1 ORDER BY packs.talent COLLATE NOCASE, packs.name COLLATE NOCASE, clips.title COLLATE NOCASE")
     fun observeFavorites(): Flow<List<ClipWithPack>>

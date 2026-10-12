@@ -61,12 +61,20 @@ import coil.compose.AsyncImage
 import com.ttggg5.holovoice.data.Pack
 import com.ttggg5.holovoice.data.PackWithCount
 import com.ttggg5.holovoice.data.talents.Talent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Surface
+import com.ttggg5.holovoice.playback.PlayerState
 import com.ttggg5.holovoice.ui.components.EmptyMessage
+import com.ttggg5.holovoice.ui.components.EqualizerBars
 import com.ttggg5.holovoice.ui.components.TalentPickerDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(viewModel: LibraryViewModel, onOpenPack: (Long) -> Unit) {
+fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenPack: (Long) -> Unit) {
     val packs by viewModel.packs.collectAsStateWithLifecycle()
     val importing by viewModel.importing.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -88,7 +96,7 @@ fun LibraryScreen(viewModel: LibraryViewModel, onOpenPack: (Long) -> Unit) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("Voice packs") },
+                title = { Text("Topics") },
                 actions = {
                     var overflow by remember { mutableStateOf(false) }
                     IconButton(onClick = { overflow = true }, enabled = !importing) {
@@ -149,11 +157,12 @@ fun LibraryScreen(viewModel: LibraryViewModel, onOpenPack: (Long) -> Unit) {
             when {
                 packs == null -> Unit
                 packs!!.isEmpty() -> EmptyMessage(
-                    title = "No voice packs yet",
+                    title = "No topics yet",
                     body = "Tap Import and choose a folder or a .zip containing your voice pack audio files " +
-                        "(mp3, m4a, ogg, opus, wav, flac). Each folder with audio becomes a pack.",
+                        "(mp3, m4a, ogg, opus, wav, flac). The folder becomes a topic and its sub-folders become " +
+                        "categories. Imported folders stay in sync automatically.",
                 )
-                else -> PackGrid(packs!!, onOpenPack, onLongPress = { editing = it })
+                else -> PackGrid(packs!!, playerState, onOpenPack, onLongPress = { editing = it })
             }
         }
     }
@@ -180,7 +189,7 @@ fun LibraryScreen(viewModel: LibraryViewModel, onOpenPack: (Long) -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PackGrid(packs: List<PackWithCount>, onOpen: (Long) -> Unit, onLongPress: (Pack) -> Unit) {
+private fun PackGrid(packs: List<PackWithCount>, playerState: PlayerState, onOpen: (Long) -> Unit, onLongPress: (Pack) -> Unit) {
     val byTalent = packs.groupBy { it.pack.talent }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 150.dp),
@@ -191,15 +200,17 @@ private fun PackGrid(packs: List<PackWithCount>, onOpen: (Long) -> Unit, onLongP
         byTalent.forEach { (talent, talentPacks) ->
             item(key = "header-$talent", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
+                    modifier = Modifier.animateItem().padding(top = 12.dp, start = 4.dp),
+                    text =
                     talent,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 12.dp, start = 4.dp),
                 )
             }
             items(talentPacks, key = { it.pack.id }) { item ->
+                val playingHere = playerState.packId == item.pack.id
                 Card(
-                    Modifier.fillMaxWidth().combinedClickable(
+                    Modifier.animateItem().fillMaxWidth().combinedClickable(
                         onClick = { onOpen(item.pack.id) },
                         onLongClick = { onLongPress(item.pack) },
                     ),
@@ -222,6 +233,21 @@ private fun PackGrid(packs: List<PackWithCount>, onOpen: (Long) -> Unit, onLongP
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
+                        // Badge on the topic that is playing right now.
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = playingHere,
+                            enter = scaleIn() + fadeIn(),
+                            exit = scaleOut() + fadeOut(),
+                            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                        ) {
+                            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
+                                EqualizerBars(
+                                    playing = playerState.isPlaying,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.padding(6.dp),
+                                )
+                            }
+                        }
                     }
                     Column(Modifier.padding(10.dp)) {
                         Text(
@@ -231,7 +257,8 @@ private fun PackGrid(packs: List<PackWithCount>, onOpen: (Long) -> Unit, onLongP
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            "${item.clipCount} clips",
+                            "${item.clipCount} clips" +
+                                if (item.categoryCount > 0) " · ${item.categoryCount} categories" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -270,7 +297,7 @@ private fun EditPackDialog(
             title = { Text("Delete ${pack.name}?") },
             text = {
                 Text(
-                    "The pack is removed from the library. Files imported from a ZIP are deleted; " +
+                    "The topic is removed from the library. Files imported from a ZIP are deleted; " +
                         "files in a picked folder are left untouched.",
                 )
             },
@@ -282,7 +309,7 @@ private fun EditPackDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit pack") },
+        title = { Text("Edit topic") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
@@ -291,7 +318,7 @@ private fun EditPackDialog(
                     Text("Set talent picture for all clips…")
                 }
                 TextButton(onClick = { confirmDelete = true }) {
-                    Text("Delete pack", color = MaterialTheme.colorScheme.error)
+                    Text("Delete topic", color = MaterialTheme.colorScheme.error)
                 }
             }
         },

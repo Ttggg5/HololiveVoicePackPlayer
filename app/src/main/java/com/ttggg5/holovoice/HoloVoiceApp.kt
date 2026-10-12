@@ -2,6 +2,8 @@ package com.ttggg5.holovoice
 
 import android.app.Application
 import android.content.Context
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import com.ttggg5.holovoice.data.AppDatabase
 import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.PackRepository
@@ -12,7 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-class HoloVoiceApp : Application() {
+class HoloVoiceApp : Application(), ImageLoaderFactory {
     lateinit var container: AppContainer
         private set
 
@@ -20,6 +22,9 @@ class HoloVoiceApp : Application() {
         super.onCreate()
         container = AppContainer(this)
     }
+
+    /** Every image (covers, talent pictures) fades in instead of popping. */
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this).crossfade(true).build()
 }
 
 /** Hand-rolled dependency container shared by the whole app. */

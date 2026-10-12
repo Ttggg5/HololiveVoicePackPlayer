@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ttggg5.holovoice.data.Pack
+import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.PackRepository
 import com.ttggg5.holovoice.data.PackWithCount
 import com.ttggg5.holovoice.data.talents.Talent
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -22,23 +25,27 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
         repository.packs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _importing = MutableStateFlow(false)
-    val importing: StateFlow<Boolean> = _importing.asStateFlow()
+
+    /** Busy with an import, a talent match, or the automatic folder sync. */
+    val importing: StateFlow<Boolean> = combine(_importing, repository.syncing) { a, b -> a || b }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _messages = Channel<String>(Channel.BUFFERED)
-    val messages: Flow<String> = _messages.receiveAsFlow()
+    val messages: Flow<String> = merge(_messages.receiveAsFlow(), repository.syncMessages)
 
     fun importFolder(uri: Uri) = runImport { repository.importFolder(uri) }
 
     fun importZip(uri: Uri) = runImport { repository.importZip(uri) }
 
-    private fun runImport(block: suspend () -> Int) {
+    private fun runImport(block: suspend () -> PackImporter.SyncResult) {
         viewModelScope.launch {
             _importing.value = true
             val message = try {
-                when (val count = block()) {
-                    0 -> "No audio files found"
-                    1 -> "Imported 1 pack"
-                    else -> "Imported $count packs"
+                val r = block()
+                when {
+                    r.created -> "Imported \"${r.topicName}\" (${r.added} clips)"
+                    r.changed -> "\"${r.topicName}\" is already in your library — updated: ${r.added} new, ${r.removed} removed"
+                    else -> "No new audio files in \"${r.topicName}\""
                 }
             } catch (e: Exception) {
                 "Import failed: ${e.message ?: e::class.simpleName}"

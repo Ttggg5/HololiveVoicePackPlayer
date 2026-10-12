@@ -34,9 +34,15 @@ data class QueueItem(
 data class PlayerState(
     val clipId: Long? = null,
     val title: String = "",
+    /** Who is speaking (matched talent, else the topic's talent). */
     val subtitle: String = "",
+    /** Topic (pack) name. */
     val album: String = "",
     val artworkUri: Uri? = null,
+    val packId: Long? = null,
+    val category: String? = null,
+    val talentImageUrl: String? = null,
+    val coverUri: String? = null,
     val isPlaying: Boolean = false,
     val hasNext: Boolean = false,
     val hasPrevious: Boolean = false,
@@ -254,6 +260,10 @@ class PlayerController(context: Context) {
             subtitle = metadata?.artist?.toString().orEmpty(),
             album = metadata?.albumTitle?.toString().orEmpty(),
             artworkUri = metadata?.artworkUri,
+            packId = metadata?.extras?.getLong(ItemExtras.PACK_ID, -1L)?.takeIf { it >= 0 },
+            category = metadata?.extras?.getString(ItemExtras.CATEGORY),
+            talentImageUrl = metadata?.extras?.getString(ItemExtras.TALENT_IMAGE),
+            coverUri = metadata?.extras?.getString(ItemExtras.COVER),
             isPlaying = player.isPlaying,
             hasNext = player.hasNextMediaItem(),
             hasPrevious = player.hasPreviousMediaItem(),

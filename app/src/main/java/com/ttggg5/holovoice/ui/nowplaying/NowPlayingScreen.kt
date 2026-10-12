@@ -62,6 +62,28 @@ import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
 import com.ttggg5.holovoice.ui.components.AddToPlaylistDialog
 import com.ttggg5.holovoice.ui.components.Artwork
+import com.ttggg5.holovoice.ui.components.PlayPauseIcon
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AssistChip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import com.ttggg5.holovoice.ui.components.formatDuration
 import androidx.compose.foundation.clickable
 import kotlinx.coroutines.delay
@@ -76,6 +98,7 @@ fun NowPlayingScreen(
     player: PlayerController,
     onBack: () -> Unit,
     onOpenQueue: () -> Unit,
+    onOpenTopic: (Long) -> Unit,
 ) {
     val state by player.state.collectAsStateWithLifecycle()
     val clip by viewModel.currentClip.collectAsStateWithLifecycle()
@@ -113,42 +136,121 @@ fun NowPlayingScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 8.dp),
         ) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Artwork(
-                    state.artworkUri,
-                    Modifier.widthIn(max = 420.dp).fillMaxWidth().aspectRatio(1f, matchHeightConstraintsFirst = true)
-                        .clip(RoundedCornerShape(16.dp)),
-                    iconSize = 96.dp,
-                )
+            // Topic cover, with the talent's picture as a badge; slides when the clip changes,
+            // and breathes down slightly while paused.
+            val artScale by animateFloatAsState(
+                targetValue = if (state.isPlaying) 1f else 0.88f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                label = "artScale",
+            )
+            AnimatedContent(
+                targetState = state,
+                contentKey = { it.clipId },
+                transitionSpec = {
+                    (slideInHorizontally { it / 3 } + fadeIn(tween(350))) togetherWith
+                        (slideOutHorizontally { -it / 3 } + fadeOut(tween(250)))
+                },
+                label = "nowPlayingArt",
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            ) { s ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier
+                            .widthIn(max = 420.dp)
+                            .fillMaxWidth()
+                            .aspectRatio(1f, matchHeightConstraintsFirst = true)
+                            .graphicsLayer {
+                                scaleX = artScale
+                                scaleY = artScale
+                            },
+                    ) {
+                        Artwork(
+                            s.coverUri ?: s.talentImageUrl ?: s.artworkUri,
+                            Modifier.fillMaxSize().padding(bottom = 28.dp).clip(RoundedCornerShape(20.dp)),
+                            iconSize = 96.dp,
+                        )
+                        if (s.talentImageUrl != null && s.coverUri != null) {
+                            Artwork(
+                                s.talentImageUrl,
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .size(72.dp)
+                                    .shadow(8.dp, CircleShape)
+                                    .clip(CircleShape)
+                                    .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                                iconSize = 32.dp,
+                            )
+                        }
+                    }
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
                 IconButton(onClick = { sheet = Sheet.Playlist }, enabled = clip != null) {
                     Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to playlist")
                 }
-                Column(Modifier.weight(1f).padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        state.title,
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        listOf(state.subtitle, state.album).filter { it.isNotEmpty() }.joinToString(" · "),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                AnimatedContent(
+                    targetState = state,
+                    contentKey = { it.clipId },
+                    transitionSpec = { (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut()) },
+                    label = "nowPlayingTitle",
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                ) { s ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            s.title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            modifier = Modifier.padding(top = 6.dp),
+                        ) {
+                            if (s.subtitle.isNotEmpty()) {
+                                AssistChip(
+                                    onClick = {},
+                                    label = { Text(s.subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    leadingIcon = {
+                                        if (s.talentImageUrl != null) {
+                                            Artwork(s.talentImageUrl, Modifier.size(20.dp).clip(CircleShape), iconSize = 12.dp)
+                                        } else {
+                                            Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        }
+                                    },
+                                    modifier = Modifier.widthIn(max = 180.dp),
+                                )
+                            }
+                            if (s.album.isNotEmpty()) {
+                                AssistChip(
+                                    onClick = { s.packId?.let(onOpenTopic) },
+                                    label = {
+                                        Text(
+                                            listOfNotNull(s.album, s.category).joinToString(" › "),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    },
+                                    leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                    modifier = Modifier.widthIn(max = 200.dp),
+                                )
+                            }
+                        }
+                    }
                 }
                 val favorite = clip?.clip?.isFavorite == true
                 IconButton(onClick = { clip?.let(viewModel::toggleFavorite) }, enabled = clip != null) {
-                    Icon(
-                        if (favorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                        contentDescription = if (favorite) "Remove favorite" else "Add favorite",
-                        tint = if (favorite) MaterialTheme.colorScheme.secondary else LocalContentColor.current,
-                    )
+                    AnimatedContent(
+                        targetState = favorite,
+                        transitionSpec = { scaleIn(initialScale = 0.4f) togetherWith scaleOut(targetScale = 0.4f) },
+                        label = "favorite",
+                    ) { fav ->
+                        Icon(
+                            if (fav) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            contentDescription = if (fav) "Remove favorite" else "Add favorite",
+                            tint = if (fav) MaterialTheme.colorScheme.secondary else LocalContentColor.current,
+                        )
+                    }
                 }
             }
             SeekBar(state, player)
@@ -246,11 +348,7 @@ private fun Transport(state: PlayerState, player: PlayerController) {
             Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", modifier = Modifier.size(36.dp))
         }
         FilledIconButton(onClick = player::togglePlayPause, modifier = Modifier.size(72.dp)) {
-            Icon(
-                if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (state.isPlaying) "Pause" else "Play",
-                modifier = Modifier.size(40.dp),
-            )
+            PlayPauseIcon(state.isPlaying, Modifier.size(40.dp))
         }
         IconButton(onClick = player::next, enabled = state.hasNext, modifier = Modifier.size(56.dp)) {
             Icon(Icons.Filled.SkipNext, contentDescription = "Next", modifier = Modifier.size(36.dp))

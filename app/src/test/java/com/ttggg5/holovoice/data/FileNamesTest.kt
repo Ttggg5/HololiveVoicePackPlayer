@@ -60,4 +60,26 @@ class FileNamesTest {
             dir.deleteRecursively()
         }
     }
+
+    @Test
+    fun categoryOf() {
+        assertNull(FileNames.categoryOf(emptyList()))
+        assertEquals("Morning", FileNames.categoryOf(listOf("Morning")))
+        assertEquals("Extra / Short", FileNames.categoryOf(listOf("Extra", " Short ")))
+    }
+
+    @Test
+    fun stripCommonRoot() {
+        assertEquals(
+            listOf(listOf("Morning"), listOf("Night"), emptyList()),
+            FileNames.stripCommonRoot(listOf(listOf("Pack", "Morning"), listOf("Pack", "Night"), listOf("Pack"))),
+        )
+        assertEquals(
+            listOf(emptyList<String>(), emptyList()),
+            FileNames.stripCommonRoot(listOf(listOf("Pack", "Inner"), listOf("Pack", "Inner"))),
+        )
+        // Files at the root mean there is no wrapper to strip.
+        val mixed = listOf(listOf("Morning"), emptyList())
+        assertEquals(mixed, FileNames.stripCommonRoot(mixed))
+    }
 }

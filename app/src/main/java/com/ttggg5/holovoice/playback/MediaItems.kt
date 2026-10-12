@@ -1,6 +1,7 @@
 package com.ttggg5.holovoice.playback
 
 import android.net.Uri
+import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.MediaItem
@@ -22,12 +23,29 @@ fun ClipWithPack.toMediaItem(): MediaItem {
                 .setTitle(clip.title)
                 .setArtist(speaker)
                 .setAlbumTitle(packName)
+                .setSubtitle(clip.category)
                 .setArtworkUri(artwork?.let(Uri::parse))
+                .setExtras(
+                    Bundle().apply {
+                        putLong(ItemExtras.PACK_ID, clip.packId)
+                        putString(ItemExtras.TALENT_IMAGE, clip.talentImageUrl)
+                        putString(ItemExtras.COVER, coverUri)
+                        putString(ItemExtras.CATEGORY, clip.category)
+                    },
+                )
                 .setIsPlayable(true)
                 .setIsBrowsable(false)
                 .build(),
         )
         .build()
+}
+
+/** Keys of [MediaMetadata.extras] that tell the UI which topic and talent an item belongs to. */
+object ItemExtras {
+    const val PACK_ID = "packId"
+    const val TALENT_IMAGE = "talentImage"
+    const val COVER = "cover"
+    const val CATEGORY = "category"
 }
 
 /** Custom session command and extras shared by [PlaybackService] and [PlayerController]. */

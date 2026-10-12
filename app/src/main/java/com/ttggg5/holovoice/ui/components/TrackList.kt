@@ -144,13 +144,8 @@ fun <T> TrackList(
                                     )
                                 }
                             }
-                            if (data.playing) {
-                                Icon(
-                                    Icons.Filled.GraphicEq,
-                                    contentDescription = "Playing",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
-                                )
+                            if (data.highlighted) {
+                                EqualizerBars(playing = data.playing)
                             }
                             if (onMove != null) {
                                 IconButton(

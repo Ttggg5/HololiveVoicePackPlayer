@@ -56,6 +56,22 @@ object FileNames {
         imageNames.firstOrNull { name -> COVER_HINTS.any { baseName(name).lowercase().contains(it) } }
             ?: imageNames.minOrNull()
 
+    /** Category name for a file inside the given sub-folders of a topic: "A / B", or null at the root. */
+    fun categoryOf(dirs: List<String>): String? =
+        dirs.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(" / ").ifEmpty { null }
+
+    /**
+     * Removes wrapping folders that every path shares (e.g. a ZIP whose content is all inside "Pack/"),
+     * so the remaining folders are the real categories. Each path is a list of directory names.
+     */
+    fun stripCommonRoot(paths: List<List<String>>): List<List<String>> {
+        var result = paths
+        while (result.isNotEmpty() && result.all { it.isNotEmpty() } && result.map { it.first() }.toSet().size == 1) {
+            result = result.map { it.drop(1) }
+        }
+        return result
+    }
+
     /** Resolves a ZIP entry inside [destDir], rejecting entries that would escape it (zip slip). */
     fun safeResolve(destDir: File, entryName: String): File? {
         val root = destDir.canonicalFile

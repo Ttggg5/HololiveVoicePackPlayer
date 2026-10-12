@@ -15,60 +15,67 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 
 /**
- * Scans user-picked folders and ZIP archives for audio and turns every directory
- * that directly contains audio files into one [Pack].
+ * Turns a user-picked folder or ZIP into one topic ([Pack]). Audio in sub-folders becomes
+ * categories of that topic. Folders are synced rather than re-imported: running the scan
+ * again adds new files, removes deleted ones and keeps existing clips (favorites, playlists,
+ * talent picks) untouched.
  */
 class PackImporter(
     private val context: Context,
     private val db: AppDatabase,
     private val talentLinker: TalentLinker,
 ) {
-    /** One directory that holds audio files, before it is written to the database. */
-    private data class Candidate(
-        val name: String,
-        val parentName: String?,
-        val audio: List<Pair<String, String>>, // file name -> uri
-        val images: List<Pair<String, String>>, // file name -> uri
-        val sourceUri: String,
-        val source: PackSource,
-    )
+    /** A file found by a scan, with the sub-folders (relative to the topic root) it sits in. */
+    private data class ScannedFile(val name: String, val uri: String, val dirs: List<String>)
+
+    /** What a sync changed. */
+    data class SyncResult(val topicName: String, val added: Int, val removed: Int, val created: Boolean) {
+        val changed: Boolean get() = added > 0 || removed > 0 || created
+    }
 
     val packsDir: File get() = File(context.filesDir, "packs")
 
-    /** Imports a folder picked with ACTION_OPEN_DOCUMENT_TREE. Returns the number of packs created. */
-    suspend fun importFolder(treeUri: Uri): Int = withContext(Dispatchers.IO) {
+    /**
+     * Imports a folder picked with ACTION_OPEN_DOCUMENT_TREE. Picking a folder that is already
+     * in the library updates that topic instead of creating a duplicate.
+     */
+    suspend fun importFolder(treeUri: Uri): SyncResult = withContext(Dispatchers.IO) {
         context.contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        val root = DocumentFile.fromTreeUri(context, treeUri) ?: error("Cannot open folder")
-        val candidates = mutableListOf<Candidate>()
-        walkTree(root, parentName = null, treeUri = treeUri.toString(), out = candidates)
-        if (candidates.isEmpty()) {
+        val result = syncFolder(treeUri.toString()) ?: error("Cannot read folder")
+        if (!result.created && db.packDao().countWithSource(treeUri.toString()) == 0) {
             releaseTreeIfUnused(treeUri.toString())
         }
-        save(candidates)
+        result
     }
 
-    private fun walkTree(dir: DocumentFile, parentName: String?, treeUri: String, out: MutableList<Candidate>) {
-        val audio = mutableListOf<Pair<String, String>>()
-        val images = mutableListOf<Pair<String, String>>()
-        val subDirs = mutableListOf<DocumentFile>()
+    /**
+     * Rescans an imported folder. Returns null, changing nothing, when the folder can't be read
+     * (permission revoked, SD card removed), so a temporary problem never empties the library.
+     */
+    suspend fun syncFolder(treeUri: String): SyncResult? = withContext(Dispatchers.IO) {
+        val root = runCatching { DocumentFile.fromTreeUri(context, Uri.parse(treeUri)) }.getOrNull()
+        if (root == null || !root.isDirectory || !root.canRead()) return@withContext null
+        val audio = mutableListOf<ScannedFile>()
+        val images = mutableListOf<ScannedFile>()
+        val walked = runCatching { walkTree(root, emptyList(), audio, images) }.isSuccess
+        if (!walked) return@withContext null
+        applyScan(treeUri, PackSource.FOLDER, root.name ?: "Voice pack", audio, images)
+    }
+
+    private fun walkTree(dir: DocumentFile, dirs: List<String>, audio: MutableList<ScannedFile>, images: MutableList<ScannedFile>) {
         for (file in dir.listFiles()) {
             val name = file.name ?: continue
             if (FileNames.isJunk(name)) continue
             when {
-                file.isDirectory -> subDirs += file
-                FileNames.isAudio(name) -> audio += name to file.uri.toString()
-                FileNames.isImage(name) -> images += name to file.uri.toString()
+                file.isDirectory -> walkTree(file, dirs + name, audio, images)
+                FileNames.isAudio(name) -> audio += ScannedFile(name, file.uri.toString(), dirs)
+                FileNames.isImage(name) -> images += ScannedFile(name, file.uri.toString(), dirs)
             }
         }
-        val dirName = dir.name ?: "Voice pack"
-        if (audio.isNotEmpty()) {
-            out += Candidate(dirName, parentName, audio, images, treeUri, PackSource.FOLDER)
-        }
-        for (sub in subDirs) walkTree(sub, dirName, treeUri, out)
     }
 
     /** Imports a ZIP picked with ACTION_OPEN_DOCUMENT by extracting it into app storage. */
-    suspend fun importZip(zipUri: Uri): Int = withContext(Dispatchers.IO) {
+    suspend fun importZip(zipUri: Uri): SyncResult = withContext(Dispatchers.IO) {
         val zipName = displayName(zipUri)?.let(FileNames::baseName) ?: "Voice pack"
         val dest = File(packsDir, UUID.randomUUID().toString())
         try {
@@ -79,29 +86,107 @@ class PackImporter(
                 dest.deleteRecursively()
                 extract(zipUri, dest, Charset.forName("MS932"))
             }
-            val candidates = extracted
-                .groupBy { it.parentFile!! }
-                .mapNotNull { (dir, files) ->
-                    val audio = files.filter { FileNames.isAudio(it.name) }
-                    if (audio.isEmpty()) return@mapNotNull null
-                    val images = files.filter { FileNames.isImage(it.name) }
-                        .ifEmpty { extracted.filter { it.parentFile == dir.parentFile && FileNames.isImage(it.name) } }
-                    val isRoot = dir == dest
-                    Candidate(
-                        name = if (isRoot) zipName else dir.name,
-                        parentName = if (isRoot || dir.parentFile == dest) zipName else dir.parentFile?.name,
-                        audio = audio.map { it.name to Uri.fromFile(it).toString() },
-                        images = images.map { it.name to Uri.fromFile(it).toString() },
-                        sourceUri = dir.path,
-                        source = PackSource.ZIP,
-                    )
-                }
-            if (candidates.isEmpty()) dest.deleteRecursively()
-            save(candidates)
+            val rootPath = dest.canonicalFile
+            val relativeDirs = extracted.map { file ->
+                file.parentFile!!.canonicalFile.relativeTo(rootPath).path.split(File.separatorChar).filter { it.isNotEmpty() }
+            }
+            val dirs = FileNames.stripCommonRoot(relativeDirs)
+            val scanned = extracted.zip(dirs) { file, d -> ScannedFile(file.name, Uri.fromFile(file).toString(), d) }
+            val audio = scanned.filter { FileNames.isAudio(it.name) }
+            if (audio.isEmpty()) {
+                dest.deleteRecursively()
+                return@withContext SyncResult(zipName, 0, 0, created = false)
+            }
+            applyScan(dest.path, PackSource.ZIP, zipName, audio, scanned.filter { FileNames.isImage(it.name) })
         } catch (e: Exception) {
             dest.deleteRecursively()
             throw e
         }
+    }
+
+    /** Writes a scan result into the single topic that belongs to [sourceUri]. */
+    private suspend fun applyScan(
+        sourceUri: String,
+        source: PackSource,
+        rootName: String,
+        audio: List<ScannedFile>,
+        images: List<ScannedFile>,
+    ): SyncResult {
+        val packDao = db.packDao()
+        val clipDao = db.clipDao()
+        val existingPacks = packDao.getPacksBySource(sourceUri)
+        val existingClips = clipDao.getClipsBySource(sourceUri)
+        if (audio.isEmpty() && existingPacks.isEmpty()) return SyncResult(rootName, 0, 0, created = false)
+
+        val cover = pickCover(images)
+        val primary = existingPacks.firstOrNull()
+        val packId: Long
+        val topicName: String
+        if (primary == null) {
+            topicName = rootName
+            packId = packDao.insert(
+                Pack(
+                    name = rootName,
+                    talent = FileNames.guessTalent(rootName, null),
+                    coverUri = cover,
+                    sourceUri = sourceUri,
+                    source = source,
+                ),
+            )
+        } else {
+            // Libraries from before topics had one pack per sub-folder; the merged topic takes the folder's name.
+            topicName = if (existingPacks.size > 1) rootName else primary.name
+            packId = primary.id
+            val updated = primary.copy(name = topicName, coverUri = cover ?: primary.coverUri)
+            if (updated != primary) packDao.update(updated)
+        }
+
+        val byUri = existingClips.associateBy { it.fileUri }
+        val kept = HashSet<Long>()
+        val newClips = mutableListOf<Clip>()
+        for (file in audio) {
+            val (track, title) = FileNames.parseClip(file.name)
+            val category = FileNames.categoryOf(file.dirs)
+            val old = byUri[file.uri]
+            if (old != null) {
+                kept += old.id
+                if (old.packId != packId || old.category != category || old.trackNo != track) {
+                    clipDao.updatePlacement(old.id, packId, category, track)
+                }
+            } else {
+                newClips += Clip(
+                    packId = packId,
+                    title = title,
+                    fileUri = file.uri,
+                    durationMs = durationOf(file.uri),
+                    trackNo = track,
+                    category = category,
+                )
+            }
+        }
+        val removed = existingClips.map { it.id }.filterNot { it in kept }
+        removed.chunked(900).forEach { clipDao.deleteClips(it) }
+        existingPacks.drop(1).forEach { packDao.delete(it.id) }
+
+        if (newClips.isNotEmpty()) {
+            val ids = clipDao.insertAll(newClips)
+            // Offline is fine: clips just stay without a talent until "Match talents" is run.
+            val talents = runCatching { talentLinker.directory.load() }.getOrDefault(emptyList())
+            talentLinker.matchClips(newClips.zip(ids) { clip, id -> clip.copy(id = id) }, talents)
+        }
+        if (audio.isEmpty()) {
+            packDao.delete(packId)
+        } else {
+            adoptMostCommonTalent(packId)
+        }
+        return SyncResult(topicName, added = newClips.size, removed = removed.size, created = primary == null)
+    }
+
+    /** Prefers a cover-like image in the topic's root, then in any category. */
+    private fun pickCover(images: List<ScannedFile>): String? {
+        val pool = images.filter { it.dirs.isEmpty() }.ifEmpty { images }
+        val name = FileNames.pickCover(pool.map { it.name }) ?: return null
+        return pool.first { it.name == name }.uri
     }
 
     private fun extract(zipUri: Uri, dest: File, charset: Charset): List<File> {
@@ -120,32 +205,6 @@ class PackImporter(
             }
         }
         return files
-    }
-
-    private suspend fun save(candidates: List<Candidate>): Int {
-        // Offline is fine: clips just stay without a talent until "Match talents" is run.
-        val talents = if (candidates.isEmpty()) emptyList() else runCatching { talentLinker.directory.load() }.getOrDefault(emptyList())
-        for (c in candidates) {
-            val packId = db.packDao().insert(
-                Pack(
-                    name = c.name,
-                    talent = FileNames.guessTalent(c.name, c.parentName),
-                    coverUri = FileNames.pickCover(c.images.map { it.first })
-                        ?.let { cover -> c.images.first { it.first == cover }.second },
-                    sourceUri = c.sourceUri,
-                    source = c.source,
-                ),
-            )
-            val clips = c.audio.map { (name, uri) ->
-                val (track, title) = FileNames.parseClip(name)
-                Clip(packId = packId, title = title, fileUri = uri, durationMs = durationOf(uri), trackNo = track)
-            }
-            val ids = db.clipDao().insertAll(clips)
-            val inserted = clips.zip(ids) { clip, id -> clip.copy(id = id) }
-            talentLinker.matchClips(inserted, talents)
-            adoptMostCommonTalent(packId)
-        }
-        return candidates.size
     }
 
     /** Gives a pack whose talent couldn't be guessed from its name the talent most of its clips matched. */
@@ -185,8 +244,14 @@ class PackImporter(
         }
     }
 
-    /** Removes the extracted files of a ZIP pack and prunes directories left without audio. */
-    fun deleteExtracted(pack: Pack, clips: List<Clip>) {
+    /** Removes the extracted files of a ZIP topic (older libraries: only this pack's files, pruning empty folders). */
+    suspend fun deleteExtracted(pack: Pack, clips: List<Clip>) {
+        val topicDir = File(pack.sourceUri)
+        val othersInside = db.packDao().countWithSourceLike(topicDir.path + File.separator + "%")
+        if (topicDir.parentFile?.canonicalPath == packsDir.canonicalPath && othersInside == 0) {
+            topicDir.deleteRecursively()
+            return
+        }
         val root = packsDir.path + File.separator
         clips.mapNotNull { Uri.parse(it.fileUri).path?.let(::File) }
             .filter { it.path.startsWith(root) }

@@ -5,6 +5,14 @@ import com.ttggg5.holovoice.data.talents.Talent
 import com.ttggg5.holovoice.data.talents.TalentLinker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class PackRepository(
@@ -67,9 +75,60 @@ class PackRepository(
         if (talent != null) db.packDao().update(pack.copy(talent = talent.nameEn))
     }
 
-    suspend fun importFolder(uri: Uri): Int = importer.importFolder(uri)
+    fun categories(packId: Long): Flow<List<String>> = db.clipDao().observeCategories(packId)
 
-    suspend fun importZip(uri: Uri): Int = importer.importZip(uri)
+    private val syncMutex = Mutex()
+    private val _syncing = MutableStateFlow(false)
+
+    /** True while imported folders are being rescanned. */
+    val syncing: StateFlow<Boolean> = _syncing.asStateFlow()
+
+    private val _syncMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    /** One message per automatic sync that changed something (or found an unreadable folder). */
+    val syncMessages: SharedFlow<String> = _syncMessages.asSharedFlow()
+
+    private var lastSyncAt = 0L
+
+    suspend fun importFolder(uri: Uri): PackImporter.SyncResult = syncMutex.withLock { importer.importFolder(uri) }
+
+    suspend fun importZip(uri: Uri): PackImporter.SyncResult = syncMutex.withLock { importer.importZip(uri) }
+
+    /**
+     * Rescans every imported folder so new files appear and deleted ones disappear without
+     * importing again. Skipped when the last sync was less than [minIntervalMs] ago.
+     */
+    suspend fun syncAll(minIntervalMs: Long = 0) {
+        if (System.currentTimeMillis() - lastSyncAt < minIntervalMs) return
+        syncMutex.withLock {
+            _syncing.value = true
+            try {
+                var added = 0
+                var removed = 0
+                val unreadable = mutableListOf<String>()
+                for (source in db.packDao().folderSources()) {
+                    val result = runCatching { importer.syncFolder(source) }.getOrNull()
+                    if (result == null) {
+                        db.packDao().getPacksBySource(source).firstOrNull()?.let { unreadable += it.name }
+                    } else {
+                        added += result.added
+                        removed += result.removed
+                    }
+                }
+                lastSyncAt = System.currentTimeMillis()
+                val parts = buildList {
+                    if (added > 0) add("$added new")
+                    if (removed > 0) add("$removed removed")
+                }
+                if (parts.isNotEmpty()) _syncMessages.emit("Library updated: ${parts.joinToString(", ")}")
+                if (unreadable.isNotEmpty()) {
+                    _syncMessages.emit("Can't read ${unreadable.joinToString()}. Import the folder again to restore access.")
+                }
+            } finally {
+                _syncing.value = false
+            }
+        }
+    }
 
     suspend fun setFavorite(clipId: Long, favorite: Boolean) = db.clipDao().setFavorite(clipId, favorite)
 

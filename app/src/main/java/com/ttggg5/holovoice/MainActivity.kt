@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.ttggg5.holovoice.ui.HoloVoiceRoot
+import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.ui.theme.HoloVoiceTheme
 
 class MainActivity : ComponentActivity() {
@@ -35,6 +36,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         appContainer.player.connect()
+        // Pick up files added to or removed from imported folders, without importing again.
+        appContainer.appScope.launch { appContainer.repository.syncAll(minIntervalMs = SYNC_INTERVAL_MS) }
+    }
+
+    private companion object {
+        const val SYNC_INTERVAL_MS = 5 * 60_000L
     }
 
     override fun onStop() {

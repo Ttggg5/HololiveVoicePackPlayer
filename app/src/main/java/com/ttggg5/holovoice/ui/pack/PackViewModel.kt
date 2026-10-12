@@ -13,6 +13,10 @@ import kotlinx.coroutines.launch
 class PackViewModel(packId: Long, private val repository: PackRepository) : ViewModel() {
     val pack: StateFlow<Pack?> =
         repository.pack(packId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** Sub-folder categories of this topic, in display order. */
+    val categories: StateFlow<List<String>> =
+        repository.categories(packId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val clips: StateFlow<List<ClipWithPack>> =
         repository.clips(packId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

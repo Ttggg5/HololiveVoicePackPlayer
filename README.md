@@ -4,9 +4,10 @@ An Android app for listening to the Hololive voice packs you own (for example, o
 The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
-- **Library**: imported packs, grouped by talent, with cover art. Long-press a pack to rename it, change its talent, or delete it.
+- **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories, shown as tabs on the topic screen. Long-press a topic to rename it, change its talent, or delete it.
+- **Auto-sync**: imported folders are rescanned when you open the app, so files you add or delete show up without importing again. Picking a folder that is already in the library updates it instead of creating a duplicate.
 - **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.
-- **Now Playing**: tap the mini player to open it. It has large cover art, a seek bar, previous/next, shuffle, repeat (all/one), favorite, and add to playlist.
+- **Now Playing**: the mini player and Now Playing show who is speaking (talent picture and name) and the topic › category. Tap the topic chip to open that topic. Now Playing has large cover art, a seek bar, previous/next, shuffle, repeat (all/one), favorite, and add to playlist.
 - **Queue (Up next)**: jump to any clip, drag to reorder, swipe left to remove, or clear the queue.
 - **Playlists**: create your own playlists that mix clips from any pack. You can reorder and remove clips, and rename or delete playlists.
 - **Playback speed**: 0.5× to 2×.
@@ -20,10 +21,10 @@ The app ships no audio of its own. You import your packs from your phone.
   - The list is cached and refreshed weekly, so an internet connection is only needed the first time.
 - **Favorites and search**: star any clip, and search titles, packs and talents.
 
-## Importing packs
-Tap **Import** on the Library tab:
-- **Import folder**: pick a folder on your device. Each folder (and sub-folder) that directly contains audio files becomes a pack. The files stay where they are; the app only keeps read access to the folder.
-- **Import ZIP**: pick a `.zip` archive. The audio and images are extracted into app storage, so you can delete the ZIP afterwards. Shift_JIS (Japanese Windows) file names are supported.
+## Importing topics
+Tap **Import** on the Topics tab:
+- **Import folder**: pick a folder on your device. It becomes one topic, and each sub-folder becomes a category. The files stay where they are, and the app keeps read access so it can sync the folder later.
+- **Import ZIP**: pick a `.zip` archive. The audio and images are extracted into app storage, so you can delete the ZIP afterwards. A single wrapping folder inside the ZIP is ignored. Shift_JIS (Japanese Windows) file names are supported.
 
 Supported audio: mp3, m4a, aac, ogg, opus, wav, flac. An image in the folder becomes the pack cover; files named like `cover`/`jacket` are preferred.
 Leading track numbers (`01_おはよう.mp3`) are used for ordering and removed from titles. The talent is guessed from names like `Talent - Pack` or `【Talent】Pack`, and you can edit it.
