@@ -137,7 +137,7 @@ class PackRepository(
 
     private val _syncMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
 
-    /** One message per automatic sync that changed something (or found an unreadable folder). */
+    /** One message per sync that changed something (or found an unreadable folder, or was asked for by the user). */
     val syncMessages: SharedFlow<String> = _syncMessages.asSharedFlow()
 
     private var lastSyncAt = 0L
@@ -161,9 +161,10 @@ class PackRepository(
 
     /**
      * Rescans every imported folder so new files appear and deleted ones disappear without
-     * importing again. Skipped when the last sync was less than [minIntervalMs] ago.
+     * importing again. Skipped when the last sync was less than [minIntervalMs] ago. A [manual]
+     * sync (refresh button / pull to refresh) also reports when nothing changed.
      */
-    suspend fun syncAll(minIntervalMs: Long = 0) {
+    suspend fun syncAll(minIntervalMs: Long = 0, manual: Boolean = false) {
         if (System.currentTimeMillis() - lastSyncAt < minIntervalMs) return
         syncMutex.withLock {
             _syncing.value = true
@@ -202,7 +203,11 @@ class PackRepository(
                     if (added > 0) add("$added new clips")
                     if (removed > 0) add("$removed clips removed")
                 }
-                if (parts.isNotEmpty()) _syncMessages.emit("Library updated: ${parts.joinToString(", ")}")
+                if (parts.isNotEmpty()) {
+                    _syncMessages.emit("Library updated: ${parts.joinToString(", ")}")
+                } else if (manual && unreadable.isEmpty()) {
+                    _syncMessages.emit("Everything is up to date")
+                }
                 if (unreadable.isNotEmpty()) {
                     _syncMessages.emit("Can't read ${unreadable.joinToString()}. Import the folder again to restore access.")
                 }

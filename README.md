@@ -17,7 +17,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Undo**: removing from favorites, the queue or a playlist, or deleting a playlist, shows an *Undo* button.
 - **Clip thumbnails**: clips show their topic's thumbnail, with a small round talent picture on grid tiles. Inside a topic, clips show the talent picture instead.
 - **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories, shown as tabs on the topic screen. Long-press a topic to rename it, change its talent, or delete it.
-- **Auto-sync**: imported folders are rescanned when you open the app, so files you add or delete show up without importing again. Picking a folder that is already in the library updates it instead of creating a duplicate.
+- **Auto-sync**: imported folders are rescanned when you open the app, so files you add or delete show up without importing again. Tap ⟳ in Topics, or pull down on Home, Topics or Talents, to re-scan right away. Picking a folder that is already in the library updates it instead of creating a duplicate.
 - **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.
 - **Now Playing**: the mini player and Now Playing show who is speaking (talent picture and name) and the topic › category. Tap the topic chip to open that topic. Now Playing has large cover art, a seek bar, previous/next, shuffle, repeat (all/one), favorite, and add to playlist.
 - **Queue (Up next)**: jump to any clip, drag to reorder, swipe left to remove, or clear the queue.

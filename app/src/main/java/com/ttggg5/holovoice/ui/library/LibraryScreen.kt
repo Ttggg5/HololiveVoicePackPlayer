@@ -27,7 +27,7 @@ import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -82,6 +82,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.TopicSort
 import com.ttggg5.holovoice.playback.PlayerState
+import com.ttggg5.holovoice.ui.components.LibraryRefreshBox
+import com.ttggg5.holovoice.ui.components.RefreshAction
 import com.ttggg5.holovoice.ui.components.SortMenu
 import com.ttggg5.holovoice.ui.components.pinchToResize
 import com.ttggg5.holovoice.ui.components.EmptyMessage
@@ -120,6 +122,7 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
             TopAppBar(
                 title = { Text("Topics") },
                 actions = {
+                    RefreshAction()
                     SortMenu(TopicSort.entries, sort, { it.label }, prefs::setTopicSort)
                     var overflow by remember { mutableStateOf(false) }
                     IconButton(onClick = { overflow = true }, enabled = !importing) {
@@ -136,7 +139,7 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                         )
                         DropdownMenuItem(
                             text = { Text("Refresh talent list") },
-                            leadingIcon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Filled.CloudSync, contentDescription = null) },
                             onClick = {
                                 overflow = false
                                 viewModel.refreshTalents()
@@ -189,7 +192,9 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                         )
                     }
-                    PackGrid(shown, playerState, onOpenPack, onLongPress = { editing = it })
+                    LibraryRefreshBox(Modifier.fillMaxSize()) {
+                        PackGrid(shown, playerState, onOpenPack, onLongPress = { editing = it })
+                    }
                 }
             }
         }

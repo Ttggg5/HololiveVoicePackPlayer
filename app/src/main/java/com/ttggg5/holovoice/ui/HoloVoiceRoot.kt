@@ -29,6 +29,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -146,6 +147,10 @@ fun HoloVoiceRoot(container: AppContainer) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val undo = remember(snackbar, scope) { UndoController(snackbar, scope) }
+    // Folder sync results (automatic, refresh button or pull to refresh), on any screen.
+    LaunchedEffect(repository) {
+        repository.syncMessages.collect { snackbar.showSnackbar(it) }
+    }
     val onboardingDone by container.uiPrefs.onboardingDone.collectAsStateWithLifecycle()
     var showHelp by remember { mutableStateOf(false) }
     if (!onboardingDone || showHelp) {

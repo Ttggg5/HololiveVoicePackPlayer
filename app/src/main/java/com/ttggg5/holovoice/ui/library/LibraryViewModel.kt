@@ -31,7 +31,7 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _messages = Channel<String>(Channel.BUFFERED)
-    val messages: Flow<String> = merge(_messages.receiveAsFlow(), repository.syncMessages)
+    val messages: Flow<String> = _messages.receiveAsFlow()
 
     fun importFolder(uri: Uri) = runImport { repository.importFolder(uri) }
 

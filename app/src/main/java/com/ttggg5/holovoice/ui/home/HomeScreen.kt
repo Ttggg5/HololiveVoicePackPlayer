@@ -68,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.data.ClipWithPack
 import com.ttggg5.holovoice.data.thumbnail
 import com.ttggg5.holovoice.playback.PlayerController
+import com.ttggg5.holovoice.ui.components.LibraryRefreshBox
 import com.ttggg5.holovoice.ui.components.Artwork
 import com.ttggg5.holovoice.ui.components.ClipActionsSheet
 import com.ttggg5.holovoice.ui.components.EmptyMessage
@@ -115,8 +116,9 @@ fun HomeScreen(
 
     // On tablets the content is centred and kept to a readable width.
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    LibraryRefreshBox(Modifier.widthIn(max = 840.dp).fillMaxSize().statusBarsPadding()) {
     LazyColumn(
-        modifier = Modifier.widthIn(max = 840.dp).fillMaxSize().statusBarsPadding(),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -219,6 +221,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
     }
     }
 }
