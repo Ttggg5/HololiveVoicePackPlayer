@@ -1,21 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Launcher icon foreground: microphone on top, a white badge with the hololive logo below.
-    The logo slot uses @drawable/hololive_logo (see README "App icon" to add the real logo).
-    Everything stays inside the 66dp safe zone of the 108dp adaptive canvas.
+    Launcher icon foreground: the hololive triangle mark (user-provided logo, COVER Corp trademark)
+    with a small microphone inside its big "play" triangle. The mark sits in a 52dp box, inside the
+    66dp safe zone of the 108dp adaptive canvas.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/ic_launcher_mic" />
     <item
         android:bottom="28dp"
-        android:drawable="@drawable/ic_launcher_logo_badge"
-        android:left="26dp"
-        android:right="26dp"
-        android:top="62dp" />
-    <item
-        android:bottom="30dp"
-        android:drawable="@drawable/hololive_logo"
-        android:left="30dp"
-        android:right="30dp"
-        android:top="64dp" />
+        android:drawable="@drawable/hololive_mark"
+        android:left="28dp"
+        android:right="28dp"
+        android:top="28dp" />
+    <item android:drawable="@drawable/ic_launcher_mic_small" />
 </layer-list>

@@ -60,14 +60,9 @@ Supported audio: mp3, m4a, aac, ogg, opus, wav, flac. An image in the folder bec
 Leading track numbers (`01_おはよう.mp3`) are used for ordering and removed from titles. The talent is guessed from names like `Talent - Pack` or `【Talent】Pack`, and you can edit it.
 
 ## App icon
-The launcher icon shows a microphone above a white badge, and the badge is meant to hold the hololive logo. The logo is a trademark of COVER Corp, so it is not included in this repository. Until you add it, the badge shows three dots.
+The launcher icon is the hololive triangle mark with a small microphone in its "play" triangle, on a white background. On Android 13+ with themed icons turned on, it shows the mark's outline in your theme colour.
 
-To add the logo:
-1. Delete `app/src/main/res/drawable/hololive_logo.xml` (the placeholder).
-2. Save the logo as `app/src/main/res/drawable-nodpi/hololive_logo.png` (`.webp` also works). Use a transparent background and a horizontal wordmark of about 3.4:1, for example 680×200 px. The image is stretched to fill the badge, so other proportions look squashed.
-3. Rebuild the app.
-
-Keep builds that contain the logo for personal use, and don't publish them.
+The mark comes from the official hololive logo, which is a trademark of COVER Corp. It is stored as `app/src/main/res/drawable-nodpi/hololive_mark.png`. Keep builds that include it for personal use, and don't publish them.
 
 ## Building
 Requirements: JDK 17+ and the Android SDK (API 35).
