@@ -42,8 +42,8 @@ The app ships no audio of its own. You import your packs from your phone.
 | Mini player | Swipe up | Open Now Playing |
 | Now Playing | Drag down | Minimize back to the mini player |
 | Now Playing | Swipe the artwork left / right | Next / previous clip |
-| Clip tile or row | Swipe right | Play next |
-| Clip tile or row | Swipe left | Favorite / unfavorite (with Undo) |
+| Clip tile or row | Swipe right across half the item | Play next |
+| Clip tile or row | Swipe left across half the item | Favorite / unfavorite (with Undo) |
 | Clip tile or row | Double-tap | Favorite |
 | Clip tile or row | Long-press | More actions |
 | Clip, topic and talent grids | Pinch | Bigger or smaller tiles (remembered) |
@@ -58,6 +58,16 @@ Tap **Import** on the Topics tab:
 
 Supported audio: mp3, m4a, aac, ogg, opus, wav, flac. An image in the folder becomes the pack cover; files named like `cover`/`jacket` are preferred.
 Leading track numbers (`01_おはよう.mp3`) are used for ordering and removed from titles. The talent is guessed from names like `Talent - Pack` or `【Talent】Pack`, and you can edit it.
+
+## App icon
+The launcher icon shows a microphone above a white badge, and the badge is meant to hold the hololive logo. The logo is a trademark of COVER Corp, so it is not included in this repository. Until you add it, the badge shows three dots.
+
+To add the logo:
+1. Delete `app/src/main/res/drawable/hololive_logo.xml` (the placeholder).
+2. Save the logo as `app/src/main/res/drawable-nodpi/hololive_logo.png` (`.webp` also works). Use a transparent background and a horizontal wordmark of about 3.4:1, for example 680×200 px. The image is stretched to fill the badge, so other proportions look squashed.
+3. Rebuild the app.
+
+Keep builds that contain the logo for personal use, and don't publish them.
 
 ## Building
 Requirements: JDK 17+ and the Android SDK (API 35).

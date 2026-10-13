@@ -27,6 +27,16 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import kotlin.math.abs
+
+/** How far (fraction of the item width) a swipe must travel before its action fires. */
+private const val TRIGGER_FRACTION = 0.5f
 
 /**
  * Swipe right → play next, swipe left → toggle favorite. The item always springs back into place.
@@ -43,28 +53,40 @@ fun ClipSwipeActions(
     val haptics = LocalHapticFeedback.current
     val playNext by rememberUpdatedState(onPlayNext)
     val toggle by rememberUpdatedState(onToggleFavorite)
+    // Width of the item, and a way for confirmValueChange to read the state it belongs to.
+    var widthPx by remember { mutableFloatStateOf(0f) }
+    val stateHolder = remember { arrayOfNulls<SwipeToDismissBoxState>(1) }
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    playNext()
+            // Only a deliberate swipe across half the item counts; quick short flicks spring back.
+            val offset = stateHolder[0]?.let { runCatching { it.requireOffset() }.getOrNull() } ?: 0f
+            val farEnough = widthPx > 0f && abs(offset) >= widthPx * TRIGGER_FRACTION
+            if (farEnough) {
+                when (value) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        playNext()
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        toggle()
+                    }
+                    SwipeToDismissBoxValue.Settled -> Unit
                 }
-                SwipeToDismissBoxValue.EndToStart -> {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    toggle()
-                }
-                SwipeToDismissBoxValue.Settled -> Unit
             }
             false // never stay swiped away
         },
-        positionalThreshold = { it * 0.35f },
+        positionalThreshold = { it * 0.55f },
     )
+    stateHolder[0] = state
     SwipeToDismissBox(
         state = state,
-        modifier = modifier.clip(shape),
+        modifier = modifier.clip(shape).onSizeChanged { widthPx = it.width.toFloat() },
         backgroundContent = {
             val direction = state.dismissDirection
+            val offset = runCatching { abs(state.requireOffset()) }.getOrDefault(0f)
+            val progress = if (widthPx > 0f) (offset / (widthPx * TRIGGER_FRACTION)).coerceIn(0f, 1f) else 0f
+            val ready = progress >= 1f
             val color by animateColorAsState(
                 when (direction) {
                     SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primaryContainer
@@ -76,16 +98,17 @@ fun ClipSwipeActions(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = if (direction == SwipeToDismissBoxValue.EndToStart) Arrangement.End else Arrangement.Start,
-                modifier = Modifier.fillMaxSize().background(color).padding(horizontal = 20.dp),
+                // Fades in with the swipe distance, so a small accidental move barely shows.
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = progress }.background(color).padding(horizontal = 20.dp),
             ) {
                 when (direction) {
                     SwipeToDismissBoxValue.StartToEnd -> {
                         Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text(" Play next", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.labelLarge)
+                        Text(if (ready) " Release to play next" else " Play next", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.labelLarge)
                     }
                     SwipeToDismissBoxValue.EndToStart -> {
                         Text(
-                            if (isFavorite) "Unfavorite " else "Favorite ",
+                            (if (isFavorite) "unfavorite " else "favorite ").let { if (ready) "Release to $it" else it.replaceFirstChar(Char::uppercase) },
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                             style = MaterialTheme.typography.labelLarge,
                         )

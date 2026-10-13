@@ -1,50 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Microphone with sound waves and a small star; content scaled to sit in the 66dp safe zone. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <group
-        android:pivotX="54"
-        android:pivotY="54"
-        android:scaleX="0.9"
-        android:scaleY="0.9">
-        <!-- Microphone capsule -->
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M54,26c5.52,0 10,4.48 10,10v14c0,5.52 -4.48,10 -10,10s-10,-4.48 -10,-10v-14c0,-5.52 4.48,-10 10,-10z" />
-        <!-- Holder arc, stem and base -->
-        <path
-            android:fillColor="#00000000"
-            android:pathData="M39,49a15,15 0,0 0,30 0"
-            android:strokeWidth="4"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeLineCap="round" />
-        <path
-            android:fillColor="#00000000"
-            android:pathData="M54,64v9M46,74h16"
-            android:strokeWidth="4"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeLineCap="round" />
-        <!-- Sound waves -->
-        <path
-            android:fillColor="#00000000"
-            android:pathData="M75,35a14,14 0,0 1,0 20M33,35a14,14 0,0 0,0 20"
-            android:strokeAlpha="0.9"
-            android:strokeWidth="3.5"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeLineCap="round" />
-        <path
-            android:fillColor="#00000000"
-            android:pathData="M81,29a22,22 0,0 1,0 32M27,29a22,22 0,0 0,0 32"
-            android:strokeAlpha="0.55"
-            android:strokeWidth="3.5"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeLineCap="round" />
-        <!-- Star accent -->
-        <path
-            android:fillColor="#FFFF8AB3"
-            android:pathData="M71,15l1.8,5.2l5.2,1.8l-5.2,1.8l-1.8,5.2l-1.8,-5.2l-5.2,-1.8l5.2,-1.8z" />
-    </group>
-</vector>
+<!--
+    Launcher icon foreground: microphone on top, a white badge with the hololive logo below.
+    The logo slot uses @drawable/hololive_logo (see README "App icon" to add the real logo).
+    Everything stays inside the 66dp safe zone of the 108dp adaptive canvas.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_mic" />
+    <item
+        android:bottom="28dp"
+        android:drawable="@drawable/ic_launcher_logo_badge"
+        android:left="26dp"
+        android:right="26dp"
+        android:top="62dp" />
+    <item
+        android:bottom="30dp"
+        android:drawable="@drawable/hololive_logo"
+        android:left="30dp"
+        android:right="30dp"
+        android:top="64dp" />
+</layer-list>
