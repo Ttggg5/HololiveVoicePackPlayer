@@ -195,7 +195,7 @@ fun NowPlayingScreen(
                 scaleX = 1f - progress * 0.06f
                 scaleY = 1f - progress * 0.06f
                 shape = RoundedCornerShape((progress * 120).coerceAtMost(32f).dp)
-                clip = progress > 0f
+                this.clip = progress > 0f
             },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
