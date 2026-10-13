@@ -14,7 +14,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.DefaultMediaNotificationProvider
 import com.ttggg5.holovoice.R
 import androidx.media3.session.MediaSession
@@ -92,10 +91,8 @@ class PlaybackService : MediaSessionService() {
         )
         session = MediaSession.Builder(this, player)
             .setSessionActivity(openApp)
-            // Draws a split collage for clips with several talents in the notification / lock screen.
-            .setBitmapLoader(
-                CacheBitmapLoader(CollageBitmapLoader(this, DataSourceBitmapLoader(this)) { appContainer.uiPrefs.accent.value }),
-            )
+            // Notification / lock-screen background: topic thumbnail with the talent picture on top.
+            .setBitmapLoader(CollageBitmapLoader(this, DataSourceBitmapLoader(this)) { appContainer.uiPrefs.accent.value })
             .setCallback(Callback())
             .build()
 

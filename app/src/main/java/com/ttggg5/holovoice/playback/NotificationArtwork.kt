@@ -19,8 +19,8 @@ import com.ttggg5.holovoice.R
 import com.ttggg5.holovoice.data.Accent
 
 /**
- * The picture shown behind the media notification / lock-screen player: an accent-coloured
- * gradient card with a faint hololive mark, and the clip's picture in a big circle on the right.
+ * The picture shown behind the media notification / lock-screen player: the topic thumbnail (or an
+ * accent-coloured gradient with a faint hololive mark), and the talent picture in a big circle on the right.
  * Key content sits in the vertical middle so Android 13+'s wide crop still shows it.
  */
 object NotificationArtwork {
@@ -42,36 +42,53 @@ object NotificationArtwork {
         BitmapFactory.decodeResource(context.resources, R.drawable.hololive_mark)
     }.getOrNull()?.also { mark = it }
 
-    fun composeCard(context: Context, picture: Bitmap?, accent: Accent): Bitmap {
+    /**
+     * Composes the card. With a topic [cover] it fills the background (dimmed so the white controls
+     * stay readable); without one an accent gradient with a faint hololive mark is used. The talent
+     * [picture] (or collage) sits in a ringed circle on the right; it is left out when only the cover exists.
+     */
+    fun composeCard(context: Context, cover: Bitmap?, picture: Bitmap?, accent: Accent): Bitmap {
         val size = SIZE.toFloat()
         val out = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
-
-        // Background gradient in the accent colour, with two soft highlights.
         val (start, end) = accent.gradient()
-        canvas.drawRect(0f, 0f, size, size, Paint().apply { shader = LinearGradient(0f, 0f, size, size, start, end, Shader.TileMode.CLAMP) })
-        val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(28, 255, 255, 255) }
-        canvas.drawCircle(size * 0.85f, size * 0.12f, size * 0.42f, glow)
-        canvas.drawCircle(size * 0.08f, size * 0.95f, size * 0.32f, glow)
 
-        // Faint hololive mark on the left.
-        mark(context)?.let { m ->
-            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                alpha = 42 // ~16%
+        if (cover != null) {
+            canvas.drawCropped(cover, RectF(0f, 0f, size, size))
+            // Darker on the left (where the title sits) and at the bottom (controls).
+            canvas.drawRect(0f, 0f, size, size, Paint().apply {
+                shader = LinearGradient(0f, 0f, size, 0f, Color.argb(150, 0, 0, 0), Color.argb(70, 0, 0, 0), Shader.TileMode.CLAMP)
+            })
+            canvas.drawRect(0f, size * 0.55f, size, size, Paint().apply {
+                shader = LinearGradient(0f, size * 0.55f, 0f, size, Color.TRANSPARENT, Color.argb(110, 0, 0, 0), Shader.TileMode.CLAMP)
+            })
+            if (picture == null) return out
+        } else {
+            // Background gradient in the accent colour, with two soft highlights.
+            canvas.drawRect(0f, 0f, size, size, Paint().apply { shader = LinearGradient(0f, 0f, size, size, start, end, Shader.TileMode.CLAMP) })
+            val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(28, 255, 255, 255) }
+            canvas.drawCircle(size * 0.85f, size * 0.12f, size * 0.42f, glow)
+            canvas.drawCircle(size * 0.08f, size * 0.95f, size * 0.32f, glow)
+
+            // Faint hololive mark on the left.
+            mark(context)?.let { m ->
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                    colorFilter = PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                    alpha = 42 // ~16%
+                }
+                canvas.drawBitmap(m, null, RectF(40f, 252f, 560f, 772f), paint)
             }
-            canvas.drawBitmap(m, null, RectF(40f, 252f, 560f, 772f), paint)
         }
 
         // The clip's picture in a big circle on the right, with a white ring and soft shadow.
-        val cx = 700f
+        val cx = 760f
         val cy = size / 2
-        val r = 260f
+        val r = 170f
         val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            setShadowLayer(36f, 0f, 12f, Color.argb(90, 0, 0, 0))
+            setShadowLayer(28f, 0f, 10f, Color.argb(90, 0, 0, 0))
         }
-        canvas.drawCircle(cx, cy, r + 14f, ring)
+        canvas.drawCircle(cx, cy, r + 10f, ring)
         val circle = Path().apply { addCircle(cx, cy, r, Path.Direction.CW) }
         canvas.save()
         canvas.clipPath(circle)

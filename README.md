@@ -54,7 +54,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a table
 - Rewind and skip-ahead buttons sit beside previous and next. They jump 10 seconds by default; change this in Settings, or long-press either button.
 - Swipe up on the player, or tap the *Up next* bar, to see the queue. Drag down to close the player.
 - On tablets and unfolded foldables, a side rail replaces the bottom bar, and the player shows the queue beside the controls.
-- The notification and lock-screen player use a gradient card in your accent colour with the talent picture, and the status bar shows the app's own icon.
+- The notification and lock-screen player show the topic thumbnail as the background with the talent picture on top (an accent-coloured gradient when the topic has no thumbnail), and the status bar shows the app's own icon.
 
 ## Gestures
 | Where | Gesture | Action |

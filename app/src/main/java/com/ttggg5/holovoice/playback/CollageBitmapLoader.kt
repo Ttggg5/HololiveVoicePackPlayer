@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.net.Uri
 import androidx.annotation.OptIn
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.BitmapLoader
 import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
@@ -19,9 +20,10 @@ import com.ttggg5.holovoice.data.Accent
 import com.ttggg5.holovoice.data.Collage
 
 /**
- * Loads notification / lock-screen artwork. The clip's picture (a split collage for clips with
- * several talents, else the talent picture or topic cover) is placed on the branded gradient card
- * from [NotificationArtwork], in the accent colour chosen in Settings.
+ * Loads notification / lock-screen artwork: the topic thumbnail as the background with the clip's
+ * talent picture (a split collage for clips with several talents) on top, composed by
+ * [NotificationArtwork]. Topics without a thumbnail get the accent-coloured gradient instead.
+ * Results are cached by cover, picture and accent, so an accent change applies straight away.
  */
 @OptIn(UnstableApi::class)
 class CollageBitmapLoader(
@@ -34,15 +36,39 @@ class CollageBitmapLoader(
 
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> = delegate.decodeBitmap(data)
 
-    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
-        // A missing picture still gives a card (with a headphones glyph) instead of no artwork.
-        val picture = Futures.catching(loadPicture(uri), Throwable::class.java, { null }, MoreExecutors.directExecutor())
-        return Futures.transform(
-            picture,
-            { bitmap -> NotificationArtwork.composeCard(context, bitmap, accent()) },
+    private val cache = object : LinkedHashMap<String, ListenableFuture<Bitmap>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ListenableFuture<Bitmap>>) = size > CACHE_SIZE
+    }
+
+    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> = card(cover = null, picture = uri.toString())
+
+    override fun loadBitmapFromMetadata(metadata: MediaMetadata): ListenableFuture<Bitmap>? {
+        metadata.artworkData?.let { return decodeBitmap(it) }
+        val cover = metadata.extras?.getString(ItemExtras.COVER)
+        val picture = metadata.artworkUri?.toString()?.takeIf { it != cover }
+        if (cover == null && picture == null) return null
+        return card(cover, picture)
+    }
+
+    private fun card(cover: String?, picture: String?): ListenableFuture<Bitmap> {
+        val accent = accent()
+        val key = "$cover|$picture|$accent"
+        synchronized(cache) {
+            cache[key]?.let { if (!it.isCancelled) return it }
+        }
+        // A missing image is left out (a card with a headphones glyph at worst) instead of no artwork.
+        val coverLoad = cover?.let { orNull(delegate.loadBitmap(Uri.parse(it))) } ?: Futures.immediateFuture<Bitmap?>(null)
+        val pictureLoad = picture?.let { orNull(loadPicture(Uri.parse(it))) } ?: Futures.immediateFuture<Bitmap?>(null)
+        val result = Futures.whenAllComplete(coverLoad, pictureLoad).call(
+            { NotificationArtwork.composeCard(context, Futures.getDone(coverLoad), Futures.getDone(pictureLoad), accent) },
             MoreExecutors.directExecutor(),
         )
+        synchronized(cache) { cache[key] = result }
+        return result
     }
+
+    private fun orNull(future: ListenableFuture<Bitmap>): ListenableFuture<Bitmap?> =
+        Futures.catching(future, Throwable::class.java, { null }, MoreExecutors.directExecutor())
 
     private fun loadPicture(uri: Uri): ListenableFuture<Bitmap> {
         val images = Collage.parse(uri.toString()) ?: return delegate.loadBitmap(uri)
@@ -119,5 +145,6 @@ class CollageBitmapLoader(
 
     private companion object {
         const val SIZE = 512
+        const val CACHE_SIZE = 8
     }
 }
