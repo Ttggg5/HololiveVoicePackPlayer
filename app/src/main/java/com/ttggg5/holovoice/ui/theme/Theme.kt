@@ -12,7 +12,10 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -111,8 +114,9 @@ fun HoloVoiceTheme(content: @Composable () -> Unit) {
     val followTalent by prefs.talentColor.state.collectAsStateWithLifecycle()
     val playerState by context.appContainer.player.state.collectAsStateWithLifecycle()
     val talentImage = playerState.talentImageUrl.takeIf { followTalent }
-    val seed by produceState<Color?>(null, talentImage) {
-        value = talentImage?.let { runCatching { TalentColor.seed(context, it) }.getOrNull() }
+    var seed by remember { mutableStateOf<Color?>(null) }
+    LaunchedEffect(talentImage) {
+        seed = talentImage?.let { runCatching { TalentColor.seed(context, it) }.getOrNull() }
     }
     val target = seed?.let { TalentColor.scheme(it, dark) } ?: base
 
