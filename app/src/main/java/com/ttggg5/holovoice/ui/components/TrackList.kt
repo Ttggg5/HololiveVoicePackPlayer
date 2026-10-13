@@ -3,6 +3,7 @@ package com.ttggg5.holovoice.ui.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -52,6 +54,8 @@ data class TrackRow(
     val subtitle: String,
     val artwork: Any?,
     val highlighted: Boolean = false,
+    /** Small picture on the artwork's corner (the topic thumbnail); the artwork is then round. */
+    val badge: Any? = null,
     val playing: Boolean = false,
 )
 
@@ -128,7 +132,22 @@ fun <T> TrackList(
                                 )
                                 .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                         ) {
-                            Artwork(data.artwork, Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)), iconSize = 20.dp)
+                            if (data.badge == null) {
+                                Artwork(data.artwork, Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)), iconSize = 20.dp)
+                            } else {
+                                Box(Modifier.size(48.dp)) {
+                                    Artwork(data.artwork, Modifier.size(44.dp).clip(CircleShape), iconSize = 20.dp)
+                                    Artwork(
+                                        data.badge,
+                                        Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .size(22.dp)
+                                            .clip(RoundedCornerShape(5.dp))
+                                            .border(1.5.dp, MaterialTheme.colorScheme.surface, RoundedCornerShape(5.dp)),
+                                        iconSize = 12.dp,
+                                    )
+                                }
+                            }
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 Text(
                                     data.title,

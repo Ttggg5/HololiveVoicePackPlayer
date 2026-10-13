@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -454,6 +455,19 @@ private fun ClipRow(
                 Modifier.size(48.dp).clip(if (artwork == ClipArt.TOPIC) RoundedCornerShape(10.dp) else CircleShape),
                 iconSize = 22.dp,
             )
+            if (artwork == ClipArt.TOPIC && item.coverUri != null && item.artwork != item.coverUri) {
+                // Who is speaking, on the topic thumbnail's corner.
+                Artwork(
+                    item.artwork,
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .offset(x = (-4).dp, y = 4.dp)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                    iconSize = 12.dp,
+                )
+            }
             if (isCurrent) EqualizerBars(isPlaying, size = 14.dp, modifier = Modifier.align(Alignment.BottomEnd))
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
