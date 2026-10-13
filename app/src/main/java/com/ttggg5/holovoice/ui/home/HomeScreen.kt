@@ -77,7 +77,7 @@ import com.ttggg5.holovoice.ui.components.PlayPauseIcon
 import com.ttggg5.holovoice.ui.components.TopicLine
 import java.util.Calendar
 
-/** Start page: continue listening, recent clips, talents, new topics and favorites. */
+/** Start page: continue listening, recent clips, talent of the day, talents, smart lists, new topics and favorites. */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
@@ -95,6 +95,7 @@ fun HomeScreen(
     val recent by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
     val talents by viewModel.talents.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val smart by viewModel.smartLists.collectAsStateWithLifecycle()
     val state by player.state.collectAsStateWithLifecycle()
     var actionsFor by remember { mutableStateOf<ClipWithPack?>(null) }
     actionsFor?.let { ClipActionsSheet(it, player, viewModel::toggleFavorite, onDismiss = { actionsFor = null }) }
@@ -147,6 +148,31 @@ fun HomeScreen(
                 }
             }
         }
+        smart.talentOfTheDay?.takeIf { it.clips.isNotEmpty() }?.let { today ->
+            item(key = "today") {
+                Section(
+                    "Talent of the day",
+                    action = "Shuffle",
+                    onAction = { player.playQueue(today.clips, shuffle = true) },
+                    subtitle = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(16.dp)).clickable { onOpenTalent(today.slug) },
+                        ) {
+                            Artwork(today.imageUrl, Modifier.size(28.dp).clip(CircleShape), iconSize = 16.dp)
+                            Text(
+                                "${today.name} · ${today.clips.size} clips",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            )
+                        }
+                    },
+                ) {
+                    ClipRowSection(today.clips, state, player) { actionsFor = it }
+                }
+            }
+        }
         if (talents.isNotEmpty()) {
             item(key = "talents") {
                 Section("Your talents") {
@@ -172,6 +198,20 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+        if (smart.notPlayed.isNotEmpty()) {
+            item(key = "notPlayed") {
+                Section("Not played yet", action = "Shuffle", onAction = { player.playQueue(smart.notPlayed, shuffle = true) }) {
+                    ClipRowSection(smart.notPlayed, state, player) { actionsFor = it }
+                }
+            }
+        }
+        if (smart.mostPlayed.isNotEmpty()) {
+            item(key = "mostPlayed") {
+                Section("Most played", action = "Play all", onAction = { player.playQueue(smart.mostPlayed) }) {
+                    ClipRowSection(smart.mostPlayed, state, player) { actionsFor = it }
                 }
             }
         }
@@ -302,14 +342,45 @@ private fun ContinueCard(state: com.ttggg5.holovoice.playback.PlayerState, playe
 }
 
 @Composable
-private fun Section(title: String, action: String? = null, onAction: (() -> Unit)? = null, content: @Composable () -> Unit) {
+private fun Section(
+    title: String,
+    action: String? = null,
+    onAction: (() -> Unit)? = null,
+    subtitle: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                subtitle?.invoke()
+            }
             if (action != null && onAction != null) TextButton(onClick = onAction) { Text(action) }
         }
         Spacer(Modifier.height(4.dp))
         content()
+    }
+}
+
+/** A row of clip cards; tapping one plays [clips] from it. Shows the first 20. */
+@Composable
+private fun ClipRowSection(
+    clips: List<ClipWithPack>,
+    state: com.ttggg5.holovoice.playback.PlayerState,
+    player: PlayerController,
+    onLongClick: (ClipWithPack) -> Unit,
+) {
+    val shown = clips.take(20)
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        itemsIndexed(shown, key = { _, it -> it.clip.id }) { index, clip ->
+            ClipCard(
+                clip,
+                isCurrent = state.clipId == clip.clip.id,
+                isPlaying = state.isPlaying,
+                onClick = { player.playFrom(clips, index) },
+                onLongClick = { onLongClick(clip) },
+            )
+        }
     }
 }
 

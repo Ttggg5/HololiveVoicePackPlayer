@@ -54,6 +54,15 @@ object ItemExtras {
     const val CATEGORY = "category"
 }
 
+/** A–B loop: the service jumps back to the start whenever playback reaches the end. -1 clears it. */
+object AbLoop {
+    const val COMMAND = "com.ttggg5.holovoice.AB_LOOP"
+    const val ARG_START = "start"
+    const val ARG_END = "end"
+    const val EXTRA_START = "loopStart"
+    const val EXTRA_END = "loopEnd"
+}
+
 /** Custom session command and extras shared by [PlaybackService] and [PlayerController]. */
 object SleepTimer {
     const val COMMAND = "com.ttggg5.holovoice.SLEEP_TIMER"

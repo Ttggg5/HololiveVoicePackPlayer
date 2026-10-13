@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.nowplaying
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -52,6 +55,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,6 +119,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import com.ttggg5.holovoice.ui.components.formatDuration
 import androidx.compose.foundation.clickable
@@ -385,6 +392,7 @@ fun NowPlayingScreen(
                     Icon(Icons.Filled.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(" ${sleepLabel(state)}")
                 }
+                LoopButton(state, player, active, inactive)
                 IconButton(onClick = player::cycleRepeat) {
                     Icon(
                         if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
@@ -545,6 +553,46 @@ private fun Modifier.artworkSwipe(player: PlayerController, hasNext: Boolean): M
         }
 }
 
+/**
+ * A–B loop: first tap marks A at the current position, the second marks B and starts the loop,
+ * the third clears it. A pending A is forgotten when the clip changes.
+ */
+@Composable
+private fun LoopButton(state: PlayerState, player: PlayerController, active: Color, inactive: Color) {
+    var pendingA by remember(state.clipId) { mutableStateOf<Long?>(null) }
+    val looping = state.loopEndMs >= 0
+    TextButton(
+        onClick = {
+            val now = player.currentPositionMs()
+            val a = pendingA
+            when {
+                looping -> player.clearLoop()
+                a == null -> pendingA = now
+                else -> {
+                    val start = minOf(a, now)
+                    val end = maxOf(maxOf(a, now), start + MIN_LOOP_MS).coerceAtMost(state.durationMs.coerceAtLeast(start + MIN_LOOP_MS))
+                    player.setLoop(start, end)
+                    pendingA = null
+                }
+            }
+        },
+        enabled = state.clipId != null,
+    ) {
+        val on = looping || pendingA != null
+        Icon(Icons.Filled.Loop, contentDescription = null, tint = if (on) active else inactive, modifier = Modifier.size(18.dp))
+        Text(
+            when {
+                looping -> " Loop"
+                pendingA != null -> " A ${formatDuration(pendingA!!)}"
+                else -> " A–B"
+            },
+            color = if (on) active else inactive,
+        )
+    }
+}
+
+private const val MIN_LOOP_MS = 1_000L
+
 @Composable
 private fun SeekBar(state: PlayerState, player: PlayerController) {
     val position by player.position.collectAsStateWithLifecycle(initialValue = 0L)
@@ -567,8 +615,29 @@ private fun SeekBar(state: PlayerState, player: PlayerController) {
             valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
             enabled = duration > 0,
         )
+        if (state.loopEndMs >= 0 && duration > 0) {
+            // The looped part of the clip.
+            val loopColor = MaterialTheme.colorScheme.primary
+            Canvas(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(4.dp)) {
+                val startX = size.width * state.loopStartMs / duration
+                val endX = size.width * state.loopEndMs.coerceAtMost(duration) / duration
+                drawRoundRect(
+                    loopColor,
+                    topLeft = Offset(startX, 0f),
+                    size = Size((endX - startX).coerceAtLeast(4f), size.height),
+                    cornerRadius = CornerRadius(size.height / 2),
+                )
+            }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatDuration(shown), style = MaterialTheme.typography.labelMedium)
+            if (state.loopEndMs >= 0) {
+                Text(
+                    "Looping ${formatDuration(state.loopStartMs)} – ${formatDuration(state.loopEndMs)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             Text(formatDuration(duration), style = MaterialTheme.typography.labelMedium)
         }
     }

@@ -14,6 +14,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.PlayerMessage
 import androidx.media3.session.DefaultMediaNotificationProvider
 import com.ttggg5.holovoice.R
 import androidx.media3.session.MediaSession
@@ -52,6 +53,10 @@ class PlaybackService : MediaSessionService() {
 
     private var sleepEndsAtElapsed = 0L // SystemClock.elapsedRealtime() deadline, 0 = off
     private var sleepAtEndOfTrack = false
+
+    private var loopStartMs = -1L
+    private var loopEndMs = -1L
+    private var loopMessage: PlayerMessage? = null
 
     private val sleepRunnable = Runnable {
         player.pause()
@@ -170,12 +175,34 @@ class PlaybackService : MediaSessionService() {
             sleepEndsAtElapsed = SystemClock.elapsedRealtime() + delay
             handler.postDelayed(sleepRunnable, delay)
         }
-        publishSleepTimer()
+        publishExtras()
+    }
+
+    /** Repeats [startMs]..[endMs] of the current clip until cleared (-1) or the clip changes. */
+    private fun setLoop(startMs: Long, endMs: Long) {
+        loopMessage?.cancel()
+        loopMessage = null
+        if (startMs >= 0 && endMs > startMs && player.currentMediaItemIndex != C.INDEX_UNSET) {
+            loopStartMs = startMs
+            loopEndMs = endMs
+            // Fires exactly when playback reaches B, also with the screen off.
+            loopMessage = player.createMessage { _, _ -> player.seekTo(loopStartMs) }
+                .setPosition(player.currentMediaItemIndex, endMs)
+                .setLooper(Looper.getMainLooper())
+                .setDeleteAfterDelivery(false)
+                .send()
+            if (player.currentPosition !in startMs..endMs) player.seekTo(startMs)
+        } else {
+            loopStartMs = -1L
+            loopEndMs = -1L
+        }
+        publishExtras()
     }
 
     private fun clearSleepTimer() = setSleepTimer(minutes = 0, endOfTrack = false)
 
-    private fun publishSleepTimer() {
+    /** Sleep timer and A–B loop state for the app's controller (extras replace each other, so both go together). */
+    private fun publishExtras() {
         val endsAtWallClock = if (sleepEndsAtElapsed == 0L) {
             0L
         } else {
@@ -185,6 +212,8 @@ class PlaybackService : MediaSessionService() {
             Bundle().apply {
                 putLong(SleepTimer.EXTRA_ENDS_AT, endsAtWallClock)
                 putBoolean(SleepTimer.EXTRA_END_OF_TRACK, sleepAtEndOfTrack)
+                putLong(AbLoop.EXTRA_START, loopStartMs)
+                putLong(AbLoop.EXTRA_END, loopEndMs)
             },
         )
     }
@@ -197,6 +226,7 @@ class PlaybackService : MediaSessionService() {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) || player.playbackState == Player.STATE_ENDED) {
                 counted = false
             }
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) && loopEndMs >= 0) setLoop(-1L, -1L)
             if (player.isPlaying && !counted) {
                 counted = true
                 player.currentMediaItem?.mediaId?.toLongOrNull()?.let { id ->
@@ -231,6 +261,7 @@ class PlaybackService : MediaSessionService() {
         ): MediaSession.ConnectionResult {
             val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                 .add(SessionCommand(SleepTimer.COMMAND, Bundle.EMPTY))
+                .add(SessionCommand(AbLoop.COMMAND, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(commands)
@@ -238,7 +269,7 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onPostConnect(session: MediaSession, controller: MediaSession.ControllerInfo) {
-            publishSleepTimer()
+            publishExtras()
         }
 
         override fun onCustomCommand(
@@ -249,6 +280,10 @@ class PlaybackService : MediaSessionService() {
         ): ListenableFuture<SessionResult> {
             if (customCommand.customAction == SleepTimer.COMMAND) {
                 setSleepTimer(args.getInt(SleepTimer.ARG_MINUTES, 0), args.getBoolean(SleepTimer.ARG_END_OF_TRACK, false))
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
+            if (customCommand.customAction == AbLoop.COMMAND) {
+                setLoop(args.getLong(AbLoop.ARG_START, -1L), args.getLong(AbLoop.ARG_END, -1L))
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
             return super.onCustomCommand(session, controller, customCommand, args)

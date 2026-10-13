@@ -4,7 +4,7 @@ An Android app for listening to the Hololive voice packs you own (for example, o
 The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
-- **Home**: Continue listening, recently played, your talents, recently added topics and favorites, plus a *Shuffle all* button. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
+- **Home**: Continue listening, recently played, *Talent of the day* (a different talent each day), your talents, *Not played yet*, *Most played*, recently added topics and favorites, plus a *Shuffle all* button. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
 - **Talents tab**: every talent in your library with their picture and clip count. Tap one to see all their clips across topics, filter by topic, then use *Play all* or *Shuffle*.
 - **Sorting everywhere**:
   - clips by track order, name, talent, duration, recently added or most played
@@ -52,6 +52,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a table
 
 ## Player
 - Rewind and skip-ahead buttons sit beside previous and next. They jump 10 seconds by default; change this in Settings, or long-press either button.
+- **A–B loop**: tap *A–B* to mark the start, tap again to mark the end, and that part repeats (also with the screen off). Tap *Loop* to stop; it also ends when the next clip starts.
 - Swipe up on the player, or tap the *Up next* bar, to see the queue. Drag down to close the player.
 - On tablets and unfolded foldables, a side rail replaces the bottom bar, and the player shows the queue beside the controls.
 - The notification and lock-screen player show the topic thumbnail as the background with the talent picture on top (an accent-coloured gradient when the topic has no thumbnail), and the status bar shows the app's own icon.

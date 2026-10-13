@@ -63,6 +63,9 @@ data class PlayerState(
     /** Wall-clock time the sleep timer fires, or 0 when no timed sleep is set. */
     val sleepEndsAt: Long = 0,
     val sleepAtEndOfTrack: Boolean = false,
+    /** A–B loop of the current clip, or -1 when off. */
+    val loopStartMs: Long = -1,
+    val loopEndMs: Long = -1,
 )
 
 /** App-wide entry point for playback; talks to [PlaybackService] through a [MediaController]. */
@@ -97,7 +100,7 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
     }
 
     private val sessionListener = object : MediaController.Listener {
-        override fun onExtrasChanged(controller: MediaController, extras: Bundle) = publishSleep(extras)
+        override fun onExtrasChanged(controller: MediaController, extras: Bundle) = publishExtras(extras)
     }
 
     /** Binds to the playback service. Call from the main thread (e.g. Activity.onStart). */
@@ -114,7 +117,7 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
             controller = c
             c.addListener(listener)
             publish(c, rebuildQueue = true)
-            publishSleep(c.sessionExtras)
+            publishExtras(c.sessionExtras)
             pending.forEach { it(c) }
             pending.clear()
         }, ContextCompat.getMainExecutor(appContext))
@@ -209,6 +212,9 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
 
     fun seekTo(positionMs: Long) = withController { it.seekTo(positionMs) }
 
+    /** The current playback position right now (0 before connecting). */
+    fun currentPositionMs(): Long = controller?.currentPosition ?: 0L
+
     /** Jumps forward (positive) or back (negative) by [deltaMs], staying inside the clip. */
     fun seekBy(deltaMs: Long) = withController { c ->
         val duration = c.duration.takeIf { it != C.TIME_UNSET } ?: Long.MAX_VALUE
@@ -267,10 +273,23 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
         c.sendCustomCommand(SessionCommand(SleepTimer.COMMAND, Bundle.EMPTY), args)
     }
 
-    private fun publishSleep(extras: Bundle) {
+    /** Repeats [startMs]..[endMs] of the current clip until [clearLoop] or the next clip. */
+    fun setLoop(startMs: Long, endMs: Long) = withController { c ->
+        val args = Bundle().apply {
+            putLong(AbLoop.ARG_START, startMs)
+            putLong(AbLoop.ARG_END, endMs)
+        }
+        c.sendCustomCommand(SessionCommand(AbLoop.COMMAND, Bundle.EMPTY), args)
+    }
+
+    fun clearLoop() = setLoop(-1L, -1L)
+
+    private fun publishExtras(extras: Bundle) {
         _state.value = _state.value.copy(
             sleepEndsAt = extras.getLong(SleepTimer.EXTRA_ENDS_AT, 0L),
             sleepAtEndOfTrack = extras.getBoolean(SleepTimer.EXTRA_END_OF_TRACK, false),
+            loopStartMs = extras.getLong(AbLoop.EXTRA_START, -1L),
+            loopEndMs = extras.getLong(AbLoop.EXTRA_END, -1L),
         )
     }
 
