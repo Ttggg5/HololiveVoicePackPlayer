@@ -10,6 +10,7 @@ import com.ttggg5.holovoice.data.LibraryRoots
 import com.ttggg5.holovoice.data.PackRepository
 import com.ttggg5.holovoice.data.UiPrefs
 import com.ttggg5.holovoice.data.talents.TalentDirectory
+import com.ttggg5.holovoice.data.talents.TalentPictures
 import com.ttggg5.holovoice.data.talents.TalentLinker
 import com.ttggg5.holovoice.playback.PlayerController
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +34,7 @@ class HoloVoiceApp : Application(), ImageLoaderFactory {
 class AppContainer(context: Context) {
     private val db = AppDatabase.create(context)
     val uiPrefs = UiPrefs(context)
-    private val talentLinker = TalentLinker(db, TalentDirectory(context))
+    private val talentLinker = TalentLinker(db, TalentDirectory(context, TalentPictures(context)))
     val repository = PackRepository(
         db,
         PackImporter(context, db, talentLinker, autoMatch = { uiPrefs.autoMatchTalents.value }),

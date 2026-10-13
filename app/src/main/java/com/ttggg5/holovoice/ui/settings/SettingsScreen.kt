@@ -192,6 +192,21 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                     OutlinedButton(onClick = { viewModel.syncNow(notify) }, enabled = !busy) { Text("Sync now") }
                     OutlinedButton(onClick = { viewModel.refreshTalents(notify) }, enabled = !busy) { Text("Refresh talent list") }
                     OutlinedButton(onClick = { viewModel.matchTalents(notify) }, enabled = !busy) { Text("Match all talents") }
+                    OutlinedButton(onClick = { viewModel.redownloadPictures(notify) }, enabled = !busy) { Text("Redownload talent pictures") }
+                }
+                val pictureProgress by viewModel.pictureProgress.collectAsStateWithLifecycle()
+                pictureProgress?.let { (done, total) ->
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        Text(
+                            "Downloading talent pictures $done/$total",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        LinearProgressIndicator(
+                            progress = { if (total == 0) 0f else done.toFloat() / total },
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        )
+                    }
                 }
                 Label("Synced folders")
                 if (folders.isEmpty()) {

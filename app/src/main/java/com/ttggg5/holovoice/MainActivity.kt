@@ -40,10 +40,20 @@ class MainActivity : ComponentActivity() {
         if (appContainer.uiPrefs.autoSyncOnStart.value) {
             appContainer.appScope.launch { appContainer.repository.syncAll(minIntervalMs = SYNC_INTERVAL_MS) }
         }
+        // Store every talent's picture in the app (first start, new talents, or a retry after being offline).
+        if (!picturesChecked) {
+            picturesChecked = true
+            appContainer.appScope.launch {
+                runCatching { appContainer.repository.downloadTalentPictures() }.onFailure { picturesChecked = false }
+            }
+        }
     }
 
     private companion object {
         const val SYNC_INTERVAL_MS = 5 * 60_000L
+
+        /** Pictures are checked once per app process. */
+        var picturesChecked = false
     }
 
     override fun onStop() {

@@ -26,7 +26,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Sleep timer**: pause after 5 to 90 minutes or at the end of the current clip. It keeps working when the app is closed.
 - **Resume**: the queue, position, speed, shuffle and repeat are restored after the app is closed. On Android 13+ the system media controls can resume playback.
 - **Background play**: playback continues with the screen off, and you can control it from the notification, lock screen, or headset.
-- **Talent pictures**: the app shows the profile picture of every talent whose name appears in a clip's file name. Names come from the [official talent list](https://hololive.hololivepro.com/talents).
+- **Talent pictures**: the app shows the profile picture of every talent whose name appears in a clip's file name. Names come from the [official talent list](https://hololive.hololivepro.com/talents). Every talent's picture is downloaded once, on first start, and stored in the app (a few MB), so pictures also show offline. Changed or new pictures are picked up when the talent list is refreshed.
   - Full names count anywhere in the file name, in English or 日本語: `兎田ぺこら_おはよう.mp3`, `UsadaPekora 01.mp3`.
   - Given or family names count too: `Pekora`, `ぺこら`, `宝鐘`. Short names such as `Ao` or `そら` only count as separate words.
   - **Several talents per clip**: `ぺこら×マリン.mp3` or `Pekora & Marine.mp3` gets both talents and appears under each talent in the Talents tab. Its talent picture is a split collage: two talents are split diagonally, three show one large and two small pictures, and four or more show a 2×2 grid with "+N". The notification and lock screen show the same collage.
@@ -46,7 +46,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a table
 - **Gestures**: turn clip swipes, double-tap to favorite, tab and category swipes, player swipes, and vibration feedback on or off.
 - **Library & talents**:
   - sync folders on start, and match talents on import
-  - *Sync now*, *Refresh talent list* and *Match all talents*
+  - *Sync now*, *Refresh talent list*, *Match all talents* and *Redownload talent pictures*
   - remove synced folders
   - clear the play history
 

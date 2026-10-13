@@ -3,6 +3,7 @@ package com.ttggg5.holovoice.data
 import android.net.Uri
 import com.ttggg5.holovoice.data.talents.Talent
 import com.ttggg5.holovoice.data.talents.TalentLinker
+import com.ttggg5.holovoice.data.talents.TalentPictures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -60,6 +61,23 @@ class PackRepository(
     /** The official talent list (cached; refreshed weekly). [forceRefresh] downloads it now and may throw. */
     suspend fun talents(forceRefresh: Boolean = false): List<Talent> =
         if (forceRefresh) talentLinker.directory.refresh() else talentLinker.directory.load()
+
+    /** Done / total while talent pictures are downloading, else null. */
+    val talentPictureProgress: StateFlow<Pair<Int, Int>?> get() = talentLinker.directory.pictures.progress
+
+    /**
+     * Stores every talent's picture in the app (only missing or changed ones unless [force]) and
+     * points the clips at the stored files, so pictures show offline.
+     */
+    suspend fun downloadTalentPictures(force: Boolean = false): TalentPictures.Result {
+        val directory = talentLinker.directory
+        val talents = directory.loadRemote()
+        if (talents.isEmpty()) error("Couldn't download the talent list. Check your connection.")
+        val result = directory.pictures.ensureAll(talents, force)
+        val stored = talents.mapNotNull { t -> directory.pictures.localUri(t.slug)?.let { t.slug to it } }.toMap()
+        db.clipTalentDao().setPictures(stored)
+        return result
+    }
 
     /** Re-runs automatic matching on every clip (manual picks are kept). Returns matched and total counts. */
     suspend fun rematchAllTalents(): Pair<Int, Int> {

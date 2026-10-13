@@ -14,14 +14,21 @@ import java.net.URL
 /**
  * The official talent list (names + profile pictures), downloaded from the hololive site
  * and cached in app storage so matching works offline after the first download.
+ * Talents come back with their stored picture ([TalentPictures]) when it has been downloaded.
  */
-class TalentDirectory(context: Context) {
+class TalentDirectory(context: Context, val pictures: TalentPictures) {
     private val cacheFile = File(context.filesDir, "talents.json")
     private val mutex = Mutex()
     private var memory: List<Talent>? = null
 
     /** Cached talents, refreshed from the site when the cache is empty or older than a week. */
-    suspend fun load(): List<Talent> = mutex.withLock {
+    suspend fun load(): List<Talent> = withLocalPictures(loadRemote())
+
+    /** Downloads the list now. Throws if the site can't be reached or nothing could be parsed. */
+    suspend fun refresh(): List<Talent> = withLocalPictures(refreshRemote())
+
+    /** Like [load], but with the picture URLs on the hololive site. */
+    suspend fun loadRemote(): List<Talent> = mutex.withLock {
         val cached = memory ?: readCache().also { memory = it }
         val stale = System.currentTimeMillis() - cacheFile.lastModified() > MAX_AGE_MS
         if (cached.isEmpty() || stale) {
@@ -30,12 +37,15 @@ class TalentDirectory(context: Context) {
         cached
     }
 
-    /** Downloads the list now. Throws if the site can't be reached or nothing could be parsed. */
-    suspend fun refresh(): List<Talent> = mutex.withLock {
+    /** Like [refresh], but with the picture URLs on the hololive site. */
+    suspend fun refreshRemote(): List<Talent> = mutex.withLock {
         val fresh = download()
         if (fresh.isEmpty()) error("No talents found on the hololive site")
         store(fresh)
     }
+
+    private fun withLocalPictures(talents: List<Talent>): List<Talent> =
+        talents.map { t -> pictures.localUri(t.slug)?.let { t.copy(imageUrl = it) } ?: t }
 
     private suspend fun download(): List<Talent> = withContext(Dispatchers.IO) {
         val ja = TalentPageParser.parse(fetch(JA_URL))

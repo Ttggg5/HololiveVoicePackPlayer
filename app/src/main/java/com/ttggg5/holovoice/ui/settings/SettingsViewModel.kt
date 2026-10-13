@@ -15,6 +15,9 @@ class SettingsViewModel(private val repository: PackRepository) : ViewModel() {
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
+    /** Done / total while talent pictures are downloading (also the automatic first download). */
+    val pictureProgress: StateFlow<Pair<Int, Int>?> = repository.talentPictureProgress
+
     init {
         reloadFolders()
     }
@@ -38,7 +41,15 @@ class SettingsViewModel(private val repository: PackRepository) : ViewModel() {
     }
 
     fun refreshTalents(onDone: (String) -> Unit) = run(onDone) {
-        "Talent list updated (${repository.talents(forceRefresh = true).size} talents)"
+        val count = repository.talents(forceRefresh = true).size
+        val pictures = runCatching { repository.downloadTalentPictures() }.getOrNull()
+        "Talent list updated ($count talents)" + (pictures?.takeIf { it.downloaded > 0 }?.let { ", ${it.downloaded} new pictures" } ?: "")
+    }
+
+    /** Downloads every talent's picture again and stores it in the app. */
+    fun redownloadPictures(onDone: (String) -> Unit) = run(onDone) {
+        val r = repository.downloadTalentPictures(force = true)
+        "Downloaded ${r.downloaded} talent pictures" + if (r.failed > 0) " (${r.failed} failed, check your connection)" else ""
     }
 
     fun matchTalents(onDone: (String) -> Unit) = run(onDone) {

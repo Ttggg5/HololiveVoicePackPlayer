@@ -100,6 +100,8 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
             _importing.value = true
             val message = try {
                 val count = repository.talents(forceRefresh = true).size
+                // New or changed pictures are stored before matching, so matches use the stored files.
+                runCatching { repository.downloadTalentPictures() }
                 val (matched, total) = repository.rematchAllTalents()
                 "Talent list updated ($count talents). Matched $matched of $total clips"
             } catch (e: Exception) {

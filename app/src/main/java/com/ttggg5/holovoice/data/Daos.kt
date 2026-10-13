@@ -251,6 +251,21 @@ abstract class ClipTalentDao {
     )
     abstract suspend fun setPrimary(clipId: Long, slug: String?, name: String?, imageUrl: String?, manual: Boolean)
 
+    @Query("UPDATE clip_talents SET imageUrl = :imageUrl WHERE slug = :slug AND imageUrl IS NOT :imageUrl")
+    abstract suspend fun setTalentPicture(slug: String, imageUrl: String)
+
+    @Query("UPDATE clips SET talentImageUrl = :imageUrl WHERE talentSlug = :slug AND talentImageUrl IS NOT :imageUrl")
+    abstract suspend fun setPrimaryPicture(slug: String, imageUrl: String)
+
+    /** Points every clip of [pictures]' talents (slug to picture) at that picture. */
+    @Transaction
+    open suspend fun setPictures(pictures: Map<String, String>) {
+        pictures.forEach { (slug, uri) ->
+            setTalentPicture(slug, uri)
+            setPrimaryPicture(slug, uri)
+        }
+    }
+
     /** Replaces all talents of a clip; the first one is also stored as the clip's primary talent. */
     @Transaction
     open suspend fun replace(clipId: Long, talents: List<ClipTalent>, manual: Boolean) {
