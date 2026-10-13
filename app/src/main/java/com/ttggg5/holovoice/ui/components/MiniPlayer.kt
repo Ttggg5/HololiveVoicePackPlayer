@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.components
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -83,7 +84,8 @@ fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit,
                     targetState = state,
                     contentKey = { it.clipId },
                     transitionSpec = {
-                        (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut()) using
+                        (slideInVertically(Motion.enter()) { it / 2 } + fadeIn(Motion.enter(delay = 60))) togetherWith
+                            (slideOutVertically(Motion.exit()) { -it / 2 } + fadeOut(Motion.exit())) using
                             SizeTransform(clip = false)
                     },
                     label = "miniPlayerTrack",

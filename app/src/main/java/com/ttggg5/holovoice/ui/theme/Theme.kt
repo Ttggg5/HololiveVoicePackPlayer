@@ -121,7 +121,7 @@ fun HoloVoiceTheme(content: @Composable () -> Unit) {
     val target = seed?.let { TalentColor.scheme(it, dark) } ?: base
 
     // Fade between talents instead of jumping.
-    val spec = tween<Color>(600)
+    val spec = tween<Color>(Motion.LONG + 150, easing = Motion.Standard)
     val colors = base.copy(
         primary = animateColorAsState(target.primary, spec, label = "primary").value,
         onPrimary = animateColorAsState(target.onPrimary, spec, label = "onPrimary").value,

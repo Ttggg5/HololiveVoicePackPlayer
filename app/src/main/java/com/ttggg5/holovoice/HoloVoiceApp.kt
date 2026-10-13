@@ -29,7 +29,7 @@ class HoloVoiceApp : Application(), ImageLoaderFactory {
     }
 
     /** Every image (covers, talent pictures) fades in instead of popping. */
-    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this).crossfade(true).build()
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this).crossfade(250).build()
 }
 
 /** Hand-rolled dependency container shared by the whole app. */

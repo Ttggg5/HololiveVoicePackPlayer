@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.home
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -138,13 +139,15 @@ fun HomeScreen(
                 Section("Recently played") {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         itemsIndexed(recent, key = { _, it -> it.clip.id }) { index, clip ->
-                            ClipCard(
-                                clip,
-                                isCurrent = state.clipId == clip.clip.id,
-                                isPlaying = state.isPlaying,
-                                onClick = { player.playFrom(recent, index) },
-                                onLongClick = { actionsFor = clip },
-                            )
+                            Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
+                                ClipCard(
+                                    clip,
+                                    isCurrent = state.clipId == clip.clip.id,
+                                    isPlaying = state.isPlaying,
+                                    onClick = { player.playFrom(recent, index) },
+                                    onLongClick = { actionsFor = clip },
+                                )
+                            }
                         }
                     }
                 }
@@ -376,13 +379,15 @@ private fun ClipRowSection(
     val shown = clips.take(20)
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         itemsIndexed(shown, key = { _, it -> it.clip.id }) { index, clip ->
-            ClipCard(
-                clip,
-                isCurrent = state.clipId == clip.clip.id,
-                isPlaying = state.isPlaying,
-                onClick = { player.playFrom(clips, index) },
-                onLongClick = { onLongClick(clip) },
-            )
+            Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
+                ClipCard(
+                    clip,
+                    isCurrent = state.clipId == clip.clip.id,
+                    isPlaying = state.isPlaying,
+                    onClick = { player.playFrom(clips, index) },
+                    onLongClick = { onLongClick(clip) },
+                )
+            }
         }
     }
 }

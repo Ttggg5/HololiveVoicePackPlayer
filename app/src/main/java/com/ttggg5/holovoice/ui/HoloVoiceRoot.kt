@@ -4,13 +4,19 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.graphicsLayer
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.Alignment
 import androidx.navigation.NavBackStackEntry
@@ -111,6 +117,8 @@ private const val SETTINGS = "settings"
 private const val FAVORITES = "favorites"
 private const val ALARMS = "alarms"
 
+private fun isTab(route: String?) = Tab.entries.any { it.route == route }
+
 /** +1 when moving to a tab further right, -1 further left, 0 when not a tab-to-tab change. */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabDirection(): Int {
     val from = Tab.entries.indexOfFirst { it.route == initialState.destination.route }
@@ -118,24 +126,50 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabDirection(): In
     return if (from < 0 || to < 0) 0 else (to - from).coerceIn(-1, 1)
 }
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabEnter(): EnterTransition = when (tabDirection()) {
-    1 -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(280)) + fadeIn(tween(280))
-    -1 -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeIn(tween(280))
-    else -> fadeIn(tween(220))
+private val AnimatedContentTransitionScope<NavBackStackEntry>.toPlayer get() = targetState.destination.route == NOW_PLAYING
+private val AnimatedContentTransitionScope<NavBackStackEntry>.fromPlayer get() = initialState.destination.route == NOW_PLAYING
+private val AnimatedContentTransitionScope<NavBackStackEntry>.toTab get() = isTab(targetState.destination.route)
+
+/*
+ * Motion between destinations:
+ * - tab to tab: shared axis X (a short slide in the direction of travel with a fade);
+ * - opening a page: it slides in over the current one, which drifts back and dims a little (and back reverses it);
+ * - Now Playing: slides up over a still page, and back down again.
+ */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTransition = when {
+    toPlayer -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, Motion.enter(Motion.LONG))
+    tabDirection() != 0 -> sharedAxisIn(tabDirection())
+    toTab -> fadeIn(Motion.enter(Motion.MEDIUM, delay = 60)) + scaleIn(Motion.enter(Motion.MEDIUM, delay = 60), initialScale = 0.96f)
+    else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG))
 }
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabExit(): ExitTransition = when (tabDirection()) {
-    1 -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(280)) + fadeOut(tween(200))
-    -1 -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeOut(tween(200))
-    else -> fadeOut(tween(180))
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransition = when {
+    toPlayer -> ExitTransition.KeepUntilTransitionsFinished
+    tabDirection() != 0 -> sharedAxisOut(tabDirection())
+    toTab -> fadeOut(Motion.exit(90))
+    else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG)) { it / 4 } +
+        fadeOut(Motion.enter(Motion.LONG), targetAlpha = 0.6f)
 }
 
-/** Drill-down screens slide in from the end and back out to it. */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.pushIn(): EnterTransition =
-    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(320)) + fadeIn(tween(320))
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition = when {
+    fromPlayer -> EnterTransition.None
+    tabDirection() != 0 -> sharedAxisIn(tabDirection())
+    else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM)) { it / 4 } +
+        fadeIn(Motion.move(Motion.MEDIUM), initialAlpha = 0.6f)
+}
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.pushOut(): ExitTransition =
-    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(280)) + fadeOut(tween(280))
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTransition = when {
+    fromPlayer -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, Motion.exit(Motion.MEDIUM))
+    tabDirection() != 0 -> sharedAxisOut(tabDirection())
+    else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM))
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.sharedAxisIn(direction: Int): EnterTransition =
+    slideInHorizontally(Motion.enter(Motion.MEDIUM)) { width -> direction * width / 7 } + fadeIn(Motion.enter(Motion.MEDIUM, delay = 50))
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.sharedAxisOut(direction: Int): ExitTransition =
+    slideOutHorizontally(Motion.exit(Motion.MEDIUM)) { width -> -direction * width / 7 } + fadeOut(Motion.exit(120))
+
 private const val QUEUE = "queue"
 
 @Composable
@@ -179,6 +213,17 @@ fun HoloVoiceRoot(container: AppContainer) {
         restoreState = true
     }
 
+    // The tab a sub-page was opened from stays highlighted; tapping it again goes back to its top page.
+    var currentTab by rememberSaveable { mutableStateOf(Tab.Home.route) }
+    LaunchedEffect(route) { if (isTab(route)) currentTab = route!! }
+    fun selectTab(tab: Tab) {
+        if (tab.route == currentTab && route != tab.route) {
+            if (!nav.popBackStack(tab.route, inclusive = false)) goToTab(tab)
+        } else {
+            goToTab(tab)
+        }
+    }
+
     val tabSwipes by container.uiPrefs.tabSwipes.state.collectAsStateWithLifecycle()
     val hapticsOn by container.uiPrefs.haptics.state.collectAsStateWithLifecycle()
     val systemHaptics = LocalHapticFeedback.current
@@ -198,8 +243,8 @@ fun HoloVoiceRoot(container: AppContainer) {
             Spacer(Modifier.height(8.dp))
             Tab.entries.forEach { tab ->
                 NavigationRailItem(
-                    selected = route == tab.route,
-                    onClick = { goToTab(tab) },
+                    selected = currentTab == tab.route,
+                    onClick = { selectTab(tab) },
                     icon = { Icon(tab.icon, contentDescription = null) },
                     label = { Text(tab.label) },
                 )
@@ -219,121 +264,130 @@ fun HoloVoiceRoot(container: AppContainer) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            Column {
+            // Slid out of sight (not removed) while Now Playing is open, so nothing re-lays out.
+            val hideBars by animateFloatAsState(
+                if (route == NOW_PLAYING) 1f else 0f,
+                if (route == NOW_PLAYING) Motion.exit(Motion.MEDIUM) else Motion.enter(Motion.LONG),
+                label = "hideBars",
+            )
+            Column(Modifier.graphicsLayer { translationY = size.height * hideBars }) {
                 AnimatedVisibility(
-                    visible = playerState.clipId != null && route != NOW_PLAYING,
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut(),
+                    visible = playerState.clipId != null,
+                    enter = expandVertically(Motion.enter(Motion.MEDIUM), expandFrom = Alignment.Top) + fadeIn(Motion.enter(Motion.MEDIUM)),
+                    exit = shrinkVertically(Motion.exit(Motion.MEDIUM), shrinkTowards = Alignment.Top) + fadeOut(Motion.exit()),
                 ) {
                     MiniPlayer(playerState, container.player, onOpen = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } })
                 }
-                AnimatedVisibility(
-                    visible = topLevel && !wide,
-                    enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                    exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-                ) {
+                if (!wide) {
                     NavigationBar {
                         Tab.entries.forEach { tab ->
                             NavigationBarItem(
-                                selected = route == tab.route,
-                                onClick = { goToTab(tab) },
+                                selected = currentTab == tab.route,
+                                onClick = { selectTab(tab) },
                                 icon = { Icon(tab.icon, contentDescription = null) },
                                 label = { Text(tab.label) },
                             )
                         }
                     }
-                }
-                if (!topLevel || wide) {
+                } else {
                     Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
             }
         },
     ) { padding ->
+        val bottomPad = padding.calculateBottomPadding()
+        val pageBackground = MaterialTheme.colorScheme.background
+
+        // Every page except Now Playing keeps clear of the mini player and nav bar. The bars are always
+        // laid out (only slid away for Now Playing), so pages never change size mid-transition.
+        @Composable
+        fun Page(content: @Composable () -> Unit) {
+            Box(Modifier.fillMaxSize().background(pageBackground).padding(bottom = bottomPad)) { content() }
+        }
+
         NavHost(
             nav,
             startDestination = Tab.Home.route,
             modifier = Modifier
-                .padding(padding)
                 // Fling left/right on a tab to move to the neighbouring tab.
                 .swipeBetweenTabs(enabled = topLevel && tabSwipes) { direction ->
                     val index = Tab.entries.indexOfFirst { it.route == route }
                     Tab.entries.getOrNull(index + direction)?.let(::goToTab)
                 },
-            // Tabs slide in the direction of travel; drill-down screens override these below.
-            enterTransition = { tabEnter() },
-            exitTransition = { tabExit() },
-            popEnterTransition = { tabEnter() },
-            popExitTransition = { tabExit() },
+            enterTransition = { enter() },
+            exitTransition = { exit() },
+            popEnterTransition = { popEnter() },
+            popExitTransition = { popExit() },
         ) {
             composable(Tab.Home.route) {
-                HomeScreen(
-                    viewModel = viewModel { HomeViewModel(repository) },
-                    player = container.player,
-                    onOpenTopic = { id -> nav.navigate("pack/$id") },
-                    onOpenTalent = { slug -> nav.navigate("talent/$slug") },
-                    onOpenFavorites = { nav.navigate(FAVORITES) },
-                    onOpenNowPlaying = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } },
-                    onBrowseTopics = { goToTab(Tab.Library) },
-                    onShowHelp = { showHelp = true },
-                    onOpenSettings = openSettings,
-                    onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
-                )
+                Page {
+                    HomeScreen(
+                        viewModel = viewModel { HomeViewModel(repository) },
+                        player = container.player,
+                        onOpenTopic = { id -> nav.navigate("pack/$id") },
+                        onOpenTalent = { slug -> nav.navigate("talent/$slug") },
+                        onOpenFavorites = { nav.navigate(FAVORITES) },
+                        onOpenNowPlaying = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } },
+                        onBrowseTopics = { goToTab(Tab.Library) },
+                        onShowHelp = { showHelp = true },
+                        onOpenSettings = openSettings,
+                        onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
+                    )
+                }
             }
             composable(Tab.Talents.route) {
-                TalentsScreen(
-                    viewModel = viewModel { TalentsViewModel(repository) },
-                    playerState = playerState,
-                    onOpen = { slug -> nav.navigate("talent/$slug") },
-                )
+                Page {
+                    TalentsScreen(
+                        viewModel = viewModel { TalentsViewModel(repository) },
+                        playerState = playerState,
+                        onOpen = { slug -> nav.navigate("talent/$slug") },
+                    )
+                }
             }
             composable(
                 "talent/{slug}",
                 arguments = listOf(navArgument("slug") { type = NavType.StringType }),
-                enterTransition = { pushIn() },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { pushOut() },
             ) { entry ->
-                val slug = entry.arguments?.getString("slug") ?: UNASSIGNED_SLUG
-                TalentScreen(
-                    viewModel = viewModel { TalentViewModel(slug, repository) },
-                    player = container.player,
-                    onBack = { nav.popBackStack() },
-                )
+                Page {
+                    val slug = entry.arguments?.getString("slug") ?: UNASSIGNED_SLUG
+                    TalentScreen(
+                        viewModel = viewModel { TalentViewModel(slug, repository) },
+                        player = container.player,
+                        onBack = { nav.popBackStack() },
+                    )
+                }
             }
             composable(Tab.Library.route) {
-                LibraryScreen(
-                    viewModel = viewModel { LibraryViewModel(repository) },
-                    playerState = playerState,
-                    onOpenPack = { id -> nav.navigate("pack/$id") },
-                )
+                Page {
+                    LibraryScreen(
+                        viewModel = viewModel { LibraryViewModel(repository) },
+                        playerState = playerState,
+                        onOpenPack = { id -> nav.navigate("pack/$id") },
+                    )
+                }
             }
             composable(Tab.Playlists.route) {
-                PlaylistsScreen(
-                    viewModel = viewModel { PlaylistsViewModel(repository) },
-                    player = container.player,
-                    onOpen = { id -> nav.navigate("playlist/$id") },
-                )
+                Page {
+                    PlaylistsScreen(
+                        viewModel = viewModel { PlaylistsViewModel(repository) },
+                        player = container.player,
+                        onOpen = { id -> nav.navigate("playlist/$id") },
+                    )
+                }
             }
             composable("playlist/{playlistId}", arguments = listOf(navArgument("playlistId") { type = NavType.LongType }),
-                enterTransition = { pushIn() },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { pushOut() },
             ) { entry ->
-                val playlistId = entry.arguments!!.getLong("playlistId")
-                PlaylistScreen(
-                    viewModel = viewModel { PlaylistViewModel(playlistId, repository) },
-                    player = container.player,
-                    onBack = { nav.popBackStack() },
-                )
+                Page {
+                    val playlistId = entry.arguments!!.getLong("playlistId")
+                    PlaylistScreen(
+                        viewModel = viewModel { PlaylistViewModel(playlistId, repository) },
+                        player = container.player,
+                        onBack = { nav.popBackStack() },
+                    )
+                }
             }
             composable(
                 NOW_PLAYING,
-                enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, tween(380)) },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, tween(320)) },
             ) {
                 NowPlayingScreen(
                     viewModel = viewModel { NowPlayingViewModel(repository, container.player) },
@@ -345,60 +399,52 @@ fun HoloVoiceRoot(container: AppContainer) {
                 )
             }
             composable(QUEUE,
-                enterTransition = { pushIn() },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { pushOut() },
             ) {
-                QueueScreen(player = container.player, onBack = { nav.popBackStack() })
+                Page {
+                    QueueScreen(player = container.player, onBack = { nav.popBackStack() })
+                }
             }
             composable(
                 FAVORITES,
-                enterTransition = { pushIn() },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { pushOut() },
             ) {
-                FavoritesScreen(viewModel { FavoritesViewModel(repository) }, container.player, onBack = { nav.popBackStack() })
+                Page {
+                    FavoritesScreen(viewModel { FavoritesViewModel(repository) }, container.player, onBack = { nav.popBackStack() })
+                }
             }
             composable(
                 SETTINGS,
-                enterTransition = { pushIn() },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { pushOut() },
             ) {
-                SettingsScreen(
-                    viewModel = viewModel { SettingsViewModel(repository) },
-                    onBack = { nav.popBackStack() },
-                    onShowHelp = { showHelp = true },
-                    onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
-                )
+                Page {
+                    SettingsScreen(
+                        viewModel = viewModel { SettingsViewModel(repository) },
+                        onBack = { nav.popBackStack() },
+                        onShowHelp = { showHelp = true },
+                        onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
+                    )
+                }
             }
             composable(
                 ALARMS,
-                enterTransition = { pushIn() },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { pushOut() },
             ) {
-                AlarmsScreen(viewModel { AlarmsViewModel(container.alarms, repository, container.player) }, onBack = { nav.popBackStack() })
+                Page {
+                    AlarmsScreen(viewModel { AlarmsViewModel(container.alarms, repository, container.player) }, onBack = { nav.popBackStack() })
+                }
             }
             composable(Tab.Search.route) {
-                SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
+                Page {
+                    SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
+                }
             }
             composable("pack/{packId}", arguments = listOf(navArgument("packId") { type = NavType.LongType }),
-                enterTransition = { pushIn() },
-                exitTransition = { fadeOut(tween(200)) },
-                popEnterTransition = { fadeIn(tween(250)) },
-                popExitTransition = { pushOut() },
             ) { entry ->
-                val packId = entry.arguments!!.getLong("packId")
-                PackScreen(
-                    viewModel = viewModel { PackViewModel(packId, repository) },
-                    player = container.player,
-                    onBack = { nav.popBackStack() },
-                )
+                Page {
+                    val packId = entry.arguments!!.getLong("packId")
+                    PackScreen(
+                        viewModel = viewModel { PackViewModel(packId, repository) },
+                        player = container.player,
+                        onBack = { nav.popBackStack() },
+                    )
+                }
             }
         }
     }

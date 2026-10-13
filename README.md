@@ -71,6 +71,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - **A–B loop**: tap *A–B* to mark the start, tap again to mark the end, and that part repeats (also with the screen off). Tap *Loop* to stop; it also ends when the next clip starts.
 - Swipe up on the player, or tap the *Up next* bar, to see the queue. Drag down to close the player.
 - On tablets and unfolded foldables, a side rail replaces the bottom bar, and the player shows the queue beside the controls.
+- The bottom bar stays on every page; tap the highlighted tab again to jump back to its top page. On Android 14+, the back swipe shows the page you're going back to as you swipe.
 - The notification and lock-screen player show the topic thumbnail as the background with the talent picture on top (an accent-coloured gradient when the topic has no thumbnail), and the status bar shows the app's own icon.
 
 ## Gestures

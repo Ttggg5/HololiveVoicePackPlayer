@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.components
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -202,7 +203,7 @@ fun ClipBrowser(
                     onPlayNext = { playNext(item) },
                     onToggleFavorite = { toggleFavorite(item) },
                     shape = RoundedCornerShape(18.dp),
-                    modifier = Modifier.animateItem(),
+                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
                 ) {
                 ClipTile(
                     item = item,
@@ -230,7 +231,7 @@ fun ClipBrowser(
                     onPlayNext = { playNext(item) },
                     onToggleFavorite = { toggleFavorite(item) },
                     shape = RectangleShape,
-                    modifier = Modifier.animateItem(),
+                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
                 ) {
                 ClipRow(
                     item = item,

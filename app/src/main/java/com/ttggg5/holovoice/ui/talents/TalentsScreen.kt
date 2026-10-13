@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.talents
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -137,7 +138,7 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                             TalentCard(
                                 talent = t,
                                 playing = playerState.isPlaying && t.slug != null && t.slug in playerState.talentSlugs,
-                                modifier = Modifier.animateItem(),
+                                modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
                                 onClick = { onOpen(t.slug ?: UNASSIGNED_SLUG) },
                             )
                         }

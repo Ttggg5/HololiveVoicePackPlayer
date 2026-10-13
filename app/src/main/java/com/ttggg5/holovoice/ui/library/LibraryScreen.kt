@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.library
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -261,7 +262,7 @@ private fun PackGrid(
             items(talentPacks, key = { it.pack.id }) { item ->
                 val playingHere = playerState.packId == item.pack.id
                 Card(
-                    Modifier.animateItem().fillMaxWidth().combinedClickable(
+                    Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()).fillMaxWidth().combinedClickable(
                         onClick = { onOpen(item.pack.id) },
                         onLongClick = {
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)

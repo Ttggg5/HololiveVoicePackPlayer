@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.nowplaying
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -176,6 +177,12 @@ fun NowPlayingScreen(
                         upDrag = 0f
                         showQueue = true
                     } else if (dragY.value > screenHeight * 0.25f || velocity > 2500f) {
+                        // Carry on from the finger to the bottom, then close (nothing left to slide).
+                        dragY.animateTo(
+                            screenHeight.toFloat(),
+                            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+                            initialVelocity = velocity.coerceAtLeast(0f),
+                        )
                         onBack()
                     } else {
                         dragY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
@@ -185,9 +192,10 @@ fun NowPlayingScreen(
             .graphicsLayer {
                 translationY = dragY.value
                 val progress = (dragY.value / screenHeight).coerceIn(0f, 1f)
-                scaleX = 1f - progress * 0.08f
-                scaleY = 1f - progress * 0.08f
-                alpha = 1f - progress * 0.5f
+                scaleX = 1f - progress * 0.06f
+                scaleY = 1f - progress * 0.06f
+                shape = RoundedCornerShape((progress * 120).coerceAtMost(32f).dp)
+                clip = progress > 0f
             },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -234,8 +242,8 @@ fun NowPlayingScreen(
                 targetState = state,
                 contentKey = { it.clipId },
                 transitionSpec = {
-                    (slideInHorizontally { it / 3 } + fadeIn(tween(350))) togetherWith
-                        (slideOutHorizontally { -it / 3 } + fadeOut(tween(250)))
+                    (slideInHorizontally(Motion.enter(Motion.LONG)) { it / 3 } + fadeIn(Motion.enter(Motion.MEDIUM, delay = 60))) togetherWith
+                        (slideOutHorizontally(Motion.exit(Motion.MEDIUM)) { -it / 3 } + fadeOut(Motion.exit()))
                 },
                 label = "nowPlayingArt",
                 modifier = Modifier.weight(1f).fillMaxWidth().artworkSwipe(player, state.hasNext),
@@ -279,7 +287,10 @@ fun NowPlayingScreen(
                 AnimatedContent(
                     targetState = state,
                     contentKey = { it.clipId },
-                    transitionSpec = { (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut()) },
+                    transitionSpec = {
+                        (slideInVertically(Motion.enter()) { it / 2 } + fadeIn(Motion.enter(delay = 60))) togetherWith
+                            (slideOutVertically(Motion.exit()) { -it / 2 } + fadeOut(Motion.exit()))
+                    },
                     label = "nowPlayingTitle",
                     modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                 ) { s ->

@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.alarms
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Intent
@@ -9,6 +10,7 @@ import android.provider.Settings
 import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -161,12 +163,14 @@ fun AlarmsScreen(viewModel: AlarmsViewModel, onBack: () -> Unit) {
                 }
             }
             items(list, key = { it.id }) { alarm ->
-                AlarmCard(
-                    alarm,
-                    sounds,
-                    onClick = { editing = alarm },
-                    onToggle = { viewModel.setEnabled(alarm, it) },
-                )
+                Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
+                    AlarmCard(
+                        alarm,
+                        sounds,
+                        onClick = { editing = alarm },
+                        onToggle = { viewModel.setEnabled(alarm, it) },
+                    )
+                }
             }
         }
     }

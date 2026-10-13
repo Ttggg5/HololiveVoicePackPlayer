@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.playlists
 
+import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -81,7 +82,7 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
             else -> LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
                 items(list, key = { it.playlist.id }) { p ->
                     ListItem(
-                        modifier = Modifier.animateItem().clickable { onOpen(p.playlist.id) },
+                        modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()).clickable { onOpen(p.playlist.id) },
                         headlineContent = { Text(p.playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text("${p.entryCount} clips") },
                         leadingContent = {
