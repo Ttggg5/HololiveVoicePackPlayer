@@ -79,6 +79,7 @@ class UiPrefs(context: Context) {
     val themeMode = EnumPref("themeMode", ThemeMode.SYSTEM, ThemeMode::valueOf)
     val dynamicColor = BoolPref("dynamicColor", false)
     val accent = EnumPref("accent", Accent.HOLO_BLUE, Accent::valueOf)
+    val talentColor = BoolPref("talentColor", true)
 
     // Playback
     val skipBackSec = IntPref("skipBackSec", 10)

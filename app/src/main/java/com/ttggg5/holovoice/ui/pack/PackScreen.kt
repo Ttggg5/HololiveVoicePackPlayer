@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
+import com.ttggg5.holovoice.ui.components.ClipArt
 import com.ttggg5.holovoice.ui.components.ClipBrowser
 
 /** A topic: its clips, split into category tabs when the topic folder had sub-folders. */
@@ -114,6 +115,7 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                     player = player,
                     onToggleFavorite = viewModel::toggleFavorite,
                     showPack = false,
+                    artwork = ClipArt.TALENT,
                     showCategory = tabCategory == null && categories.isNotEmpty(),
                     emptyTitle = "No clips in this topic",
                     emptyBody = "Add audio files to the folder; they appear the next time you open the app.",

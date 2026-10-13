@@ -57,7 +57,7 @@ fun QueueList(player: PlayerController, modifier: Modifier = Modifier) {
             key = { it.key },
             row = { item ->
                 val current = item.index == state.currentIndex
-                TrackRow(item.title, item.subtitle, item.artworkUri, highlighted = current, playing = current && state.isPlaying)
+                TrackRow(item.title, item.subtitle, item.coverUri ?: item.artworkUri, highlighted = current, playing = current && state.isPlaying)
             },
             onClick = { item, _ -> player.skipTo(item.index) },
             onRemove = { item ->

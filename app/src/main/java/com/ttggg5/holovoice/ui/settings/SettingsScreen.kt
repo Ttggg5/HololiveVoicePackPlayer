@@ -120,6 +120,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     SwitchRow("Material You colours", "Use colours from your wallpaper", prefs.dynamicColor)
                 }
+                SwitchRow(
+                    "Match the playing talent",
+                    "Colour the app after the talent who is speaking; the colours below apply when nothing is playing",
+                    prefs.talentColor,
+                )
                 val accent by prefs.accent.state.collectAsStateWithLifecycle()
                 Label(if (dynamic) "Accent colour (off while Material You is on)" else "Accent colour")
                 Row(

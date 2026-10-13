@@ -90,6 +90,10 @@ val ClipWithPack.artwork: String?
         if (images.size > 1) Collage.uri(images) else images.firstOrNull() ?: clip.talentImageUrl ?: coverUri
     }
 
+/** Thumbnail of a clip in lists: its topic's thumbnail, else [artwork]. */
+val ClipWithPack.thumbnail: String?
+    get() = coverUri ?: artwork
+
 /** The clip's talents in order (falls back to the single primary talent from older data). */
 val ClipWithPack.orderedTalents: List<ClipTalent>
     get() = talents.sortedBy { it.position }.ifEmpty {

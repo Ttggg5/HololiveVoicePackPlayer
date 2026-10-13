@@ -15,7 +15,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Grid or list**: switch clip collections between big picture tiles and a compact list.
 - **Search and filters**: a filter box on every clip list, plus *Favorites*, *Talent* and *Topic* filter chips in Search.
 - **Undo**: removing from favorites, the queue or a playlist, or deleting a playlist, shows an *Undo* button.
-- **Talent page**: each clip shows its topic's thumbnail.
+- **Clip thumbnails**: clips show their topic's thumbnail, with a small round talent picture on grid tiles. Inside a topic, clips show the talent picture instead.
 - **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories, shown as tabs on the topic screen. Long-press a topic to rename it, change its talent, or delete it.
 - **Auto-sync**: imported folders are rescanned when you open the app, so files you add or delete show up without importing again. Picking a folder that is already in the library updates it instead of creating a duplicate.
 - **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.
@@ -29,7 +29,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Talent pictures**: the app shows the profile picture of every talent whose name appears in a clip's file name. Names come from the [official talent list](https://hololive.hololivepro.com/talents).
   - Full names count anywhere in the file name, in English or 日本語: `兎田ぺこら_おはよう.mp3`, `UsadaPekora 01.mp3`.
   - Given or family names count too: `Pekora`, `ぺこら`, `宝鐘`. Short names such as `Ao` or `そら` only count as separate words.
-  - **Several talents per clip**: `ぺこら×マリン.mp3` or `Pekora & Marine.mp3` gets both talents and appears under each talent in the Talents tab. Its thumbnail is a split collage of their pictures: two talents are split diagonally, three show one large and two small pictures, and four or more show a 2×2 grid with "+N". The notification and lock screen show the same collage.
+  - **Several talents per clip**: `ぺこら×マリン.mp3` or `Pekora & Marine.mp3` gets both talents and appears under each talent in the Talents tab. Its talent picture is a split collage: two talents are split diagonally, three show one large and two small pictures, and four or more show a 2×2 grid with "+N". The notification and lock screen show the same collage.
   - If a match is wrong, long-press the clip and choose *Talents…* to pick one or more talents. You can also long-press a topic and choose *Set talents for all clips…*.
   - Talents ⋮ → *Match talents automatically* re-runs matching.
   - The talent list is cached and refreshed weekly.
@@ -37,7 +37,7 @@ The app ships no audio of its own. You import your packs from your phone.
 
 ## Settings
 Open Settings from Home → ⋮ → *Settings*, or from the side rail on a tablet. It has:
-- **Appearance**: theme (system / light / dark), Material You colours, accent colour and tile size.
+- **Appearance**: theme (system / light / dark), *Match the playing talent* (on by default: the app's main colour fades to a colour taken from the speaking talent's picture), Material You colours, accent colour and tile size.
 - **Playback**:
   - how many seconds the rewind and skip-ahead buttons jump
   - the default speed for new queues

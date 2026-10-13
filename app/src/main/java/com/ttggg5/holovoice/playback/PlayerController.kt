@@ -31,6 +31,8 @@ data class QueueItem(
     val title: String,
     val subtitle: String,
     val artworkUri: Uri?,
+    /** The topic's thumbnail. */
+    val coverUri: String? = null,
 )
 
 data class PlayerState(
@@ -319,6 +321,7 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
                 title = item.mediaMetadata.title?.toString().orEmpty(),
                 subtitle = listOfNotNull(item.mediaMetadata.artist, item.mediaMetadata.albumTitle).joinToString(" · "),
                 artworkUri = item.mediaMetadata.artworkUri,
+                coverUri = item.mediaMetadata.extras?.getString(ItemExtras.COVER),
             )
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffle)
         }

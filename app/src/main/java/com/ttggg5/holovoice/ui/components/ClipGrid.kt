@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -79,6 +80,7 @@ import com.ttggg5.holovoice.data.ClipSort
 import com.ttggg5.holovoice.data.ClipView
 import com.ttggg5.holovoice.data.ClipWithPack
 import com.ttggg5.holovoice.data.artwork
+import com.ttggg5.holovoice.data.thumbnail
 import com.ttggg5.holovoice.data.speaker
 import com.ttggg5.holovoice.data.talentImages
 import com.ttggg5.holovoice.data.talents.TalentMatcher
@@ -107,7 +109,7 @@ fun ClipBrowser(
     header: (@Composable () -> Unit)? = null,
     emptyTitle: String = "No clips here",
     emptyBody: String = "",
-    artwork: ClipArt = ClipArt.TALENT,
+    artwork: ClipArt = ClipArt.TOPIC,
 ) {
     val prefs = LocalContext.current.appContainer.uiPrefs
     val sort by prefs.clipSort.collectAsStateWithLifecycle()
@@ -248,7 +250,7 @@ fun ClipBrowser(
 }
 
 private fun ClipWithPack.picture(art: ClipArt): String? =
-    if (art == ClipArt.TOPIC) coverUri ?: artwork else artwork
+    if (art == ClipArt.TOPIC) thumbnail else artwork
 
 /** Matches the filter text against title, talent, topic and category (any script / width). */
 private fun ClipWithPack.matches(query: String): Boolean {
@@ -267,7 +269,10 @@ private fun ClipWithPack.metaLine(showPack: Boolean, showCategory: Boolean): Str
     clip.durationMs?.let(::formatDuration),
 ).joinToString(" · ")
 
-/** Big picture tile: the talent's picture (else the topic cover) on top, title and details below. */
+/**
+ * Big picture tile: the picture on top (the topic thumbnail with a small talent badge, or the
+ * talent's picture), title and details below.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ClipTile(
@@ -361,6 +366,19 @@ private fun ClipTile(
                 modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(40.dp),
             ) {
                 FavoriteButton(item.clip.isFavorite, onToggleFavorite)
+            }
+            if (artwork == ClipArt.TOPIC && item.coverUri != null && item.artwork != item.coverUri) {
+                // Who is speaking: the talent's picture, or a split collage for several talents.
+                Artwork(
+                    item.artwork,
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                    iconSize = 18.dp,
+                )
             }
             item.clip.trackNo?.let {
                 Surface(

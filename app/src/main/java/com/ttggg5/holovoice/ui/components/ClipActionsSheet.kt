@@ -33,7 +33,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.platform.LocalContext
 import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.ClipWithPack
-import com.ttggg5.holovoice.data.artwork
+import com.ttggg5.holovoice.data.thumbnail
 import com.ttggg5.holovoice.data.orderedTalents
 import androidx.compose.foundation.layout.Box
 import com.ttggg5.holovoice.data.speaker
@@ -72,7 +72,7 @@ fun ClipActionsSheet(
         Column(Modifier.navigationBarsPadding().padding(bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Box {
-                    Artwork(clip.artwork, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), iconSize = 22.dp)
+                    Artwork(clip.thumbnail, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)), iconSize = 22.dp)
                 }
                 Column(Modifier.padding(start = 12.dp)) {
                     Text(clip.clip.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)

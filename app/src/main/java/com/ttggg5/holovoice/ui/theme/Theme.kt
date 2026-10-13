@@ -1,6 +1,8 @@
 package com.ttggg5.holovoice.ui.theme
 
 import android.os.Build
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -10,6 +12,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,7 +85,10 @@ private fun scheme(accent: Accent, dark: Boolean): ColorScheme {
     }
 }
 
-/** App theme, following the theme mode, Material You and accent chosen in Settings. */
+/**
+ * App theme, following the theme mode, Material You and accent chosen in Settings. With
+ * "Match the playing talent" on, the main colours come from the talent who is speaking.
+ */
 @Composable
 fun HoloVoiceTheme(content: @Composable () -> Unit) {
     val prefs = LocalContext.current.appContainer.uiPrefs
@@ -94,11 +100,31 @@ fun HoloVoiceTheme(content: @Composable () -> Unit) {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val colors = if (dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val context = LocalContext.current
+    val context = LocalContext.current
+    val base = if (dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
         scheme(accent, dark)
     }
+
+    // While a clip is loaded, take the main colours from the speaking talent's picture.
+    val followTalent by prefs.talentColor.state.collectAsStateWithLifecycle()
+    val playerState by context.appContainer.player.state.collectAsStateWithLifecycle()
+    val talentImage = playerState.talentImageUrl.takeIf { followTalent }
+    val seed by produceState<Color?>(null, talentImage) {
+        value = talentImage?.let { runCatching { TalentColor.seed(context, it) }.getOrNull() }
+    }
+    val target = seed?.let { TalentColor.scheme(it, dark) } ?: base
+
+    // Fade between talents instead of jumping.
+    val spec = tween<Color>(600)
+    val colors = base.copy(
+        primary = animateColorAsState(target.primary, spec, label = "primary").value,
+        onPrimary = animateColorAsState(target.onPrimary, spec, label = "onPrimary").value,
+        primaryContainer = animateColorAsState(target.primaryContainer, spec, label = "primaryContainer").value,
+        onPrimaryContainer = animateColorAsState(target.onPrimaryContainer, spec, label = "onPrimaryContainer").value,
+        secondary = animateColorAsState(target.secondary, spec, label = "secondary").value,
+        onSecondary = animateColorAsState(target.onSecondary, spec, label = "onSecondary").value,
+    )
     MaterialTheme(colorScheme = colors, content = content)
 }

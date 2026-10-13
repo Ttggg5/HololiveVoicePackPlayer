@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.data.ClipWithPack
-import com.ttggg5.holovoice.data.artwork
+import com.ttggg5.holovoice.data.thumbnail
 import com.ttggg5.holovoice.data.speaker
 import androidx.compose.ui.platform.LocalContext
 import com.ttggg5.holovoice.appContainer
@@ -113,7 +113,7 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
                             entry.item.packName,
                             entry.item.clip.durationMs?.let(::formatDuration),
                         ).joinToString(" · "),
-                        artwork = entry.item.artwork,
+                        artwork = entry.item.thumbnail,
                         highlighted = current,
                         playing = current && playerState.isPlaying,
                     )

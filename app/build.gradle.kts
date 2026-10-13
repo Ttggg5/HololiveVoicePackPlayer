@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.documentfile)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.palette.ktx)
     implementation(libs.reorderable)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
