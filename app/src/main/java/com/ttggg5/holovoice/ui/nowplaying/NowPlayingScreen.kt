@@ -76,7 +76,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.ui.components.PlayPauseIcon
-import com.ttggg5.holovoice.ui.components.TalentAvatars
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.animation.AnimatedContent
@@ -209,15 +208,14 @@ fun NowPlayingScreen(
                             },
                     ) {
                         Artwork(
-                            s.coverUri ?: s.talentImageUrl ?: s.artworkUri,
+                            s.coverUri ?: s.artworkUri ?: s.talentImageUrl,
                             Modifier.fillMaxSize().padding(bottom = 28.dp).clip(RoundedCornerShape(20.dp)),
                             iconSize = 96.dp,
                         )
-                        if (s.talentImages.size > 1 && s.coverUri != null) {
-                            TalentAvatars(s.talentImages, Modifier.align(Alignment.BottomCenter), size = 64.dp, max = 4)
-                        } else if (s.talentImageUrl != null && s.coverUri != null) {
+                        if (s.talentImageUrl != null && s.coverUri != null) {
+                            // Round badge: the talent's picture, or a split collage for several talents.
                             Artwork(
-                                s.talentImageUrl,
+                                if (s.talentImages.size > 1) s.artworkUri else s.talentImageUrl,
                                 Modifier
                                     .align(Alignment.BottomCenter)
                                     .size(72.dp)

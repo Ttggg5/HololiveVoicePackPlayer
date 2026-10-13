@@ -29,7 +29,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Talent pictures**: the app shows the profile picture of every talent whose name appears in a clip's file name. Names come from the [official talent list](https://hololive.hololivepro.com/talents).
   - Full names count anywhere in the file name, in English or 日本語: `兎田ぺこら_おはよう.mp3`, `UsadaPekora 01.mp3`.
   - Given or family names count too: `Pekora`, `ぺこら`, `宝鐘`. Short names such as `Ao` or `そら` only count as separate words.
-  - **Several talents per clip**: `ぺこら×マリン.mp3` or `Pekora & Marine.mp3` gets both talents. The clip shows a stack of their pictures and appears under each talent in the Talents tab.
+  - **Several talents per clip**: `ぺこら×マリン.mp3` or `Pekora & Marine.mp3` gets both talents and appears under each talent in the Talents tab. Its thumbnail is a split collage of their pictures: two talents are split diagonally, three show one large and two small pictures, and four or more show a 2×2 grid with "+N". The notification and lock screen show the same collage.
   - If a match is wrong, long-press the clip and choose *Talents…* to pick one or more talents. You can also long-press a topic and choose *Set talents for all clips…*.
   - Talents ⋮ → *Match talents automatically* re-runs matching.
   - The talent list is cached and refreshed weekly.

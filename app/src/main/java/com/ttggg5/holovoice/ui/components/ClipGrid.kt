@@ -78,6 +78,7 @@ import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.ClipSort
 import com.ttggg5.holovoice.data.ClipView
 import com.ttggg5.holovoice.data.ClipWithPack
+import com.ttggg5.holovoice.data.artwork
 import com.ttggg5.holovoice.data.speaker
 import com.ttggg5.holovoice.data.talentImages
 import com.ttggg5.holovoice.data.talents.TalentMatcher
@@ -244,7 +245,7 @@ fun ClipBrowser(
 }
 
 private fun ClipWithPack.picture(art: ClipArt): String? =
-    if (art == ClipArt.TOPIC) coverUri ?: clip.talentImageUrl else clip.talentImageUrl ?: coverUri
+    if (art == ClipArt.TOPIC) coverUri ?: artwork else artwork
 
 /** Matches the filter text against title, talent, topic and category (any script / width). */
 private fun ClipWithPack.matches(query: String): Boolean {
@@ -353,11 +354,6 @@ private fun ClipTile(
             ) {
                 FavoriteButton(item.clip.isFavorite, onToggleFavorite)
             }
-            // Several talents in one clip: show them all as a small stack.
-            val images = item.talentImages
-            if (images.size > 1) {
-                TalentAvatars(images, Modifier.align(Alignment.BottomEnd).padding(8.dp), size = 30.dp)
-            }
             item.clip.trackNo?.let {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -426,16 +422,11 @@ private fun ClipRow(
             .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
     ) {
         Box {
-            val images = item.talentImages
-            if (artwork == ClipArt.TALENT && images.size > 1) {
-                TalentAvatars(images, size = 40.dp, max = 2)
-            } else {
-                Artwork(
-                    item.picture(artwork),
-                    Modifier.size(48.dp).clip(if (artwork == ClipArt.TOPIC) RoundedCornerShape(10.dp) else CircleShape),
-                    iconSize = 22.dp,
-                )
-            }
+            Artwork(
+                item.picture(artwork),
+                Modifier.size(48.dp).clip(if (artwork == ClipArt.TOPIC) RoundedCornerShape(10.dp) else CircleShape),
+                iconSize = 22.dp,
+            )
             if (isCurrent) EqualizerBars(isPlaying, size = 14.dp, modifier = Modifier.align(Alignment.BottomEnd))
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {

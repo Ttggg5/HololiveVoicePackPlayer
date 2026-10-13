@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.data.ClipWithPack
+import com.ttggg5.holovoice.data.artwork
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.ui.components.Artwork
 import com.ttggg5.holovoice.ui.components.ClipActionsSheet
@@ -260,7 +261,7 @@ private fun ContinueCard(state: com.ttggg5.holovoice.playback.PlayerState, playe
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
             Artwork(
-                state.talentImageUrl ?: state.artworkUri,
+                state.artworkUri ?: state.talentImageUrl,
                 Modifier.size(72.dp).clip(CircleShape).border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
                 iconSize = 32.dp,
             )
@@ -309,7 +310,7 @@ private fun ClipCard(clip: ClipWithPack, isCurrent: Boolean, isPlaying: Boolean,
             }),
     ) {
         Box {
-            Artwork(clip.clip.talentImageUrl ?: clip.coverUri, Modifier.size(128.dp).clip(RoundedCornerShape(16.dp)), iconSize = 40.dp)
+            Artwork(clip.artwork, Modifier.size(128.dp).clip(RoundedCornerShape(16.dp)), iconSize = 40.dp)
             if (clip.clip.isFavorite) {
                 Icon(
                     Icons.Filled.Star,

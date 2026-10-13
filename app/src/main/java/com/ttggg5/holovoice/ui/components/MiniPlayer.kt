@@ -89,18 +89,15 @@ fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit,
                 ) { s ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box {
-                            if (s.talentImages.size > 1) {
-                                TalentAvatars(s.talentImages, size = 40.dp, max = 2)
-                            } else {
-                                Artwork(
-                                    s.talentImageUrl ?: s.artworkUri,
-                                    Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                                    iconSize = 22.dp,
-                                )
-                            }
+                            // A collage for clips with several talents, otherwise the talent's picture.
+                            Artwork(
+                                s.artworkUri ?: s.talentImageUrl,
+                                Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                iconSize = 22.dp,
+                            )
                             EqualizerBars(
                                 playing = s.isPlaying,
                                 size = 14.dp,

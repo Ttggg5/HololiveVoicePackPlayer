@@ -83,8 +83,12 @@ data class ClipWithPack(
     val talents: List<ClipTalent> = emptyList(),
 )
 
-/** Picture to show for a clip: the talent's profile picture, else the pack cover. */
-val ClipWithPack.artwork: String? get() = clip.talentImageUrl ?: coverUri
+/** Picture to show for a clip: a collage for several talents, the talent's picture, else the pack cover. */
+val ClipWithPack.artwork: String?
+    get() = talentImages.let { images ->
+        // Several talents: a split collage of all their pictures.
+        if (images.size > 1) Collage.uri(images) else images.firstOrNull() ?: clip.talentImageUrl ?: coverUri
+    }
 
 /** The clip's talents in order (falls back to the single primary talent from older data). */
 val ClipWithPack.orderedTalents: List<ClipTalent>

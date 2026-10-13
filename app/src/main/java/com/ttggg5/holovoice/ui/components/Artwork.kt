@@ -15,8 +15,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import coil.compose.AsyncImage
+import com.ttggg5.holovoice.data.Collage
 
-/** Cover image with a tinted placeholder icon shown underneath (and when there is no cover). */
+/** Cover image (or a talent collage) with a tinted placeholder icon shown underneath (and when there is no cover). */
 @Composable
 fun Artwork(
     model: Any?,
@@ -26,7 +27,10 @@ fun Artwork(
 ) {
     Box(modifier.background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
         Icon(placeholder, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(iconSize))
-        if (model != null) {
+        val collage = Collage.parse(model)
+        if (collage != null) {
+            TalentCollage(collage, Modifier.fillMaxSize())
+        } else if (model != null) {
             AsyncImage(
                 model = model,
                 contentDescription = null,
