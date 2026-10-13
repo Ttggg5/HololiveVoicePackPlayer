@@ -5,6 +5,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -112,7 +120,6 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     Search("search", "Search", Icons.Filled.Search),
 }
 
-private const val NOW_PLAYING = "now_playing"
 private const val SETTINGS = "settings"
 private const val FAVORITES = "favorites"
 private const val ALARMS = "alarms"
@@ -126,25 +133,21 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabDirection(): In
     return if (from < 0 || to < 0) 0 else (to - from).coerceIn(-1, 1)
 }
 
-private val AnimatedContentTransitionScope<NavBackStackEntry>.toPlayer get() = targetState.destination.route == NOW_PLAYING
-private val AnimatedContentTransitionScope<NavBackStackEntry>.fromPlayer get() = initialState.destination.route == NOW_PLAYING
 private val AnimatedContentTransitionScope<NavBackStackEntry>.toTab get() = isTab(targetState.destination.route)
 
 /*
  * Motion between destinations:
  * - tab to tab: shared axis X (a short slide in the direction of travel with a fade);
- * - opening a page: it slides in over the current one, which drifts back and dims a little (and back reverses it);
- * - Now Playing: slides up over a still page, and back down again.
+ * - opening a page: it slides in over the current one, which drifts back and dims a little (and back reverses it).
+ * Now Playing is not a destination but an overlay on top (see HoloVoiceRoot).
  */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTransition = when {
-    toPlayer -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, Motion.enter(Motion.LONG))
     tabDirection() != 0 -> sharedAxisIn(tabDirection())
     toTab -> fadeIn(Motion.enter(Motion.MEDIUM, delay = 60)) + scaleIn(Motion.enter(Motion.MEDIUM, delay = 60), initialScale = 0.96f)
     else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG))
 }
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransition = when {
-    toPlayer -> ExitTransition.KeepUntilTransitionsFinished
     tabDirection() != 0 -> sharedAxisOut(tabDirection())
     toTab -> fadeOut(Motion.exit(90))
     else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG)) { it / 4 } +
@@ -152,14 +155,12 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransi
 }
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition = when {
-    fromPlayer -> EnterTransition.None
     tabDirection() != 0 -> sharedAxisIn(tabDirection())
     else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM)) { it / 4 } +
         fadeIn(Motion.move(Motion.MEDIUM), initialAlpha = 0.6f)
 }
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTransition = when {
-    fromPlayer -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, Motion.exit(Motion.MEDIUM))
     tabDirection() != 0 -> sharedAxisOut(tabDirection())
     else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM))
 }
@@ -181,6 +182,31 @@ fun HoloVoiceRoot(container: AppContainer) {
     val repository = container.repository
 
     val topLevel = Tab.entries.any { it.route == route }
+
+    // Now Playing is an overlay above the pages rather than a destination.
+    var playerOpen by rememberSaveable { mutableStateOf(false) }
+    val backProgress = remember { Animatable(0f) }
+    val overlayScope = rememberCoroutineScope()
+    LaunchedEffect(playerOpen) { if (playerOpen) backProgress.snapTo(0f) }
+    // Nothing to show once the queue is cleared.
+    LaunchedEffect(playerState.clipId) { if (playerState.clipId == null) playerOpen = false }
+    // Tapping the media notification opens the player.
+    val openPlayerRequest by container.openPlayerRequested.collectAsStateWithLifecycle()
+    LaunchedEffect(openPlayerRequest) {
+        if (openPlayerRequest) {
+            container.openPlayerRequested.value = false
+            playerOpen = true
+        }
+    }
+    PredictiveBackHandler(enabled = playerOpen) { events ->
+        try {
+            events.collect { backProgress.snapTo(it.progress) }
+            playerOpen = false
+        } catch (e: CancellationException) {
+            overlayScope.launch { backProgress.animateTo(0f, Motion.move()) }
+            throw e
+        }
+    }
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -259,24 +285,20 @@ fun HoloVoiceRoot(container: AppContainer) {
             Spacer(Modifier.height(8.dp))
         }
     }
+    Box(Modifier.weight(1f)) {
     Scaffold(
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            // Slid out of sight (not removed) while Now Playing is open, so nothing re-lays out.
-            val hideBars by animateFloatAsState(
-                if (route == NOW_PLAYING) 1f else 0f,
-                if (route == NOW_PLAYING) Motion.exit(Motion.MEDIUM) else Motion.enter(Motion.LONG),
-                label = "hideBars",
-            )
-            Column(Modifier.graphicsLayer { translationY = size.height * hideBars }) {
+            // Always laid out, so pages never change size mid-transition (Now Playing simply covers them).
+            Column {
                 AnimatedVisibility(
                     visible = playerState.clipId != null,
                     enter = expandVertically(Motion.enter(Motion.MEDIUM), expandFrom = Alignment.Top) + fadeIn(Motion.enter(Motion.MEDIUM)),
                     exit = shrinkVertically(Motion.exit(Motion.MEDIUM), shrinkTowards = Alignment.Top) + fadeOut(Motion.exit()),
                 ) {
-                    MiniPlayer(playerState, container.player, onOpen = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } })
+                    MiniPlayer(playerState, container.player, onOpen = { playerOpen = true })
                 }
                 if (!wide) {
                     NavigationBar {
@@ -327,7 +349,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                         onOpenTopic = { id -> nav.navigate("pack/$id") },
                         onOpenTalent = { slug -> nav.navigate("talent/$slug") },
                         onOpenFavorites = { nav.navigate(FAVORITES) },
-                        onOpenNowPlaying = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } },
+                        onOpenNowPlaying = { playerOpen = true },
                         onBrowseTopics = { goToTab(Tab.Library) },
                         onShowHelp = { showHelp = true },
                         onOpenSettings = openSettings,
@@ -386,18 +408,6 @@ fun HoloVoiceRoot(container: AppContainer) {
                     )
                 }
             }
-            composable(
-                NOW_PLAYING,
-            ) {
-                NowPlayingScreen(
-                    viewModel = viewModel { NowPlayingViewModel(repository, container.player) },
-                    player = container.player,
-                    onBack = { nav.popBackStack() },
-                    onOpenQueue = { nav.navigate(QUEUE) { launchSingleTop = true } },
-                    onOpenTopic = { id -> nav.navigate("pack/$id") },
-                    onOpenTalent = { slug -> nav.navigate("talent/$slug") },
-                )
-            }
             composable(QUEUE,
             ) {
                 Page {
@@ -447,6 +457,52 @@ fun HoloVoiceRoot(container: AppContainer) {
                 }
             }
         }
+    }
+
+    // Now Playing opens over the current page, so that page shows underneath while it slides or is dragged.
+    val scrim by animateFloatAsState(
+        if (playerOpen) 0.32f else 0f,
+        if (playerOpen) Motion.enter(Motion.LONG) else Motion.exit(Motion.MEDIUM),
+        label = "playerScrim",
+    )
+    if (scrim > 0f) {
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = scrim }.background(Color.Black))
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = playerOpen,
+        enter = slideInVertically(Motion.enter(Motion.LONG)) { it },
+        exit = slideOutVertically(Motion.exit(Motion.MEDIUM)) { it },
+    ) {
+        Box(
+            Modifier.fillMaxSize().graphicsLayer {
+                // Follows the predictive back swipe: shrinks, drops a little and rounds its corners.
+                val p = backProgress.value
+                scaleX = 1f - p * 0.08f
+                scaleY = 1f - p * 0.08f
+                translationY = p * size.height * 0.08f
+                shape = RoundedCornerShape((p * 40).dp)
+                this.clip = p > 0f
+            },
+        ) {
+            NowPlayingScreen(
+                viewModel = viewModel { NowPlayingViewModel(repository, container.player) },
+                player = container.player,
+                onBack = { playerOpen = false },
+                onOpenQueue = {
+                    playerOpen = false
+                    nav.navigate(QUEUE) { launchSingleTop = true }
+                },
+                onOpenTopic = { id ->
+                    playerOpen = false
+                    nav.navigate("pack/$id")
+                },
+                onOpenTalent = { slug ->
+                    playerOpen = false
+                    nav.navigate("talent/$slug")
+                },
+            )
+        }
+    }
     }
     }
     }

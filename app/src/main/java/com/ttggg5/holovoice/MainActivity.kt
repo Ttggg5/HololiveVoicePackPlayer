@@ -40,8 +40,12 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
-    /** Tapping the alarm icon in the status bar opens the Alarms screen. */
+    /** The status-bar alarm icon opens Alarms; the media notification opens Now Playing. */
     private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_PLAYER, false) == true) {
+            appContainer.openPlayerRequested.value = true
+            intent.removeExtra(EXTRA_OPEN_PLAYER)
+        }
         if (intent?.getBooleanExtra(EXTRA_OPEN_ALARMS, false) == true) {
             appContainer.alarms.openRequested.value = true
             intent.removeExtra(EXTRA_OPEN_ALARMS)
@@ -66,6 +70,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_ALARMS = "openAlarms"
+        const val EXTRA_OPEN_PLAYER = "openPlayer"
 
         private const val SYNC_INTERVAL_MS = 5 * 60_000L
 

@@ -16,6 +16,7 @@ import com.ttggg5.holovoice.data.talents.TalentPictures
 import com.ttggg5.holovoice.data.talents.TalentLinker
 import com.ttggg5.holovoice.playback.PlayerController
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
@@ -45,6 +46,9 @@ class AppContainer(context: Context) {
     )
     val player = PlayerController(context, uiPrefs)
     val alarms = AlarmRepository(db.alarmDao(), AlarmScheduler(context))
+
+    /** Set when the media notification is tapped; the app then opens Now Playing. */
+    val openPlayerRequested = MutableStateFlow(false)
 
     /** For writes that must finish even if the screen that started them goes away. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
