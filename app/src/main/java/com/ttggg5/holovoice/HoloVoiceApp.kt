@@ -9,6 +9,8 @@ import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.LibraryRoots
 import com.ttggg5.holovoice.data.PackRepository
 import com.ttggg5.holovoice.data.UiPrefs
+import com.ttggg5.holovoice.alarm.AlarmRepository
+import com.ttggg5.holovoice.alarm.AlarmScheduler
 import com.ttggg5.holovoice.data.talents.TalentDirectory
 import com.ttggg5.holovoice.data.talents.TalentPictures
 import com.ttggg5.holovoice.data.talents.TalentLinker
@@ -42,6 +44,7 @@ class AppContainer(context: Context) {
         LibraryRoots(context),
     )
     val player = PlayerController(context, uiPrefs)
+    val alarms = AlarmRepository(db.alarmDao(), AlarmScheduler(context))
 
     /** For writes that must finish even if the screen that started them goes away. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

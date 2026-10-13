@@ -43,6 +43,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.flow.first
 import com.ttggg5.holovoice.AppContainer
 import com.ttggg5.holovoice.ui.components.MiniPlayer
 import androidx.compose.material.icons.filled.Face
@@ -67,6 +68,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
 import com.ttggg5.holovoice.ui.components.NoHaptics
+import com.ttggg5.holovoice.ui.alarms.AlarmsScreen
+import com.ttggg5.holovoice.ui.alarms.AlarmsViewModel
 import com.ttggg5.holovoice.ui.settings.SettingsScreen
 import com.ttggg5.holovoice.ui.settings.SettingsViewModel
 import com.ttggg5.holovoice.ui.components.swipeBetweenTabs
@@ -106,6 +109,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 private const val NOW_PLAYING = "now_playing"
 private const val SETTINGS = "settings"
 private const val FAVORITES = "favorites"
+private const val ALARMS = "alarms"
 
 /** +1 when moving to a tab further right, -1 further left, 0 when not a tab-to-tab change. */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabDirection(): Int {
@@ -147,6 +151,16 @@ fun HoloVoiceRoot(container: AppContainer) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val undo = remember(snackbar, scope) { UndoController(snackbar, scope) }
+    // "Set as alarm…" on a clip, or the status-bar alarm icon, opens the Alarms screen.
+    val alarmClip by container.alarms.pendingClip.collectAsStateWithLifecycle()
+    val openAlarms by container.alarms.openRequested.collectAsStateWithLifecycle()
+    LaunchedEffect(alarmClip, openAlarms) {
+        if (alarmClip != null || openAlarms) {
+            container.alarms.openRequested.value = false
+            nav.currentBackStackEntryFlow.first() // wait until the nav graph is ready
+            nav.navigate(ALARMS) { launchSingleTop = true }
+        }
+    }
     // Folder sync results (automatic, refresh button or pull to refresh), on any screen.
     LaunchedEffect(repository) {
         repository.syncMessages.collect { snackbar.showSnackbar(it) }
@@ -262,6 +276,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                     onBrowseTopics = { goToTab(Tab.Library) },
                     onShowHelp = { showHelp = true },
                     onOpenSettings = openSettings,
+                    onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
                 )
             }
             composable(Tab.Talents.route) {
@@ -357,7 +372,17 @@ fun HoloVoiceRoot(container: AppContainer) {
                     viewModel = viewModel { SettingsViewModel(repository) },
                     onBack = { nav.popBackStack() },
                     onShowHelp = { showHelp = true },
+                    onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
                 )
+            }
+            composable(
+                ALARMS,
+                enterTransition = { pushIn() },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { pushOut() },
+            ) {
+                AlarmsScreen(viewModel { AlarmsViewModel(container.alarms, repository, container.player) }, onBack = { nav.popBackStack() })
             }
             composable(Tab.Search.route) {
                 SearchScreen(viewModel { SearchViewModel(repository) }, container.player)

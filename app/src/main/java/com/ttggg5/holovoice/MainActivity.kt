@@ -1,6 +1,7 @@
 package com.ttggg5.holovoice
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -26,10 +27,24 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        handleIntent(intent)
         setContent {
             HoloVoiceTheme {
                 HoloVoiceRoot(appContainer)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    /** Tapping the alarm icon in the status bar opens the Alarms screen. */
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_ALARMS, false) == true) {
+            appContainer.alarms.openRequested.value = true
+            intent.removeExtra(EXTRA_OPEN_ALARMS)
         }
     }
 
@@ -49,11 +64,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private companion object {
-        const val SYNC_INTERVAL_MS = 5 * 60_000L
+    companion object {
+        const val EXTRA_OPEN_ALARMS = "openAlarms"
+
+        private const val SYNC_INTERVAL_MS = 5 * 60_000L
 
         /** Pictures are checked once per app process. */
-        var picturesChecked = false
+        private var picturesChecked = false
     }
 
     override fun onStop() {

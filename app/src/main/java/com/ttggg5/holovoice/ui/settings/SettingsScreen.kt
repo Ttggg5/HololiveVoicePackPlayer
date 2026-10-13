@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Folder
@@ -71,7 +72,7 @@ private val SPEEDS = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp: () -> Unit, onOpenAlarms: () -> Unit) {
     val context = LocalContext.current
     val prefs = context.appContainer.uiPrefs
     val undo = LocalUndo.current
@@ -172,6 +173,12 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                 }
                 SwitchRow("Pause when headphones disconnect", null, prefs.pauseOnUnplug)
                 SwitchRow("Restore last queue on start", "Pick up where you left off after the app was closed", prefs.resumeOnStart)
+                ListItem(
+                    headlineContent = { Text("Voice alarms") },
+                    supportingContent = { Text("Wake up to a talent's voice") },
+                    leadingContent = { Icon(Icons.Filled.Alarm, contentDescription = null) },
+                    modifier = Modifier.clickable(onClick = onOpenAlarms),
+                )
 
                 // Gestures
                 Section("Gestures")

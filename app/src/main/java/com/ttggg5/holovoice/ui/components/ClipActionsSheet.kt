@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.platform.LocalContext
 import com.ttggg5.holovoice.appContainer
@@ -51,6 +52,7 @@ fun ClipActionsSheet(
 ) {
     var pickPlaylist by remember { mutableStateOf(false) }
     var pickTalent by remember { mutableStateOf(false) }
+    val alarms = LocalContext.current.appContainer.alarms
     if (pickPlaylist) {
         AddToPlaylistDialog(listOf(clip.clip.id), onDismiss = onDismiss)
         return
@@ -94,6 +96,10 @@ fun ClipActionsSheet(
                 onDismiss()
             }
             Action(Icons.AutoMirrored.Filled.PlaylistAdd, "Add to playlist…") { pickPlaylist = true }
+            Action(Icons.Filled.Alarm, "Set as alarm…") {
+                alarms.pendingClip.value = clip.clip.id
+                onDismiss()
+            }
             Action(Icons.Filled.Person, if (clip.orderedTalents.isEmpty()) "Set talents…" else "Talents: ${clip.speaker}…") {
                 pickTalent = true
             }

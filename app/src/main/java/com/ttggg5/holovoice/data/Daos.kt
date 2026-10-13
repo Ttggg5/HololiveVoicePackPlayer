@@ -51,10 +51,10 @@ interface PackDao {
     suspend fun delete(id: Long)
 }
 
-private const val CLIP_COLUMNS =
+internal const val CLIP_COLUMNS =
     "clips.*, packs.name AS packName, packs.talent AS talent, packs.coverUri AS coverUri"
 
-private const val CLIP_WITH_PACK =
+internal const val CLIP_WITH_PACK =
     "SELECT $CLIP_COLUMNS FROM clips INNER JOIN packs ON packs.id = clips.packId"
 
 @Dao

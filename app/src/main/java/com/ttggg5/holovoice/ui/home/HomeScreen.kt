@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.layout.widthIn
@@ -89,6 +90,7 @@ fun HomeScreen(
     onBrowseTopics: () -> Unit,
     onShowHelp: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenAlarms: () -> Unit,
 ) {
     val topics by viewModel.topics.collectAsStateWithLifecycle()
     val recentTopics by viewModel.recentTopics.collectAsStateWithLifecycle()
@@ -102,7 +104,7 @@ fun HomeScreen(
 
     if (topics?.isEmpty() == true) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            HomeHeader(onShowHelp = onShowHelp, onOpenSettings = onOpenSettings, onShuffle = null)
+            HomeHeader(onShowHelp = onShowHelp, onOpenSettings = onOpenSettings, onOpenAlarms = onOpenAlarms, onShuffle = null)
             EmptyMessage(
                 "Welcome to Holo Voice!",
                 "Start by importing the folder that holds your voice packs — each sub-folder becomes a topic, " +
@@ -124,7 +126,7 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "header") {
-            HomeHeader(onShowHelp = onShowHelp, onOpenSettings = onOpenSettings, onShuffle = { viewModel.withAllClips { player.playQueue(it, shuffle = true) } })
+            HomeHeader(onShowHelp = onShowHelp, onOpenSettings = onOpenSettings, onOpenAlarms = onOpenAlarms, onShuffle = { viewModel.withAllClips { player.playQueue(it, shuffle = true) } })
         }
         item(key = "continue") {
             AnimatedVisibility(visible = state.clipId != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
@@ -267,7 +269,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(onShowHelp: () -> Unit, onOpenSettings: () -> Unit, onShuffle: (() -> Unit)?) {
+private fun HomeHeader(onShowHelp: () -> Unit, onOpenSettings: () -> Unit, onOpenAlarms: () -> Unit, onShuffle: (() -> Unit)?) {
     var menu by remember { mutableStateOf(false) }
     val greeting = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
         in 5..10 -> "Good morning"
@@ -285,6 +287,7 @@ private fun HomeHeader(onShowHelp: () -> Unit, onOpenSettings: () -> Unit, onShu
                 Text(" Shuffle all")
             }
         }
+        IconButton(onClick = onOpenAlarms) { Icon(Icons.Filled.Alarm, contentDescription = "Alarms") }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

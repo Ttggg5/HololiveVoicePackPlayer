@@ -50,6 +50,22 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a table
   - remove synced folders
   - clear the play history
 
+## Voice alarms
+
+Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Settings › Playback › Voice alarms), or long-press a clip and choose *Set as alarm…*.
+
+- Set the time, the days it repeats (or once), a label and the snooze length (5, 10 or 15 minutes).
+- Choose what it plays:
+  - **Clip**: always the same clip.
+  - **Talent**, **Topic** or **Favorites**: a different random clip each time.
+- **Preview** plays the sound in the normal player.
+- The alarm rings at alarm volume, so it also rings with the phone on silent. The clip repeats, starting quiet and getting louder over 20 seconds.
+- A full-screen alarm shows the talent's picture over the lock screen, with **Snooze** and **Stop**. Both are also in the notification.
+- An alarm that isn't stopped gives up after 10 minutes and counts as snoozed.
+- If the clip can't be played (for example, the file was moved), the system alarm sound plays instead.
+- Alarms survive restarts and time-zone changes.
+- If Android blocks notifications, exact alarms or full-screen alarms, the Alarms screen shows a red row that opens the right setting.
+
 ## Player
 - Rewind and skip-ahead buttons sit beside previous and next. They jump 10 seconds by default; change this in Settings, or long-press either button.
 - **A–B loop**: tap *A–B* to mark the start, tap again to mark the end, and that part repeats (also with the screen off). Tap *Loop* to stop; it also ends when the next clip starts.
