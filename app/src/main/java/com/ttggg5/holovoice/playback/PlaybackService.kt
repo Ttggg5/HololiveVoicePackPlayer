@@ -75,7 +75,7 @@ class PlaybackService : MediaSessionService() {
                     .build(),
                 /* handleAudioFocus = */ true,
             )
-            .setHandleAudioBecomingNoisy(true)
+            .setHandleAudioBecomingNoisy(appContainer.uiPrefs.pauseOnUnplug.value)
             .build()
         player.addListener(PlayerListener())
         val openApp = PendingIntent.getActivity(
@@ -92,6 +92,10 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         // Restore the last queue (paused) so the app and system "resume" controls pick up where we left off.
+        // Follow the "Pause when headphones disconnect" setting while the service runs.
+        scope.launch {
+            appContainer.uiPrefs.pauseOnUnplug.state.collect { player.setHandleAudioBecomingNoisy(it) }
+        }
         restored = scope.async { loadSaved() }
         scope.launch {
             val saved = restored.await()
@@ -106,6 +110,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     private suspend fun loadSaved(): MediaSession.MediaItemsWithStartPosition? {
+        // "Restore last queue on start" off: start empty (the queue is still saved for later).
+        if (!appContainer.uiPrefs.resumeOnStart.value) return null
         val saved = store.load()
         if (saved.clipIds.isEmpty()) return null
         val clips = runCatching { appContainer.repository.clipsByIds(saved.clipIds) }.getOrDefault(emptyList())

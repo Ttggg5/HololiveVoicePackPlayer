@@ -37,7 +37,9 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         appContainer.player.connect()
         // Pick up files added to or removed from imported folders, without importing again.
-        appContainer.appScope.launch { appContainer.repository.syncAll(minIntervalMs = SYNC_INTERVAL_MS) }
+        if (appContainer.uiPrefs.autoSyncOnStart.value) {
+            appContainer.appScope.launch { appContainer.repository.syncAll(minIntervalMs = SYNC_INTERVAL_MS) }
+        }
     }
 
     private companion object {

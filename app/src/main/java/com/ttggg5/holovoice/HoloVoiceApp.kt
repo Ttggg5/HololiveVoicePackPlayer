@@ -32,10 +32,15 @@ class HoloVoiceApp : Application(), ImageLoaderFactory {
 /** Hand-rolled dependency container shared by the whole app. */
 class AppContainer(context: Context) {
     private val db = AppDatabase.create(context)
-    private val talentLinker = TalentLinker(db, TalentDirectory(context))
-    val repository = PackRepository(db, PackImporter(context, db, talentLinker), talentLinker, LibraryRoots(context))
-    val player = PlayerController(context)
     val uiPrefs = UiPrefs(context)
+    private val talentLinker = TalentLinker(db, TalentDirectory(context))
+    val repository = PackRepository(
+        db,
+        PackImporter(context, db, talentLinker, autoMatch = { uiPrefs.autoMatchTalents.value }),
+        talentLinker,
+        LibraryRoots(context),
+    )
+    val player = PlayerController(context, uiPrefs)
 
     /** For writes that must finish even if the screen that started them goes away. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

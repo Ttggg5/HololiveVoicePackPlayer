@@ -15,6 +15,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.ttggg5.holovoice.data.ClipWithPack
+import com.ttggg5.holovoice.data.UiPrefs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,7 +65,7 @@ data class PlayerState(
 
 /** App-wide entry point for playback; talks to [PlaybackService] through a [MediaController]. */
 @OptIn(UnstableApi::class)
-class PlayerController(context: Context) {
+class PlayerController(context: Context, private val prefs: UiPrefs) {
     private val appContext = context.applicationContext
     private var future: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -157,6 +158,8 @@ class PlayerController(context: Context) {
         if (clips.isEmpty()) return
         withController { c ->
             if (shuffle != null) c.shuffleModeEnabled = shuffle
+            // A new queue starts at the speed chosen in Settings.
+            c.setPlaybackSpeed(prefs.defaultSpeed.value)
             val start = if (shuffle == true) clips.indices.random() else startIndex.coerceIn(clips.indices)
             c.setMediaItems(clips.map { it.toMediaItem() }, start, 0L)
             c.prepare()
@@ -203,6 +206,12 @@ class PlayerController(context: Context) {
     fun previous() = withController { it.seekToPrevious() }
 
     fun seekTo(positionMs: Long) = withController { it.seekTo(positionMs) }
+
+    /** Jumps forward (positive) or back (negative) by [deltaMs], staying inside the clip. */
+    fun seekBy(deltaMs: Long) = withController { c ->
+        val duration = c.duration.takeIf { it != C.TIME_UNSET } ?: Long.MAX_VALUE
+        c.seekTo(clampSeek(c.currentPosition, deltaMs, duration))
+    }
 
     /** Jumps to the queue item at player index [index]. */
     fun skipTo(index: Int) = withController { c ->
@@ -316,3 +325,7 @@ class PlayerController(context: Context) {
         return result
     }
 }
+
+/** New position after jumping [deltaMs] from [positionMs], kept within 0..[durationMs]. */
+fun clampSeek(positionMs: Long, deltaMs: Long, durationMs: Long): Long =
+    (positionMs + deltaMs).coerceIn(0L, durationMs.coerceAtLeast(0L))

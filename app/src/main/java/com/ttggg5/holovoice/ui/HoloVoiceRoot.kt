@@ -54,6 +54,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.ttggg5.holovoice.ui.components.LocalUndo
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.dp
+import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
+import com.ttggg5.holovoice.ui.components.NoHaptics
+import com.ttggg5.holovoice.ui.settings.SettingsScreen
+import com.ttggg5.holovoice.ui.settings.SettingsViewModel
 import com.ttggg5.holovoice.ui.components.swipeBetweenTabs
 import com.ttggg5.holovoice.ui.components.UndoController
 import com.ttggg5.holovoice.ui.home.HomeScreen
@@ -89,6 +103,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 }
 
 private const val NOW_PLAYING = "now_playing"
+private const val SETTINGS = "settings"
 private const val FAVORITES = "favorites"
 
 /** +1 when moving to a tab further right, -1 further left, 0 when not a tab-to-tab change. */
@@ -145,8 +160,43 @@ fun HoloVoiceRoot(container: AppContainer) {
         restoreState = true
     }
 
-    CompositionLocalProvider(LocalUndo provides undo) {
+    val tabSwipes by container.uiPrefs.tabSwipes.state.collectAsStateWithLifecycle()
+    val hapticsOn by container.uiPrefs.haptics.state.collectAsStateWithLifecycle()
+    val systemHaptics = LocalHapticFeedback.current
+    val openSettings = { nav.navigate(SETTINGS) { launchSingleTop = true } }
+
+    // Tablets and unfolded foldables (600dp+): navigation rail on the side instead of the bottom bar.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val wide = maxWidth >= 600.dp
+    CompositionLocalProvider(
+        LocalUndo provides undo,
+        LocalIsWideLayout provides wide,
+        LocalHapticFeedback provides if (hapticsOn) systemHaptics else NoHaptics,
+    ) {
+    Row(Modifier.fillMaxSize()) {
+    if (wide) {
+        NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+            Spacer(Modifier.height(8.dp))
+            Tab.entries.forEach { tab ->
+                NavigationRailItem(
+                    selected = route == tab.route,
+                    onClick = { goToTab(tab) },
+                    icon = { Icon(tab.icon, contentDescription = null) },
+                    label = { Text(tab.label) },
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            NavigationRailItem(
+                selected = route == SETTINGS,
+                onClick = openSettings,
+                icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                label = { Text("Settings") },
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+    }
     Scaffold(
+        modifier = Modifier.weight(1f),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
@@ -159,7 +209,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                     MiniPlayer(playerState, container.player, onOpen = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } })
                 }
                 AnimatedVisibility(
-                    visible = topLevel,
+                    visible = topLevel && !wide,
                     enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
                     exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
                 ) {
@@ -174,7 +224,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                         }
                     }
                 }
-                if (!topLevel) {
+                if (!topLevel || wide) {
                     Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
             }
@@ -186,7 +236,7 @@ fun HoloVoiceRoot(container: AppContainer) {
             modifier = Modifier
                 .padding(padding)
                 // Fling left/right on a tab to move to the neighbouring tab.
-                .swipeBetweenTabs(enabled = topLevel) { direction ->
+                .swipeBetweenTabs(enabled = topLevel && tabSwipes) { direction ->
                     val index = Tab.entries.indexOfFirst { it.route == route }
                     Tab.entries.getOrNull(index + direction)?.let(::goToTab)
                 },
@@ -206,6 +256,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                     onOpenNowPlaying = { nav.navigate(NOW_PLAYING) { launchSingleTop = true } },
                     onBrowseTopics = { goToTab(Tab.Library) },
                     onShowHelp = { showHelp = true },
+                    onOpenSettings = openSettings,
                 )
             }
             composable(Tab.Talents.route) {
@@ -290,6 +341,19 @@ fun HoloVoiceRoot(container: AppContainer) {
             ) {
                 FavoritesScreen(viewModel { FavoritesViewModel(repository) }, container.player, onBack = { nav.popBackStack() })
             }
+            composable(
+                SETTINGS,
+                enterTransition = { pushIn() },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(250)) },
+                popExitTransition = { pushOut() },
+            ) {
+                SettingsScreen(
+                    viewModel = viewModel { SettingsViewModel(repository) },
+                    onBack = { nav.popBackStack() },
+                    onShowHelp = { showHelp = true },
+                )
+            }
             composable(Tab.Search.route) {
                 SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
             }
@@ -307,6 +371,8 @@ fun HoloVoiceRoot(container: AppContainer) {
                 )
             }
         }
+    }
+    }
     }
     }
 }

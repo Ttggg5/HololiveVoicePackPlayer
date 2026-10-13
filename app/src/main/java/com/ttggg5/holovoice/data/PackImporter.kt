@@ -24,6 +24,8 @@ class PackImporter(
     private val context: Context,
     private val db: AppDatabase,
     private val talentLinker: TalentLinker,
+    /** Whether new clips are matched to talents right away (a Settings option). */
+    private val autoMatch: () -> Boolean = { true },
 ) {
     /** A file found by a scan, with the sub-folders (relative to the topic root) it sits in. */
     private data class ScannedFile(val name: String, val uri: String, val dirs: List<String>)
@@ -227,8 +229,10 @@ class PackImporter(
         if (newClips.isNotEmpty()) {
             val ids = clipDao.insertAll(newClips)
             // Offline is fine: clips just stay without a talent until "Match talents" is run.
-            val talents = runCatching { talentLinker.directory.load() }.getOrDefault(emptyList())
-            talentLinker.matchClips(newClips.zip(ids) { clip, id -> clip.copy(id = id) }, talents)
+            if (autoMatch()) {
+                val talents = runCatching { talentLinker.directory.load() }.getOrDefault(emptyList())
+                talentLinker.matchClips(newClips.zip(ids) { clip, id -> clip.copy(id = id) }, talents)
+            }
         }
         if (audio.isEmpty()) {
             packDao.delete(packId)

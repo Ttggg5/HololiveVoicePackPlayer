@@ -5,7 +5,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Remembered UI choices (sort orders, grid/list, onboarding). */
+/** Light/dark choice in Settings. */
+enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Light"), DARK("Dark") }
+
+/** Accent colour families offered in Settings (colours are defined in the theme). */
+enum class Accent(val label: String) { HOLO_BLUE("Holo blue"), SAKURA_PINK("Sakura"), LAVENDER("Lavender"), MINT("Mint"), SUNSET("Sunset") }
+
+/** Remembered UI choices (sort orders, grid/list, onboarding) and the Settings page options. */
 class UiPrefs(context: Context) {
     private val prefs = context.getSharedPreferences("ui", Context.MODE_PRIVATE)
 
@@ -26,6 +32,71 @@ class UiPrefs(context: Context) {
 
     private val _clipView = MutableStateFlow(read("clipView", ClipView.GRID))
     val clipView: StateFlow<ClipView> = _clipView.asStateFlow()
+
+    /** A persisted on/off setting. */
+    inner class BoolPref(private val key: String, default: Boolean) {
+        private val flow = MutableStateFlow(prefs.getBoolean(key, default))
+        val state: StateFlow<Boolean> = flow.asStateFlow()
+        val value: Boolean get() = flow.value
+        fun set(v: Boolean) {
+            flow.value = v
+            prefs.edit().putBoolean(key, v).apply()
+        }
+    }
+
+    /** A persisted number setting. */
+    inner class IntPref(private val key: String, default: Int) {
+        private val flow = MutableStateFlow(prefs.getInt(key, default))
+        val state: StateFlow<Int> = flow.asStateFlow()
+        val value: Int get() = flow.value
+        fun set(v: Int) {
+            flow.value = v
+            prefs.edit().putInt(key, v).apply()
+        }
+    }
+
+    inner class FloatPref(private val key: String, default: Float) {
+        private val flow = MutableStateFlow(prefs.getFloat(key, default))
+        val state: StateFlow<Float> = flow.asStateFlow()
+        val value: Float get() = flow.value
+        fun set(v: Float) {
+            flow.value = v
+            prefs.edit().putFloat(key, v).apply()
+        }
+    }
+
+    inner class EnumPref<E : Enum<E>>(private val key: String, default: E, parse: (String) -> E) {
+        private val flow = MutableStateFlow(runCatching { parse(prefs.getString(key, default.name)!!) }.getOrDefault(default))
+        val state: StateFlow<E> = flow.asStateFlow()
+        val value: E get() = flow.value
+        fun set(v: E) {
+            flow.value = v
+            prefs.edit().putString(key, v.name).apply()
+        }
+    }
+
+    // Appearance
+    val themeMode = EnumPref("themeMode", ThemeMode.SYSTEM, ThemeMode::valueOf)
+    val dynamicColor = BoolPref("dynamicColor", false)
+    val accent = EnumPref("accent", Accent.HOLO_BLUE, Accent::valueOf)
+
+    // Playback
+    val skipBackSec = IntPref("skipBackSec", 10)
+    val skipForwardSec = IntPref("skipForwardSec", 10)
+    val defaultSpeed = FloatPref("defaultSpeed", 1f)
+    val pauseOnUnplug = BoolPref("pauseOnUnplug", true)
+    val resumeOnStart = BoolPref("resumeOnStart", true)
+
+    // Gestures
+    val clipSwipes = BoolPref("clipSwipes", true)
+    val doubleTapFavorite = BoolPref("doubleTapFavorite", true)
+    val tabSwipes = BoolPref("tabSwipes", true)
+    val playerSwipes = BoolPref("playerSwipes", true)
+    val haptics = BoolPref("haptics", true)
+
+    // Library
+    val autoSyncOnStart = BoolPref("autoSyncOnStart", true)
+    val autoMatchTalents = BoolPref("autoMatchTalents", true)
 
     private val _gridCellDp = MutableStateFlow(prefs.getInt("gridCellDp", DEFAULT_GRID_DP))
 

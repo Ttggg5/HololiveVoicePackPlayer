@@ -35,12 +35,33 @@ The app ships no audio of its own. You import your packs from your phone.
   - The talent list is cached and refreshed weekly.
 - **Favorites and search**: star any clip, and search titles, packs and talents.
 
+## Settings
+Open Settings from Home → ⋮ → *Settings*, or from the side rail on a tablet. It has:
+- **Appearance**: theme (system / light / dark), Material You colours, accent colour and tile size.
+- **Playback**:
+  - how many seconds the rewind and skip-ahead buttons jump
+  - the default speed for new queues
+  - pause when headphones disconnect
+  - restore the last queue when the app starts
+- **Gestures**: turn clip swipes, double-tap to favorite, tab and category swipes, player swipes, and vibration feedback on or off.
+- **Library & talents**:
+  - sync folders on start, and match talents on import
+  - *Sync now*, *Refresh talent list* and *Match all talents*
+  - remove synced folders
+  - clear the play history
+
+## Player
+- Rewind and skip-ahead buttons sit beside previous and next. They jump 10 seconds by default; change this in Settings, or long-press either button.
+- Swipe up on the player, or tap the *Up next* bar, to see the queue. Drag down to close the player.
+- On tablets and unfolded foldables, a side rail replaces the bottom bar, and the player shows the queue beside the controls.
+
 ## Gestures
 | Where | Gesture | Action |
 |---|---|---|
 | Mini player | Swipe left / right | Next / previous clip |
 | Mini player | Swipe up | Open Now Playing |
 | Now Playing | Drag down | Minimize back to the mini player |
+| Now Playing | Swipe up | Show the queue |
 | Now Playing | Swipe the artwork left / right | Next / previous clip |
 | Clip tile or row | Swipe right across half the item | Play next |
 | Clip tile or row | Swipe left across half the item | Favorite / unfavorite (with Undo) |

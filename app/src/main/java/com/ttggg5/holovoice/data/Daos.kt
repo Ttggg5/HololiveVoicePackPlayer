@@ -104,6 +104,9 @@ interface ClipDao {
     )
     fun observeTalents(): Flow<List<TalentSummary>>
 
+    @Query("UPDATE clips SET lastPlayedAt = 0, playCount = 0")
+    suspend fun clearPlayHistory()
+
     @Query("UPDATE clips SET lastPlayedAt = :now, playCount = playCount + 1 WHERE id = :id")
     suspend fun markPlayed(id: Long, now: Long)
 

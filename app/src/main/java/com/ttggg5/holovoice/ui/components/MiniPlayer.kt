@@ -53,6 +53,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import androidx.compose.ui.platform.LocalContext
+import com.ttggg5.holovoice.appContainer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
@@ -139,6 +141,8 @@ fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit,
  */
 @Composable
 private fun Modifier.playerSwipes(state: PlayerState, player: PlayerController, onOpen: () -> Unit): Modifier {
+    val enabled by LocalContext.current.appContainer.uiPrefs.playerSwipes.state.collectAsStateWithLifecycle()
+    if (!enabled) return this
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val offsetX = remember { Animatable(0f) }

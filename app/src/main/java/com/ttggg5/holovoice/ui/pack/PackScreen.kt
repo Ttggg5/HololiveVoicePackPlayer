@@ -15,6 +15,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import com.ttggg5.holovoice.appContainer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -53,6 +55,7 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
     // Page 0 = All, page i = categories[i - 1]; swipe left/right to change category.
     val pager = rememberPagerState { categories.size + 1 }
     val scope = rememberCoroutineScope()
+    val tabSwipes by LocalContext.current.appContainer.uiPrefs.tabSwipes.state.collectAsStateWithLifecycle()
     val current = pager.currentPage.coerceAtMost(categories.size)
     val category = categories.getOrNull(current - 1)
     val clips = if (category == null) allClips else allClips.filter { it.clip.category == category }
@@ -103,7 +106,7 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                     }
                 }
             }
-            HorizontalPager(state = pager, key = { it }) { tab ->
+            HorizontalPager(state = pager, key = { it }, userScrollEnabled = tabSwipes) { tab ->
                 val tabCategory = categories.getOrNull(tab - 1)
                 ClipBrowser(
                     clips = if (tabCategory == null) allClips else allClips.filter { it.clip.category == tabCategory },

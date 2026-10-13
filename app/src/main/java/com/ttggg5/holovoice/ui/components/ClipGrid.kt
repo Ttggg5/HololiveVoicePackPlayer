@@ -113,6 +113,7 @@ fun ClipBrowser(
     val sort by prefs.clipSort.collectAsStateWithLifecycle()
     val view by prefs.clipView.collectAsStateWithLifecycle()
     val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
+    val doubleTap by prefs.doubleTapFavorite.state.collectAsStateWithLifecycle()
     val undo = LocalUndo.current
     val haptics = LocalHapticFeedback.current
     var query by rememberSaveable { mutableStateOf("") }
@@ -210,6 +211,7 @@ fun ClipBrowser(
                     onClick = { play(index) },
                     onLongClick = { onLongPress(item) },
                     onToggleFavorite = { toggleFavorite(item) },
+                    doubleTapEnabled = doubleTap,
                 )
                 }
             }
@@ -237,6 +239,7 @@ fun ClipBrowser(
                     onClick = { play(index) },
                     onLongClick = { onLongPress(item) },
                     onToggleFavorite = { toggleFavorite(item) },
+                    doubleTapEnabled = doubleTap,
                 )
                 }
             }
@@ -278,6 +281,7 @@ private fun ClipTile(
     onLongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    doubleTapEnabled: Boolean = true,
 ) {
     val container by animateColorAsState(
         if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -315,10 +319,14 @@ private fun ClipTile(
                 indication = LocalIndication.current,
                 onClick = onClick,
                 onLongClick = onLongClick,
-                onDoubleClick = {
-                    // Double-tap: favorite with a little pop.
-                    if (!item.clip.isFavorite) pop = true
-                    onToggleFavorite()
+                onDoubleClick = if (doubleTapEnabled) {
+                    {
+                        // Double-tap: favorite with a little pop.
+                        if (!item.clip.isFavorite) pop = true
+                        onToggleFavorite()
+                    }
+                } else {
+                    null
                 },
             ),
     ) {
@@ -406,6 +414,7 @@ private fun ClipRow(
     onLongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    doubleTapEnabled: Boolean = true,
 ) {
     val background by animateColorAsState(
         // Opaque so the swipe-action background only shows beside the row while it moves.
@@ -418,7 +427,7 @@ private fun ClipRow(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onDoubleClick = onToggleFavorite)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onDoubleClick = if (doubleTapEnabled) onToggleFavorite else null)
             .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
     ) {
         Box {

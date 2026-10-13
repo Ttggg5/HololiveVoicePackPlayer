@@ -34,6 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import kotlin.math.abs
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ttggg5.holovoice.appContainer
 
 /** How far (fraction of the item width) a swipe must travel before its action fires. */
 private const val TRIGGER_FRACTION = 0.5f
@@ -50,6 +53,12 @@ fun ClipSwipeActions(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    // Settings › Gestures: clip swipes can be turned off.
+    val enabled by LocalContext.current.appContainer.uiPrefs.clipSwipes.state.collectAsStateWithLifecycle()
+    if (!enabled) {
+        androidx.compose.foundation.layout.Box(modifier.clip(shape)) { content() }
+        return
+    }
     val haptics = LocalHapticFeedback.current
     val playNext by rememberUpdatedState(onPlayNext)
     val toggle by rememberUpdatedState(onToggleFavorite)

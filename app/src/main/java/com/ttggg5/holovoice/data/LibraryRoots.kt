@@ -18,6 +18,14 @@ class LibraryRoots(context: Context) {
         prefs.edit().putStringSet(KEY_ROOTS, roots + root).apply()
     }
 
+    /** Stops syncing a library folder (its exclusions are forgotten too). */
+    fun remove(root: String) {
+        prefs.edit()
+            .putStringSet(KEY_ROOTS, roots - root)
+            .putStringSet(KEY_EXCLUDED, excluded.filterNot { it.startsWith(childPrefix(root)) }.toSet())
+            .apply()
+    }
+
     fun exclude(sourceUri: String) {
         prefs.edit().putStringSet(KEY_EXCLUDED, excluded + sourceUri).apply()
     }

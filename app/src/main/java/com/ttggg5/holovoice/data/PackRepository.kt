@@ -89,6 +89,39 @@ class PackRepository(
 
     fun recentlyPlayed(limit: Int = 20): Flow<List<ClipWithPack>> = db.clipDao().observeRecentlyPlayed(limit)
 
+    suspend fun clearPlayHistory() = db.clipDao().clearPlayHistory()
+
+    /** A folder the app keeps in sync, for the Settings page. */
+    data class SyncedFolder(val uri: String, val name: String, val isLibrary: Boolean, val topics: Int)
+
+    /** Library folders ("Import many topics") and stand-alone imported folders. */
+    suspend fun syncedFolders(): List<SyncedFolder> = withContext(Dispatchers.IO) {
+        val libraries = libraryRoots.roots.map { root ->
+            SyncedFolder(root, folderName(root), isLibrary = true, topics = db.packDao().getPacksWithSourceLike(childPrefix(root) + "%").size)
+        }
+        val singles = db.packDao().folderSources().filter { libraryRoots.rootOf(it) == null }.map { source ->
+            val name = db.packDao().getPacksBySource(source).firstOrNull()?.name ?: folderName(source)
+            SyncedFolder(source, name, isLibrary = false, topics = 1)
+        }
+        (libraries + singles).sortedBy { it.name.lowercase() }
+    }
+
+    /** Removes a synced folder: a library folder with all its topics, or a single-folder topic. */
+    suspend fun removeSyncedFolder(folder: SyncedFolder) = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
+            if (folder.isLibrary) {
+                db.packDao().getPacksWithSourceLike(childPrefix(folder.uri) + "%").forEach { db.packDao().delete(it.id) }
+                libraryRoots.remove(folder.uri)
+            } else {
+                db.packDao().getPacksBySource(folder.uri).forEach { db.packDao().delete(it.id) }
+            }
+            importer.releaseTreeIfUnused(folder.uri)
+        }
+    }
+
+    private fun folderName(uri: String): String =
+        Uri.decode(Uri.parse(uri).lastPathSegment.orEmpty()).substringAfterLast(':').substringAfterLast('/').ifEmpty { uri }
+
     suspend fun markPlayed(clipId: Long) = db.clipDao().markPlayed(clipId, System.currentTimeMillis())
 
     suspend fun insertPlaylistEntryAt(playlistId: Long, clipId: Long, index: Int) =

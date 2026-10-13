@@ -75,6 +75,21 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import com.ttggg5.holovoice.appContainer
+import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
+import com.ttggg5.holovoice.ui.queue.QueueList
 import com.ttggg5.holovoice.ui.components.PlayPauseIcon
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -119,13 +134,27 @@ fun NowPlayingScreen(
     val state by player.state.collectAsStateWithLifecycle()
     val clip by viewModel.currentClip.collectAsStateWithLifecycle()
     var sheet by remember { mutableStateOf<Sheet?>(null) }
+    val uiPrefs = LocalContext.current.appContainer.uiPrefs
+    val skipBack by uiPrefs.skipBackSec.state.collectAsStateWithLifecycle()
+    val skipForward by uiPrefs.skipForwardSec.state.collectAsStateWithLifecycle()
 
     // Drag the whole screen down to minimize it back into the mini player.
     val scope = rememberCoroutineScope()
     val dragY = remember { Animatable(0f) }
     var screenHeight by remember { mutableIntStateOf(1) }
+    val prefs = LocalContext.current.appContainer.uiPrefs
+    val playerSwipes by prefs.playerSwipes.state.collectAsStateWithLifecycle()
+    val wide = LocalIsWideLayout.current
+    var showQueue by remember { mutableStateOf(false) }
+    // Upward drag distance; swiping up far enough opens the queue (phones only).
+    var upDrag by remember { mutableFloatStateOf(0f) }
+    val upThreshold = with(LocalDensity.current) { 80.dp.toPx() }
     val dismissDrag = rememberDraggableState { delta ->
-        scope.launch { dragY.snapTo((dragY.value + delta).coerceAtLeast(0f)) }
+        if (delta < 0f && dragY.value <= 0f) {
+            upDrag += delta
+        } else {
+            scope.launch { dragY.snapTo((dragY.value + delta).coerceAtLeast(0f)) }
+        }
     }
     Scaffold(
         modifier = Modifier
@@ -133,8 +162,13 @@ fun NowPlayingScreen(
             .draggable(
                 state = dismissDrag,
                 orientation = Orientation.Vertical,
+                enabled = playerSwipes,
+                onDragStarted = { upDrag = 0f },
                 onDragStopped = { velocity ->
-                    if (dragY.value > screenHeight * 0.25f || velocity > 2500f) {
+                    if (!wide && dragY.value <= 0f && (upDrag < -upThreshold || velocity < -2000f)) {
+                        upDrag = 0f
+                        showQueue = true
+                    } else if (dragY.value > screenHeight * 0.25f || velocity > 2500f) {
                         onBack()
                     } else {
                         dragY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
@@ -158,8 +192,10 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onOpenQueue) {
-                        Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Queue")
+                    if (!wide) {
+                        IconButton(onClick = { showQueue = true }) {
+                            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Queue")
+                        }
                     }
                 },
             )
@@ -171,12 +207,13 @@ fun NowPlayingScreen(
             }
             return@Scaffold
         }
+        // Phones: one column. Tablets/unfolded foldables: player on the left, queue on the right.
+        Row(Modifier.fillMaxSize().padding(padding).navigationBarsPadding()) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .navigationBarsPadding()
+                .weight(1f)
+                .fillMaxHeight()
                 .padding(horizontal = 24.dp, vertical = 8.dp),
         ) {
             // Topic cover, with the talent's picture as a badge; slides when the clip changes,
@@ -322,11 +359,24 @@ fun NowPlayingScreen(
                 }
             }
             SeekBar(state, player)
-            Transport(state, player)
+            Transport(
+                state,
+                player,
+                skipBackSec = skipBack,
+                skipForwardSec = skipForward,
+                onPickSkipBack = { sheet = Sheet.SkipBack },
+                onPickSkipForward = { sheet = Sheet.SkipForward },
+            )
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             ) {
+                val active = MaterialTheme.colorScheme.primary
+                val inactive = LocalContentColor.current.copy(alpha = 0.5f)
+                IconButton(onClick = player::toggleShuffle) {
+                    Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle", tint = if (state.shuffle) active else inactive)
+                }
                 TextButton(onClick = { sheet = Sheet.Speed }) {
                     Icon(Icons.Filled.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(" ${formatSpeed(state.speed)}")
@@ -335,7 +385,43 @@ fun NowPlayingScreen(
                     Icon(Icons.Filled.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(" ${sleepLabel(state)}")
                 }
+                IconButton(onClick = player::cycleRepeat) {
+                    Icon(
+                        if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                        contentDescription = "Repeat",
+                        tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) inactive else active,
+                    )
+                }
             }
+            if (!wide) {
+                UpNextHandle(state, onClick = { showQueue = true })
+            }
+        }
+        if (wide) {
+            VerticalDivider()
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Text(
+                    "Up next",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
+                )
+                QueueList(player, Modifier.fillMaxSize())
+            }
+        }
+        }
+    }
+
+    if (showQueue && !wide) {
+        ModalBottomSheet(
+            onDismissRequest = { showQueue = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Text(
+                "Up next",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
+            )
+            QueueList(player, Modifier.fillMaxHeight(0.85f))
         }
     }
 
@@ -364,16 +450,68 @@ fun NowPlayingScreen(
                 }
             }
         }
+        Sheet.SkipBack -> OptionSheet(onDismiss = { sheet = null }, title = "Rewind by") {
+            SKIP_SECONDS.forEach { sec ->
+                OptionRow("$sec seconds", selected = skipBack == sec) {
+                    uiPrefs.skipBackSec.set(sec)
+                    sheet = null
+                }
+            }
+        }
+        Sheet.SkipForward -> OptionSheet(onDismiss = { sheet = null }, title = "Skip ahead by") {
+            SKIP_SECONDS.forEach { sec ->
+                OptionRow("$sec seconds", selected = skipForward == sec) {
+                    uiPrefs.skipForwardSec.set(sec)
+                    sheet = null
+                }
+            }
+        }
         Sheet.Playlist -> clip?.let { AddToPlaylistDialog(listOf(it.clip.id), onDismiss = { sheet = null }) }
         null -> Unit
     }
 }
 
-private enum class Sheet { Speed, Sleep, Playlist }
+private enum class Sheet { Speed, Sleep, Playlist, SkipBack, SkipForward }
+
+/** Seconds offered for the rewind / skip-ahead buttons (also used by Settings). */
+val SKIP_SECONDS = listOf(5, 10, 15, 30, 60)
+
+/** "Up next" bar at the bottom of the phone player; tap (or swipe up anywhere) to open the queue. */
+@Composable
+private fun UpNextHandle(state: PlayerState, onClick: () -> Unit) {
+    val position = state.queue.indexOfFirst { it.index == state.currentIndex }
+    val next = state.queue.getOrNull(position + 1)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    ) {
+        Box(
+            Modifier
+                .size(width = 36.dp, height = 4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
+        )
+        Text(
+            if (next != null) "Up next: ${next.title}" else "Queue",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
 
 /** Swipe the artwork left/right for next/previous; it follows the finger and springs back. */
 @Composable
 private fun Modifier.artworkSwipe(player: PlayerController, hasNext: Boolean): Modifier {
+    val enabled by LocalContext.current.appContainer.uiPrefs.playerSwipes.state.collectAsStateWithLifecycle()
+    if (!enabled) return this
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val offset = remember { Animatable(0f) }
@@ -437,17 +575,20 @@ private fun SeekBar(state: PlayerState, player: PlayerController) {
 }
 
 @Composable
-private fun Transport(state: PlayerState, player: PlayerController) {
-    val active = MaterialTheme.colorScheme.primary
-    val inactive = LocalContentColor.current.copy(alpha = 0.5f)
+private fun Transport(
+    state: PlayerState,
+    player: PlayerController,
+    skipBackSec: Int,
+    skipForwardSec: Int,
+    onPickSkipBack: () -> Unit,
+    onPickSkipForward: () -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
     ) {
-        IconButton(onClick = player::toggleShuffle) {
-            Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle", tint = if (state.shuffle) active else inactive)
-        }
+        SkipButton(skipBackSec, forward = false, onClick = { player.seekBy(-skipBackSec * 1000L) }, onLongClick = onPickSkipBack)
         IconButton(onClick = player::previous, modifier = Modifier.size(56.dp)) {
             Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", modifier = Modifier.size(36.dp))
         }
@@ -457,13 +598,40 @@ private fun Transport(state: PlayerState, player: PlayerController) {
         IconButton(onClick = player::next, enabled = state.hasNext, modifier = Modifier.size(56.dp)) {
             Icon(Icons.Filled.SkipNext, contentDescription = "Next", modifier = Modifier.size(36.dp))
         }
-        IconButton(onClick = player::cycleRepeat) {
-            Icon(
-                if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                contentDescription = "Repeat",
-                tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) inactive else active,
+        SkipButton(skipForwardSec, forward = true, onClick = { player.seekBy(skipForwardSec * 1000L) }, onLongClick = onPickSkipForward)
+    }
+}
+
+/** Circular-arrow button with the number of seconds inside; long-press to change the seconds. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SkipButton(seconds: Int, forward: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val haptics = LocalHapticFeedback.current
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(52.dp)
+            .clip(CircleShape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                },
             )
-        }
+            .semantics { contentDescription = if (forward) "Skip ahead $seconds seconds" else "Rewind $seconds seconds" },
+    ) {
+        Icon(
+            Icons.Filled.Replay,
+            contentDescription = null,
+            modifier = Modifier.size(40.dp).graphicsLayer { if (forward) scaleX = -1f },
+        )
+        Text(
+            "$seconds",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
