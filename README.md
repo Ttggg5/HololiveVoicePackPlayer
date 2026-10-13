@@ -60,7 +60,7 @@ Supported audio: mp3, m4a, aac, ogg, opus, wav, flac. An image in the folder bec
 Leading track numbers (`01_おはよう.mp3`) are used for ordering and removed from titles. The talent is guessed from names like `Talent - Pack` or `【Talent】Pack`, and you can edit it.
 
 ## App icon
-The launcher icon is the hololive triangle mark with a small microphone in its "play" triangle, on a white background. On Android 13+ with themed icons turned on, it shows the mark's outline in your theme colour.
+The launcher icon is the hololive triangle mark with small headphones in its "play" triangle, on a white background. On Android 13+ with themed icons turned on, it shows the mark's outline in your theme colour.
 
 The mark comes from the official hololive logo, which is a trademark of COVER Corp. It is stored as `app/src/main/res/drawable-nodpi/hololive_mark.png`. Keep builds that include it for personal use, and don't publish them.
 

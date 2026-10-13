@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Launcher icon foreground: the hololive triangle mark (user-provided logo, COVER Corp trademark)
-    with a small microphone inside its big "play" triangle. The mark sits in a 52dp box, inside the
+    with small headphones inside its big "play" triangle. The mark sits in a 52dp box, inside the
     66dp safe zone of the 108dp adaptive canvas.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -11,5 +11,5 @@
         android:left="28dp"
         android:right="28dp"
         android:top="28dp" />
-    <item android:drawable="@drawable/ic_launcher_mic_small" />
+    <item android:drawable="@drawable/ic_launcher_headphones" />
 </layer-list>
