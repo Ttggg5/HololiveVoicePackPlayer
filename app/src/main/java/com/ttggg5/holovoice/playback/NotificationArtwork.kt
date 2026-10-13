@@ -57,10 +57,10 @@ object NotificationArtwork {
             canvas.drawCropped(cover, RectF(0f, 0f, size, size))
             // Darker on the left (where the title sits) and at the bottom (controls).
             canvas.drawRect(0f, 0f, size, size, Paint().apply {
-                shader = LinearGradient(0f, 0f, size, 0f, Color.argb(150, 0, 0, 0), Color.argb(70, 0, 0, 0), Shader.TileMode.CLAMP)
+                shader = LinearGradient(0f, 0f, size, 0f, Color.argb(70, 0, 0, 0), Color.argb(10, 0, 0, 0), Shader.TileMode.CLAMP)
             })
             canvas.drawRect(0f, size * 0.55f, size, size, Paint().apply {
-                shader = LinearGradient(0f, size * 0.55f, 0f, size, Color.TRANSPARENT, Color.argb(110, 0, 0, 0), Shader.TileMode.CLAMP)
+                shader = LinearGradient(0f, size * 0.55f, 0f, size, Color.TRANSPARENT, Color.argb(60, 0, 0, 0), Shader.TileMode.CLAMP)
             })
             if (picture == null) return out
         } else {
@@ -83,12 +83,12 @@ object NotificationArtwork {
         // The clip's picture in a big circle on the right, with a white ring and soft shadow.
         val cx = 760f
         val cy = size / 2
-        val r = 170f
+        val r = 135f
         val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            setShadowLayer(28f, 0f, 10f, Color.argb(90, 0, 0, 0))
+            setShadowLayer(24f, 0f, 8f, Color.argb(80, 0, 0, 0))
         }
-        canvas.drawCircle(cx, cy, r + 10f, ring)
+        canvas.drawCircle(cx, cy, r + 8f, ring)
         val circle = Path().apply { addCircle(cx, cy, r, Path.Direction.CW) }
         canvas.save()
         canvas.clipPath(circle)
