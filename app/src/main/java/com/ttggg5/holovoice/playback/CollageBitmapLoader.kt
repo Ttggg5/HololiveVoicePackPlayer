@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.playback
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -14,20 +15,36 @@ import androidx.media3.common.util.UnstableApi
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.ttggg5.holovoice.data.Accent
 import com.ttggg5.holovoice.data.Collage
 
 /**
- * Loads notification / lock-screen artwork. Collage URIs (clips with several talents) are drawn
- * as the same split picture the app shows; everything else goes to [delegate].
+ * Loads notification / lock-screen artwork. The clip's picture (a split collage for clips with
+ * several talents, else the talent picture or topic cover) is placed on the branded gradient card
+ * from [NotificationArtwork], in the accent colour chosen in Settings.
  */
 @OptIn(UnstableApi::class)
-class CollageBitmapLoader(private val delegate: BitmapLoader) : BitmapLoader {
+class CollageBitmapLoader(
+    private val context: Context,
+    private val delegate: BitmapLoader,
+    private val accent: () -> Accent,
+) : BitmapLoader {
 
     override fun supportsMimeType(mimeType: String): Boolean = delegate.supportsMimeType(mimeType)
 
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> = delegate.decodeBitmap(data)
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> {
+        // A missing picture still gives a card (with a headphones glyph) instead of no artwork.
+        val picture = Futures.catching(loadPicture(uri), Throwable::class.java, { null }, MoreExecutors.directExecutor())
+        return Futures.transform(
+            picture,
+            { bitmap -> NotificationArtwork.composeCard(context, bitmap, accent()) },
+            MoreExecutors.directExecutor(),
+        )
+    }
+
+    private fun loadPicture(uri: Uri): ListenableFuture<Bitmap> {
         val images = Collage.parse(uri.toString()) ?: return delegate.loadBitmap(uri)
         val loads = images.map { delegate.loadBitmap(Uri.parse(it)) }
         return Futures.transform(
