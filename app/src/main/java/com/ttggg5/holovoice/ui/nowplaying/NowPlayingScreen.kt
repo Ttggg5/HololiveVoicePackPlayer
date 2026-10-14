@@ -1,6 +1,16 @@
 package com.ttggg5.holovoice.ui.nowplaying
 
 import com.ttggg5.holovoice.ui.theme.Motion
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,7 +67,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
@@ -78,8 +87,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -120,7 +127,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import com.ttggg5.holovoice.ui.components.formatDuration
 import androidx.compose.foundation.clickable
@@ -151,31 +157,29 @@ fun NowPlayingScreen(
     val prefs = LocalContext.current.appContainer.uiPrefs
     val playerSwipes by prefs.playerSwipes.state.collectAsStateWithLifecycle()
     val wide = LocalIsWideLayout.current
-    var showQueue by remember { mutableStateOf(false) }
-    // Upward drag distance; swiping up far enough opens the queue (phones only).
-    var upDrag by remember { mutableFloatStateOf(0f) }
-    val upThreshold = with(LocalDensity.current) { 80.dp.toPx() }
-    val dismissDrag = rememberDraggableState { delta ->
-        if (delta < 0f && playerSheet.offset.value <= 0f) {
-            upDrag += delta
-        } else {
-            playerSheet.drag(delta)
-        }
+    // The Up next queue (phones) rises from the bottom with the finger, like the player itself.
+    val scope = rememberCoroutineScope()
+    val queueSheet = remember { PlayerSheet(scope, initiallyOpen = false) }
+    BackHandler(enabled = queueSheet.isOpen) { queueSheet.close() }
+    // Each vertical drag moves one thing, picked by its first movement: up opens the queue,
+    // down lowers the player.
+    var dragTarget by remember { mutableStateOf<PlayerSheet?>(null) }
+    val verticalDrag = rememberDraggableState { delta ->
+        val target = dragTarget
+            ?: (if (delta < 0f && !wide && playerSheet.offset.value <= 0f) queueSheet else playerSheet).also { dragTarget = it }
+        target.drag(delta)
     }
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier
             .draggable(
-                state = dismissDrag,
+                state = verticalDrag,
                 orientation = Orientation.Vertical,
-                enabled = playerSwipes,
-                onDragStarted = { upDrag = 0f },
+                enabled = playerSwipes && !queueSheet.isOpen,
+                onDragStarted = { dragTarget = null },
                 onDragStopped = { velocity ->
-                    if (!wide && playerSheet.offset.value <= 0f && (upDrag < -upThreshold || velocity < -2000f)) {
-                        upDrag = 0f
-                        showQueue = true
-                    } else {
-                        playerSheet.release(velocity)
-                    }
+                    (dragTarget ?: playerSheet).release(velocity)
+                    dragTarget = null
                 },
             ),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -189,7 +193,7 @@ fun NowPlayingScreen(
                 },
                 actions = {
                     if (!wide) {
-                        IconButton(onClick = { showQueue = true }) {
+                        IconButton(onClick = queueSheet::open) {
                             Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Queue")
                         }
                     }
@@ -394,7 +398,7 @@ fun NowPlayingScreen(
                 }
             }
             if (!wide) {
-                UpNextHandle(state, onClick = { showQueue = true })
+                UpNextHandle(state, onClick = queueSheet::open)
             }
         }
         if (wide) {
@@ -411,18 +415,7 @@ fun NowPlayingScreen(
         }
     }
 
-    if (showQueue && !wide) {
-        ModalBottomSheet(
-            onDismissRequest = { showQueue = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        ) {
-            Text(
-                "Up next",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
-            )
-            QueueList(player, Modifier.fillMaxHeight(0.85f))
-        }
+    if (!wide && queueSheet.isVisible) QueuePanel(queueSheet, player)
     }
 
     when (sheet) {
@@ -477,6 +470,87 @@ private enum class Sheet { Speed, Sleep, Playlist, SkipBack, SkipForward }
 val SKIP_SECONDS = listOf(5, 10, 15, 30, 60)
 
 /** "Up next" bar at the bottom of the phone player; tap (or swipe up anywhere) to open the queue. */
+/**
+ * Up next as a panel over the player. It follows the finger: drag the header, or pull the list
+ * down from its top, to lower it; tap the dimmed area above it to close.
+ */
+@Composable
+private fun QueuePanel(sheet: PlayerSheet, player: PlayerController) {
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = 0.32f * (1f - sheet.offset.value) }
+                .background(Color.Black)
+                .pointerInput(sheet) { detectTapGestures { sheet.close() } },
+        )
+        val headerDrag = rememberDraggableState { sheet.drag(it) }
+        val listDrag = remember(sheet) {
+            object : NestedScrollConnection {
+                // Raise a partly lowered panel before the list scrolls.
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
+                    if (available.y < 0f && sheet.offset.value > 0f) {
+                        sheet.drag(available.y)
+                        Offset(0f, available.y)
+                    } else {
+                        Offset.Zero
+                    }
+
+                // Pulling down at the top of the list lowers the panel.
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                    if (available.y > 0f && source == NestedScrollSource.UserInput) {
+                        sheet.drag(available.y)
+                        Offset(0f, available.y)
+                    } else {
+                        Offset.Zero
+                    }
+
+                override suspend fun onPreFling(available: Velocity): Velocity =
+                    if (sheet.offset.value > 0f) {
+                        sheet.release(available.y)
+                        available
+                    } else {
+                        Velocity.Zero
+                    }
+            }
+        }
+        Surface(
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            tonalElevation = 2.dp,
+            shadowElevation = 8.dp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .fillMaxHeight(0.85f)
+                .onSizeChanged { sheet.height = it.height.toFloat() }
+                .graphicsLayer { translationY = sheet.offset.value * size.height },
+        ) {
+            Column(Modifier.navigationBarsPadding()) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .draggable(headerDrag, Orientation.Vertical, onDragStopped = { velocity -> sheet.release(velocity) })
+                        .padding(top = 10.dp, bottom = 6.dp),
+                ) {
+                    Box(
+                        Modifier
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
+                    )
+                    Text(
+                        "Up next",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
+                QueueList(player, Modifier.fillMaxSize().nestedScroll(listDrag))
+            }
+        }
+    }
+}
+
 @Composable
 private fun UpNextHandle(state: PlayerState, onClick: () -> Unit) {
     val position = state.queue.indexOfFirst { it.index == state.currentIndex }

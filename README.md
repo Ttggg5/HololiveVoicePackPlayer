@@ -70,7 +70,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - Rewind and skip-ahead buttons sit beside previous and next. They jump 10 seconds by default; change this in Settings, or long-press either button.
 - **A–B loop**: tap *A–B* to mark the start, tap again to mark the end, and that part repeats (also with the screen off). Tap *Loop* to stop; it also ends when the next clip starts.
 - The player opens over the page you're on. Drag it down (you see that page underneath) or press back to close it. Tapping the media notification opens it.
-- Swipe up on the player, or tap the *Up next* bar, to see the queue. Drag down to close the player.
+- Swipe up on the player, or tap the *Up next* bar, to see the queue; it rises with your finger, and you pull it down (by its header, or from the top of the list) to close it. Drag down to close the player.
 - On tablets and unfolded foldables, a side rail replaces the bottom bar, and the player shows the queue beside the controls.
 - The bottom bar stays on every page; tap the highlighted tab again to jump back to its top page. On Android 14+, the back swipe shows the page you're going back to as you swipe.
 - The notification and lock-screen player show the topic thumbnail as the background with the talent picture on top (an accent-coloured gradient when the topic has no thumbnail), and the status bar shows the app's own icon.
@@ -81,7 +81,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 | Mini player | Swipe left / right | Next / previous clip |
 | Mini player | Swipe up | Open Now Playing (it rises with your finger) |
 | Now Playing | Drag down | Minimize back to the mini player |
-| Now Playing | Swipe up | Show the queue |
+| Now Playing | Swipe up | Show the queue (it rises with your finger; pull it down to close) |
 | Now Playing | Swipe the artwork left / right | Next / previous clip |
 | Clip tile or row | Swipe right across half the item | Play next |
 | Clip tile or row | Swipe left across half the item | Favorite / unfavorite (with Undo) |
