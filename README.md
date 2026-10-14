@@ -4,7 +4,7 @@ An Android app for listening to the Hololive voice packs you own (for example, o
 The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
-- **Home**: Continue listening, recently played, *Talent of the day* (a different talent each day), your talents, *Not played yet*, *Most played*, recently added topics and favorites, plus a *Shuffle all* button. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
+- **Home**: a big hero card at the top shows what's playing over its blurred topic thumbnail (with play/pause and progress; tap for Now Playing), or *Talent of the day* (a different talent each day) when nothing is loaded. Quick chips below it: *Shuffle all*, *Favorites*, *New for you*, *Most played* and *Alarms*. Then shelves: your talents, recently played, new topics, *Not played yet*, *Most played* and favorites; clip cards show the topic thumbnail with a small talent badge. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
 - **Talents tab**: every hololive member as a picture card with their Japanese and English names. Talents you have clips for come first (with a clip count, in the sort you choose); the rest of the official roster follows, dimmed. Status tags in names (like "[Alum]") are shown as a small badge instead of in the name. Search works in English or 日本語. Tap one to open their page: a banner with their picture, both names, any status tags, clip / topic / play counts, *Play all* and *Shuffle*, and topic filters above all their clips.
 - **Sorting everywhere**:
   - clips by track order, name, talent, duration, recently added or most played
