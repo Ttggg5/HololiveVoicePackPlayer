@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.nowplaying
 
+import kotlin.math.abs
 import com.ttggg5.holovoice.ui.theme.Motion
 import com.ttggg5.holovoice.ui.components.BlurredCover
 import androidx.compose.foundation.layout.PaddingValues
@@ -704,13 +705,35 @@ private fun LoopButton(state: PlayerState, player: PlayerController, active: Col
 
 private const val MIN_LOOP_MS = 1_000L
 
+/** The seek bar shows the dropped position until playback is within this of it… */
+private const val SEEK_SETTLED_MS = 1_000L
+
+/** …or for at most this long. */
+private const val SEEK_HOLD_MAX_MS = 1_500L
+
 @Composable
 private fun SeekBar(state: PlayerState, player: PlayerController) {
     val position by player.position.collectAsStateWithLifecycle(initialValue = 0L)
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableFloatStateOf(0f) }
+    // Where the user let go. Shown until the polled position catches up with the seek, so the bar
+    // doesn't flash back to the old position for a moment.
+    var pendingSeek by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(position, pendingSeek) {
+        val target = pendingSeek ?: return@LaunchedEffect
+        if (abs(position - target) < SEEK_SETTLED_MS) pendingSeek = null
+    }
+    LaunchedEffect(pendingSeek) {
+        if (pendingSeek != null) {
+            delay(SEEK_HOLD_MAX_MS)
+            pendingSeek = null
+        }
+    }
     val duration = state.durationMs.coerceAtLeast(0L)
-    val shown = if (dragging) dragValue.toLong() else position.coerceIn(0L, duration.coerceAtLeast(0L))
+    val shown = when {
+        dragging -> dragValue.toLong()
+        else -> (pendingSeek ?: position).coerceIn(0L, duration)
+    }
 
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         Slider(
@@ -720,6 +743,7 @@ private fun SeekBar(state: PlayerState, player: PlayerController) {
                 dragValue = it
             },
             onValueChangeFinished = {
+                pendingSeek = dragValue.toLong()
                 player.seekTo(dragValue.toLong())
                 dragging = false
             },
