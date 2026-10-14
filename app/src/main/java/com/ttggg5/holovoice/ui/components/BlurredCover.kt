@@ -23,7 +23,7 @@ import com.ttggg5.holovoice.ui.theme.Motion
  * readable in light and dark themes. Cross-fades when [model] changes (e.g. the next clip).
  */
 @Composable
-fun BlurredCover(model: Any?, wash: Brush, modifier: Modifier = Modifier, blur: Dp = 6.dp) {
+fun BlurredCover(model: Any?, wash: Brush, modifier: Modifier = Modifier, blur: Dp = 3.dp) {
     Box(modifier) {
         Crossfade(targetState = model, animationSpec = tween(Motion.LONG), label = "blurredCover") { picture ->
             if (picture != null) {

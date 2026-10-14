@@ -330,7 +330,7 @@ private fun ContinueCard(state: com.ttggg5.holovoice.playback.PlayerState, playe
             model = state.coverUri ?: state.talentImageUrl,
             wash = SolidColor(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)),
             modifier = Modifier.matchParentSize(),
-            blur = 10.dp,
+            blur = 5.dp,
         )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
             Artwork(
