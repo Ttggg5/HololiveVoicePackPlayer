@@ -1,7 +1,14 @@
 package com.ttggg5.holovoice.ui.talents
 
 import com.ttggg5.holovoice.ui.theme.Motion
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +18,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,7 +34,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,7 +48,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,11 +64,25 @@ import com.ttggg5.holovoice.ui.components.LocalUndo
 import com.ttggg5.holovoice.ui.components.SortMenu
 import com.ttggg5.holovoice.ui.components.pinchToResize
 
-/** Every talent in the library with their picture; tap one to see all their clips. */
+/** One card on the Talents page: a roster member, with their clips in the library (if any). */
+private data class TalentCardData(
+    val slug: String?,
+    val nameJa: String?,
+    val nameEn: String,
+    val imageUrl: String?,
+    val clipCount: Int,
+)
+
+/**
+ * Every hololive member: the talents you have clips for first (in the chosen sort), then the rest of
+ * the official roster. Cards show the picture with the Japanese and English names; tap one to see
+ * their clips.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen: (String) -> Unit) {
     val talents by viewModel.talents.collectAsStateWithLifecycle()
+    val roster by viewModel.roster.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val prefs = LocalContext.current.appContainer.uiPrefs
     val sort by prefs.talentSort.collectAsStateWithLifecycle()
@@ -85,64 +103,103 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
             )
         },
     ) { padding ->
-        val all = talents
+        val mine = talents
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            when {
-                all == null -> Unit
-                all.isEmpty() -> EmptyMessage(
+            if (mine == null) return@Column
+            if (mine.isEmpty() && roster.isEmpty()) {
+                EmptyMessage(
                     "No talents yet",
-                    "Import some voice files first. Files named after a talent get their picture automatically.",
-                    icon = Icons.Filled.Face,
-                )
-                all.none { it.slug != null } -> EmptyMessage(
-                    "No talents matched yet",
-                    "Name each file after the talent (e.g. 兎田ぺこら.mp3 or Usada Pekora.mp3), then match again. " +
+                    "Import some voice files first. Files named after a talent get their picture automatically. " +
                         "An internet connection is needed once to download the talent list.",
                     icon = Icons.Filled.Face,
-                    actionLabel = "Match talents",
-                    onAction = { viewModel.matchTalents { undo?.show(it) } },
                 )
-                else -> {
-                    val shown = sort.sorted(all).filter { t ->
-                        query.isBlank() || TalentMatcher.normalize(t.name ?: "").contains(TalentMatcher.normalize(query)) ||
-                            (t.name ?: "").contains(query.trim(), ignoreCase = true)
+                return@Column
+            }
+            val bySlug = remember(roster) { roster.associateBy { it.slug } }
+            val inLibrary = remember(mine, bySlug, sort) {
+                sort.sorted(mine).map { t ->
+                    val official = t.slug?.let(bySlug::get)
+                    TalentCardData(
+                        slug = t.slug,
+                        nameJa = official?.nameJa,
+                        nameEn = official?.nameEn ?: t.name ?: "No talent yet",
+                        imageUrl = official?.imageUrl ?: t.imageUrl,
+                        clipCount = t.clipCount,
+                    )
+                }
+            }
+            val others = remember(mine, roster) {
+                val have = mine.mapNotNull { it.slug }.toSet()
+                roster.filter { it.slug !in have }.map { TalentCardData(it.slug, it.nameJa, it.nameEn, it.imageUrl, 0) }
+            }
+            fun TalentCardData.matches(): Boolean {
+                if (query.isBlank()) return true
+                val q = TalentMatcher.normalize(query)
+                return listOfNotNull(nameEn, nameJa).any {
+                    it.contains(query.trim(), ignoreCase = true) || (q.isNotEmpty() && TalentMatcher.normalize(it).contains(q))
+                }
+            }
+            val shownMine = inLibrary.filter { it.matches() }
+            val shownOthers = others.filter { it.matches() }
+            val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
+            LibraryRefreshBox(Modifier.fillMaxSize()) {
+                LazyVerticalGrid(
+                    // Portrait cards follow the same pinch size as clip tiles.
+                    columns = GridCells.Adaptive(minSize = (cellDp * 0.8f).dp),
+                    modifier = Modifier.pinchToResize(prefs),
+                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    item(key = "search", span = { GridItemSpan(maxLineSpan) }) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            placeholder = { Text("Find a member (English or 日本語)") },
+                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (query.isNotEmpty()) {
+                                    IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(28.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        )
                     }
-                    val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
-                    LibraryRefreshBox(Modifier.fillMaxSize()) {
-                    LazyVerticalGrid(
-                        // Talent cards are smaller than clip tiles but follow the same pinch size.
-                        columns = GridCells.Adaptive(minSize = (cellDp * 0.7f).dp),
-                        modifier = Modifier.pinchToResize(prefs),
-                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        item(key = "search", span = { GridItemSpan(maxLineSpan) }) {
-                            OutlinedTextField(
-                                value = query,
-                                onValueChange = { query = it },
-                                placeholder = { Text("Find a talent") },
-                                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                                trailingIcon = {
-                                    if (query.isNotEmpty()) {
-                                        IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
-                                    }
-                                },
-                                singleLine = true,
-                                shape = RoundedCornerShape(28.dp),
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            )
+                    if (shownMine.isNotEmpty()) {
+                        item(key = "mineHeader", span = { GridItemSpan(maxLineSpan) }) {
+                            SectionHeader("In your library", shownMine.size)
                         }
-                        items(shown, key = { it.slug ?: UNASSIGNED_SLUG }) { t ->
-                            TalentCard(
+                        items(shownMine, key = { "mine:" + (it.slug ?: UNASSIGNED_SLUG) }) { t ->
+                            PortraitCard(
                                 talent = t,
+                                inLibrary = true,
                                 playing = playerState.isPlaying && t.slug != null && t.slug in playerState.talentSlugs,
                                 modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
                                 onClick = { onOpen(t.slug ?: UNASSIGNED_SLUG) },
                             )
                         }
                     }
+                    if (shownOthers.isNotEmpty()) {
+                        item(key = "othersHeader", span = { GridItemSpan(maxLineSpan) }) {
+                            SectionHeader("Other members", shownOthers.size)
+                        }
+                        items(shownOthers, key = { "other:" + it.slug }) { t ->
+                            PortraitCard(
+                                talent = t,
+                                inLibrary = false,
+                                playing = false,
+                                modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                                onClick = { t.slug?.let(onOpen) },
+                            )
+                        }
+                    }
+                    if (shownMine.isEmpty() && shownOthers.isEmpty()) {
+                        item(key = "none", span = { GridItemSpan(maxLineSpan) }) {
+                            EmptyMessage("No members match", "Try another name.", icon = Icons.Filled.Search, fill = false)
+                        }
                     }
                 }
             }
@@ -151,42 +208,87 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
 }
 
 @Composable
-private fun TalentCard(talent: TalentSummary, playing: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    OutlinedCard(
-        shape = RoundedCornerShape(20.dp),
-        border = if (playing) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick),
+private fun SectionHeader(title: String, count: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, top = 8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            "  $count",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * A tall card: the talent's picture fills the top, then the Japanese name (large) and the English
+ * name (small), and a clip count. Members not in the library are dimmed.
+ */
+@Composable
+private fun PortraitCard(talent: TalentCardData, inLibrary: Boolean, playing: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    ElevatedCard(
+        shape = shape,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = if (playing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (playing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
+            .clip(shape)
+            .clickable(onClick = onClick),
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 8.dp),
-        ) {
-            androidx.compose.foundation.layout.Box {
-                Artwork(
-                    talent.imageUrl,
-                    Modifier
-                        .size(84.dp)
-                        .clip(CircleShape)
-                        .border(2.dp, MaterialTheme.colorScheme.primaryContainer, CircleShape),
-                    iconSize = 36.dp,
-                    placeholder = if (talent.slug == null) Icons.Filled.PersonOff else Icons.Filled.Face,
-                )
-                if (playing) EqualizerBars(true, modifier = Modifier.align(Alignment.BottomEnd))
+        Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
+            Artwork(
+                talent.imageUrl,
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = if (inLibrary) 1f else 0.55f },
+                iconSize = 44.dp,
+                placeholder = if (talent.slug == null) Icons.Filled.PersonOff else Icons.Filled.Face,
+            )
+            if (playing) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                ) {
+                    EqualizerBars(true, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(6.dp))
+                }
             }
+            if (inLibrary && talent.clipCount > 0) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                ) {
+                    Text(
+                        "${talent.clipCount} clips",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
+            }
+        }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
             Text(
-                talent.name ?: "No talent yet",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
+                talent.nameJa ?: talent.nameEn,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (inLibrary) 1f else 0.7f),
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 8.dp),
             )
-            Text(
-                "${talent.clipCount} clips",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (talent.nameJa != null) {
+                Text(
+                    talent.nameEn,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

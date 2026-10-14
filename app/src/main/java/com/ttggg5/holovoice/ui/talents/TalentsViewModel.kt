@@ -21,6 +21,18 @@ class TalentsViewModel(private val repository: PackRepository) : ViewModel() {
     val talents: StateFlow<List<TalentSummary>?> =
         repository.talentSummaries.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** The whole official roster (Japanese and English names, stored pictures); empty until it loads. */
+    private val _roster = MutableStateFlow<List<Talent>>(emptyList())
+    val roster: StateFlow<List<Talent>> = _roster.asStateFlow()
+
+    init {
+        loadRoster()
+    }
+
+    private fun loadRoster() {
+        viewModelScope.launch { _roster.value = runCatching { repository.talents() }.getOrDefault(emptyList()) }
+    }
+
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
@@ -36,6 +48,7 @@ class TalentsViewModel(private val repository: PackRepository) : ViewModel() {
                 _busy.value = false
             }
             onDone(message)
+            loadRoster()
         }
     }
 }

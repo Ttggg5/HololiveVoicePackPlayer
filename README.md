@@ -5,7 +5,7 @@ The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
 - **Home**: Continue listening, recently played, *Talent of the day* (a different talent each day), your talents, *Not played yet*, *Most played*, recently added topics and favorites, plus a *Shuffle all* button. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
-- **Talents tab**: every talent in your library with their picture and clip count. Tap one to see all their clips across topics, filter by topic, then use *Play all* or *Shuffle*.
+- **Talents tab**: every hololive member as a picture card with their Japanese and English names. Talents you have clips for come first (with a clip count, in the sort you choose); the rest of the official roster follows, dimmed. Search works in English or 日本語. Tap one to see all their clips across topics, filter by topic, then use *Play all* or *Shuffle*.
 - **Sorting everywhere**:
   - clips by track order, name, talent, duration, recently added or most played
   - topics by name, talent, recently added or most clips
