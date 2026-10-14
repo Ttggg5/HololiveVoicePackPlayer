@@ -36,7 +36,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Favorites and search**: star any clip, and search titles, packs and talents. The Favorites page has a star banner with clip / talent / topic / length counts, *Play all* and *Shuffle*, and talent chips to show only one talent's favorites.
 
 ## Settings
-Open Settings from Home → ⋮ → *Settings*, or from the side rail on a tablet. A summary at the top shows the app version and how many topics, clips and talents you have; the options below are grouped in rounded cards, each with a coloured icon:
+Open Settings from Home → ⋮ → *Settings*, or from the side rail on a wide screen. A summary at the top shows the app version and how many topics, clips and talents you have; the options below are grouped in rounded cards, each with a coloured icon:
 - **Appearance**: theme (system / light / dark), *Match the playing talent* (on by default: the app's main colour fades to a colour taken from the speaking talent's picture), Material You colours, accent colour and tile size.
 - **Playback**:
   - how many seconds the rewind and skip-ahead buttons jump
@@ -76,7 +76,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - **A–B loop**: tap *A–B* to mark the start, tap again to mark the end, and that part repeats (also with the screen off). Tap *Loop* to stop; it also ends when the next clip starts.
 - The player opens over the page you're on. Drag it down (you see that page underneath) or press back to close it. Tapping the media notification opens it.
 - Swipe up on the player, or tap the *Up next* bar, to see the queue; it rises with your finger, and you pull it down (by its header, or from the top of the list) to close it. Drag down to close the player.
-- On tablets and unfolded foldables, a side rail replaces the bottom bar, and the player shows the queue beside the controls.
+- On wide screens (840dp and up, e.g. tablets in landscape), a side rail replaces the bottom bar, and the player shows the queue beside the controls.
 - The bottom bar stays on every page; tap the highlighted tab again to jump back to its top page. On Android 14+, the back swipe shows the page you're going back to as you swipe.
 - The notification and lock-screen player show the topic thumbnail as the background with the talent picture on top (an accent-coloured gradient when the topic has no thumbnail), and the status bar shows the app's own icon.
 

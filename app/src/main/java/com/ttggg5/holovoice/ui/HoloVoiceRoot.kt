@@ -81,6 +81,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
+import com.ttggg5.holovoice.ui.components.WIDE_LAYOUT_MIN_DP
 import com.ttggg5.holovoice.ui.components.NoHaptics
 import com.ttggg5.holovoice.ui.alarms.AlarmsScreen
 import com.ttggg5.holovoice.ui.alarms.AlarmsViewModel
@@ -228,9 +229,9 @@ fun HoloVoiceRoot(container: AppContainer) {
     val systemHaptics = LocalHapticFeedback.current
     val openSettings = { nav.navigate(SETTINGS) { launchSingleTop = true } }
 
-    // Tablets and unfolded foldables (600dp+): navigation rail on the side instead of the bottom bar.
+    // Wide windows (840dp+, e.g. tablets in landscape): navigation rail on the side instead of the bottom bar.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-    val wide = maxWidth >= 600.dp
+    val wide = maxWidth >= WIDE_LAYOUT_MIN_DP.dp
     CompositionLocalProvider(
         LocalUndo provides undo,
         LocalIsWideLayout provides wide,
