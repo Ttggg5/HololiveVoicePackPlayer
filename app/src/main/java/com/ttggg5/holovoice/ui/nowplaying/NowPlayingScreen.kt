@@ -277,7 +277,7 @@ fun NowPlayingScreen(
                             Text(
                                 listOfNotNull(s.album, s.category).joinToString(" › "),
                                 style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(start = 8.dp),
@@ -289,6 +289,7 @@ fun NowPlayingScreen(
                             s.title,
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f).padding(vertical = 2.dp),
@@ -362,7 +363,8 @@ fun NowPlayingScreen(
             // Controls on frosted glass.
             Surface(
                 shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -381,7 +383,7 @@ fun NowPlayingScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     ) {
                         val active = MaterialTheme.colorScheme.primary
-                        val inactive = LocalContentColor.current.copy(alpha = 0.55f)
+                        val inactive = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         IconButton(onClick = player::toggleShuffle) {
                             Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle", tint = if (state.shuffle) active else inactive)
                         }
@@ -495,22 +497,25 @@ private fun NowPlayingBackdrop(state: PlayerState) {
         ) { model ->
             if (model != null) {
                 AsyncImage(
-                    // A tiny image scaled up is already soft; Android 12+ blurs it further.
-                    model = ImageRequest.Builder(LocalContext.current).data(model).size(48).build(),
+                    // Only lightly softened, so the topic picture stays recognisable.
+                    model = ImageRequest.Builder(LocalContext.current).data(model).size(480).build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(40.dp) else Modifier),
+                        .then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(6.dp) else Modifier),
                 )
             }
         }
         Box(
             Modifier.fillMaxSize().background(
+                // Clear behind the talent picture, solid where the text and controls are.
                 Brush.verticalGradient(
-                    0f to surface.copy(alpha = 0.45f),
-                    0.5f to surface.copy(alpha = 0.6f),
-                    1f to surface.copy(alpha = 0.92f),
+                    0f to surface.copy(alpha = 0.75f), // keeps the top bar readable
+                    0.14f to surface.copy(alpha = 0.25f),
+                    0.4f to surface.copy(alpha = 0.3f),
+                    0.6f to surface.copy(alpha = 0.88f),
+                    1f to surface.copy(alpha = 0.96f),
                 ),
             ),
         )
