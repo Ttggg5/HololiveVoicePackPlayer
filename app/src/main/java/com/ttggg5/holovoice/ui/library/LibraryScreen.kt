@@ -1,6 +1,39 @@
 package com.ttggg5.holovoice.ui.library
 
 import com.ttggg5.holovoice.ui.theme.Motion
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import com.ttggg5.holovoice.data.talents.TalentTags
+import com.ttggg5.holovoice.ui.components.Artwork
+import com.ttggg5.holovoice.ui.components.BlurredCover
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -45,7 +78,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,11 +87,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.ttggg5.holovoice.data.Pack
 import com.ttggg5.holovoice.data.PackWithCount
 import com.ttggg5.holovoice.data.talents.Talent
@@ -91,10 +121,12 @@ import com.ttggg5.holovoice.ui.components.EmptyMessage
 import com.ttggg5.holovoice.ui.components.EqualizerBars
 import com.ttggg5.holovoice.ui.components.TalentPickerDialog
 
+/** All topics: a headline with counts, a search bar, what's playing, then cover cards (grouped by talent when sorted that way). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenPack: (Long) -> Unit) {
     val packs by viewModel.packs.collectAsStateWithLifecycle()
+    val packTalents by viewModel.packTalents.collectAsStateWithLifecycle()
     val importing by viewModel.importing.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var menuOpen by remember { mutableStateOf(false) }
@@ -119,37 +151,6 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                title = { Text("Topics") },
-                actions = {
-                    RefreshAction()
-                    SortMenu(TopicSort.entries, sort, { it.label }, prefs::setTopicSort)
-                    var overflow by remember { mutableStateOf(false) }
-                    IconButton(onClick = { overflow = true }, enabled = !importing) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More")
-                    }
-                    DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Match talents automatically") },
-                            leadingIcon = { Icon(Icons.Filled.Face, contentDescription = null) },
-                            onClick = {
-                                overflow = false
-                                viewModel.matchTalents()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Refresh talent list") },
-                            leadingIcon = { Icon(Icons.Filled.CloudSync, contentDescription = null) },
-                            onClick = {
-                                overflow = false
-                                viewModel.refreshTalents()
-                            },
-                        )
-                    }
-                },
-            )
-        },
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -159,8 +160,19 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
             )
         },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            if (importing) LinearProgressIndicator(Modifier.fillMaxWidth())
+        Column(Modifier.padding(padding).fillMaxSize().statusBarsPadding()) {
+            TopicsHeader(
+                topicCount = packs?.size ?: 0,
+                clipCount = packs?.sumOf { it.clipCount } ?: 0,
+                sort = sort,
+                onSort = prefs::setTopicSort,
+                busy = importing,
+                onMatchTalents = viewModel::matchTalents,
+                onRefreshTalents = viewModel::refreshTalents,
+            )
+            AnimatedVisibility(visible = importing) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
+            }
             when {
                 packs == null -> Unit
                 packs!!.isEmpty() -> EmptyMessage(
@@ -173,28 +185,25 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
                     onAction = { pickLibrary.launch(null) },
                 )
                 else -> {
+                    val q = query.trim()
                     val shown = sort.sorted(packs!!).filter { p ->
-                        query.isBlank() || p.pack.name.contains(query.trim(), ignoreCase = true) ||
-                            p.pack.talent.contains(query.trim(), ignoreCase = true)
+                        q.isEmpty() || p.pack.name.contains(q, ignoreCase = true) || p.pack.talent.contains(q, ignoreCase = true)
                     }
-                    if (packs!!.size > 3) {
-                        OutlinedTextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            placeholder = { Text("Find a topic") },
-                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                            trailingIcon = {
-                                if (query.isNotEmpty()) {
-                                    IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
-                                }
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(28.dp),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                        )
-                    }
+                    val playing = packs!!.firstOrNull { it.pack.id == playerState.packId }
                     LibraryRefreshBox(Modifier.fillMaxSize()) {
-                        PackGrid(shown, playerState, onOpenPack, onLongPress = { editing = it })
+                        PackGrid(
+                            packs = shown,
+                            groupByTalent = sort == TopicSort.TALENT,
+                            packTalents = packTalents,
+                            playerState = playerState,
+                            onOpen = onOpenPack,
+                            onLongPress = { editing = it },
+                            showSearch = packs!!.size > 3,
+                            query = query,
+                            onQueryChange = { query = it },
+                            playingFrom = playing,
+                            noMatches = q.isNotEmpty() && shown.isEmpty(),
+                        )
                     }
                 }
             }
@@ -239,87 +248,294 @@ fun LibraryScreen(viewModel: LibraryViewModel, playerState: PlayerState, onOpenP
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TopicsHeader(
+    topicCount: Int,
+    clipCount: Int,
+    sort: TopicSort,
+    onSort: (TopicSort) -> Unit,
+    busy: Boolean,
+    onMatchTalents: () -> Unit,
+    onRefreshTalents: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 20.dp, top = 12.dp, end = 4.dp, bottom = 8.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Topics", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            if (topicCount > 0) {
+                Text(
+                    "$topicCount topics · $clipCount clips",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        RefreshAction()
+        SortMenu(TopicSort.entries, sort, { it.label }, onSort)
+        var overflow by remember { mutableStateOf(false) }
+        Box {
+            IconButton(onClick = { overflow = true }, enabled = !busy) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "More")
+            }
+            DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                DropdownMenuItem(
+                    text = { Text("Match talents automatically") },
+                    leadingIcon = { Icon(Icons.Filled.Face, contentDescription = null) },
+                    onClick = {
+                        overflow = false
+                        onMatchTalents()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Refresh talent list") },
+                    leadingIcon = { Icon(Icons.Filled.CloudSync, contentDescription = null) },
+                    onClick = {
+                        overflow = false
+                        onRefreshTalents()
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopicSearchField(query: String, onChange: (String) -> Unit) {
+    val focus = LocalFocusManager.current
+    TextField(
+        value = query,
+        onValueChange = onChange,
+        placeholder = { Text("Find a topic or talent") },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onChange("") }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+        ),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Slim card for the topic the current clip comes from; tap to open it. */
+@Composable
+private fun PlayingFromStrip(pack: PackWithCount, isPlaying: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(onClick = onClick),
+    ) {
+        BlurredCover(
+            model = pack.pack.coverUri,
+            wash = SolidColor(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+            modifier = Modifier.matchParentSize(),
+            blur = 5.dp,
+        )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+            Artwork(pack.pack.coverUri, Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)), iconSize = 22.dp, placeholder = Icons.Filled.LibraryMusic)
+            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    EqualizerBars(isPlaying, size = 14.dp)
+                    Text(
+                        "  Playing from",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Text(
+                    pack.pack.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+        }
+    }
+}
+
 @Composable
 private fun PackGrid(
     packs: List<PackWithCount>,
+    groupByTalent: Boolean,
+    packTalents: Map<Long, List<String>>,
     playerState: PlayerState,
     onOpen: (Long) -> Unit,
     onLongPress: (Pack) -> Unit,
+    showSearch: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    playingFrom: PackWithCount?,
+    noMatches: Boolean,
 ) {
     val haptics = LocalHapticFeedback.current
     val prefs = LocalContext.current.appContainer.uiPrefs
     val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
+    // Group headers only make sense when the list is sorted by talent.
+    val groups: List<Pair<String?, List<PackWithCount>>> =
+        if (groupByTalent) packs.groupBy { TalentTags.clean(it.pack.talent).ifBlank { "No talent" } }.toList() else listOf(null to packs)
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = cellDp.dp),
         modifier = Modifier.pinchToResize(prefs),
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        run {
-            val talentPacks = packs
-            items(talentPacks, key = { it.pack.id }) { item ->
-                val playingHere = playerState.packId == item.pack.id
-                Card(
-                    Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()).fillMaxWidth().combinedClickable(
-                        onClick = { onOpen(item.pack.id) },
-                        onLongClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onLongPress(item.pack)
-                        },
-                    ),
-                ) {
-                    Box(
-                        Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.LibraryMusic,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(48.dp),
-                        )
-                        if (item.pack.coverUri != null) {
-                            AsyncImage(
-                                model = item.pack.coverUri,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                        // Badge on the topic that is playing right now.
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = playingHere,
-                            enter = scaleIn() + fadeIn(),
-                            exit = scaleOut() + fadeOut(),
-                            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
-                        ) {
-                            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
-                                EqualizerBars(
-                                    playing = playerState.isPlaying,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(6.dp),
-                                )
-                            }
-                        }
-                    }
-                    Column(Modifier.padding(10.dp)) {
-                        Text(
-                            item.pack.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            "${item.pack.talent} · ${item.clipCount} clips" +
-                                if (item.categoryCount > 0) " · ${item.categoryCount} categories" else "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+        if (showSearch) item(key = "search", span = { GridItemSpan(maxLineSpan) }) { TopicSearchField(query, onQueryChange) }
+        if (playingFrom != null) {
+            item(key = "playing", span = { GridItemSpan(maxLineSpan) }) {
+                Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
+                    PlayingFromStrip(playingFrom, playerState.isPlaying) { onOpen(playingFrom.pack.id) }
                 }
             }
+        }
+        if (noMatches) {
+            item(key = "none", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    "No topics match",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
+                )
+            }
+        }
+        groups.forEach { (talent, inGroup) ->
+            if (talent != null) {
+                item(key = "group:$talent", span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        talent,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())
+                            .padding(top = 8.dp, start = 4.dp),
+                    )
+                }
+            }
+            items(inGroup, key = { it.pack.id }) { item ->
+                TopicCoverCard(
+                    item = item,
+                    talents = packTalents[item.pack.id].orEmpty(),
+                    playingHere = playerState.packId == item.pack.id,
+                    isPlaying = playerState.isPlaying,
+                    onClick = { onOpen(item.pack.id) },
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongPress(item.pack)
+                    },
+                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                )
+            }
+        }
+    }
+}
+
+/** A topic as a full-bleed cover with its name, talents and counts on a dark gradient. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TopicCoverCard(
+    item: PackWithCount,
+    talents: List<String>,
+    playingHere: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "topicPress")
+    val ring by animateColorAsState(
+        if (playingHere) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = tween(Motion.MEDIUM),
+        label = "topicRing",
+    )
+    Box(
+        modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(20.dp))
+            .border(3.dp, ring, RoundedCornerShape(20.dp))
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
+    ) {
+        Artwork(item.pack.coverUri, Modifier.fillMaxSize(), iconSize = 48.dp, placeholder = Icons.Filled.LibraryMusic)
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.82f))))
+        // Badge on the topic that is playing right now.
+        AnimatedVisibility(
+            visible = playingHere,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+        ) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
+                EqualizerBars(
+                    playing = isPlaying,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(6.dp),
+                )
+            }
+        }
+        Column(Modifier.align(Alignment.BottomStart).padding(12.dp)) {
+            Text(
+                item.pack.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                if (talents.isNotEmpty()) {
+                    AvatarStack(talents)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    "${item.clipCount} clips" + if (item.categoryCount > 0) " · ${item.categoryCount} categories" else "",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** Up to three small talent pictures, overlapping. */
+@Composable
+private fun AvatarStack(images: List<String>) {
+    val size = 22.dp
+    val step = 14.dp
+    Box(Modifier.width(size + step * (images.size - 1)).height(size)) {
+        images.forEachIndexed { i, url ->
+            Artwork(
+                url,
+                Modifier.offset(x = step * i).size(size).clip(CircleShape).border(1.5.dp, Color.White, CircleShape),
+                iconSize = 12.dp,
+            )
         }
     }
 }

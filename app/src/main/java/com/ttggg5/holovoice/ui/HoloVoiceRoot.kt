@@ -435,6 +435,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                         viewModel = viewModel { PackViewModel(packId, repository) },
                         player = container.player,
                         onBack = { nav.popBackStack() },
+                        onOpenTalent = { slug -> nav.navigate("talent/$slug") },
                     )
                 }
             }

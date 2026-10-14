@@ -250,7 +250,7 @@ private fun TalentHeader(
 }
 
 @Composable
-private fun StatTile(value: String, label: String, modifier: Modifier = Modifier) {
+fun StatTile(value: String, label: String, modifier: Modifier = Modifier) {
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = modifier) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 10.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)

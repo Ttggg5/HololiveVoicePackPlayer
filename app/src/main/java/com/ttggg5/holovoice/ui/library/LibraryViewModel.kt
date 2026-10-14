@@ -7,6 +7,7 @@ import com.ttggg5.holovoice.data.Pack
 import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.PackRepository
 import com.ttggg5.holovoice.data.PackWithCount
+import com.ttggg5.holovoice.data.orderedTalents
 import com.ttggg5.holovoice.data.talents.Talent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -23,6 +25,18 @@ import kotlinx.coroutines.launch
 class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
     val packs: StateFlow<List<PackWithCount>?> =
         repository.packs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Up to three talent pictures per topic (most clips first), for the avatars on each card. */
+    val packTalents: StateFlow<Map<Long, List<String>>> = repository.allClips.map { clips ->
+        clips.groupBy { it.clip.packId }.mapValues { (_, inPack) ->
+            inPack.flatMap { it.orderedTalents }
+                .filter { it.imageUrl != null }
+                .groupingBy { it.slug }.eachCount()
+                .entries.sortedByDescending { it.value }
+                .mapNotNull { e -> inPack.firstNotNullOfOrNull { c -> c.orderedTalents.firstOrNull { it.slug == e.key }?.imageUrl } }
+                .take(3)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _importing = MutableStateFlow(false)
 
