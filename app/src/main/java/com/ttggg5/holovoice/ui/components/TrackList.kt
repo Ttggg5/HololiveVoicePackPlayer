@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -57,6 +58,8 @@ data class TrackRow(
     /** Small picture on the artwork's corner (the topic thumbnail); the artwork is then round. */
     val badge: Any? = null,
     val playing: Boolean = false,
+    /** Faded, e.g. clips already played in the queue. */
+    val dimmed: Boolean = false,
 )
 
 /**
@@ -130,6 +133,7 @@ fun <T> TrackList(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .alpha(if (data.dimmed) 0.5f else 1f)
                                 .combinedClickable(
                                     onClick = { onClick(item, index) },
                                     onLongClick = onLongClick?.let { callback -> { callback(item) } },

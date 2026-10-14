@@ -412,12 +412,7 @@ fun NowPlayingScreen(
         if (wide) {
             VerticalDivider()
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                Text(
-                    "Up next",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
-                )
-                QueueList(player, Modifier.fillMaxSize())
+                QueueList(player, Modifier.fillMaxSize().padding(top = 8.dp))
             }
         }
         }
@@ -590,9 +585,10 @@ private fun QueuePanel(sheet: PlayerSheet, player: PlayerController) {
                             .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
                     )
                     Text(
-                        "Up next",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 10.dp),
+                        "Queue",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
                 QueueList(player, Modifier.fillMaxSize().nestedScroll(listDrag))
