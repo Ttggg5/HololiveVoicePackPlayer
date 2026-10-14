@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home-screen widget (light) -->
+    <color name="widget_background">#FFF7F9FC</color>
+    <color name="widget_scrim">#C8F7F9FC</color>
+    <color name="widget_text">#FF1A1C1E</color>
+    <color name="widget_text_secondary">#FF44474E</color>
+    <color name="widget_accent">#FF1E9BD7</color>
+    <color name="widget_on_accent">#FFFFFFFF</color>
+    <!-- App shortcuts -->
+    <color name="shortcut_background">#FF1E9BD7</color>
+</resources>

@@ -50,6 +50,11 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a table
   - remove synced folders
   - clear the play history
 
+## Widget and shortcuts
+
+- **Home-screen widget**: long-press your home screen → Widgets → Holo Voice. It shows the playing clip's talent picture, title and who is speaking over the topic's thumbnail, with previous, play/pause and next. The buttons work even when the app is closed (the last queue continues), and tapping the widget opens Now Playing. It's resizable (4×2 by default).
+- **App shortcuts**: long-press the app icon for *Continue*, *Shuffle all* and *Favorites*, plus *Shuffle* for your two most played talents. Drag one to the home screen to pin it.
+
 ## Voice alarms
 
 Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Settings › Playback › Voice alarms), or long-press a clip and choose *Set as alarm…*.

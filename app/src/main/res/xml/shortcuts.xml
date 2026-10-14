@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_play"
+        android:shortcutId="continue"
+        android:shortcutLongLabel="@string/shortcut_continue_long"
+        android:shortcutShortLabel="@string/shortcut_continue_short">
+        <intent
+            android:action="com.ttggg5.holovoice.action.CONTINUE"
+            android:targetClass="com.ttggg5.holovoice.MainActivity"
+            android:targetPackage="com.ttggg5.holovoice" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_shuffle"
+        android:shortcutId="shuffle_all"
+        android:shortcutLongLabel="@string/shortcut_shuffle_long"
+        android:shortcutShortLabel="@string/shortcut_shuffle_short">
+        <intent
+            android:action="com.ttggg5.holovoice.action.SHUFFLE_ALL"
+            android:targetClass="com.ttggg5.holovoice.MainActivity"
+            android:targetPackage="com.ttggg5.holovoice" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_star"
+        android:shortcutId="favorites"
+        android:shortcutLongLabel="@string/shortcut_favorites_long"
+        android:shortcutShortLabel="@string/shortcut_favorites_short">
+        <intent
+            android:action="com.ttggg5.holovoice.action.SHUFFLE_FAVORITES"
+            android:targetClass="com.ttggg5.holovoice.MainActivity"
+            android:targetPackage="com.ttggg5.holovoice" />
+    </shortcut>
+</shortcuts>

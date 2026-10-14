@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.playback
 
+import com.ttggg5.holovoice.widget.NowPlayingWidget
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Bundle
@@ -153,7 +154,24 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    /** Shows the current clip (and whether it plays) on the home-screen widget. */
+    private fun updateWidget(playing: Boolean = player.isPlaying) {
+        val item = player.currentMediaItem
+        val info = item?.mediaMetadata?.let { m ->
+            NowPlayingWidget.Info(
+                title = m.title?.toString().orEmpty(),
+                subtitle = listOfNotNull(m.artist?.toString(), m.albumTitle?.toString()).filter { it.isNotBlank() }.joinToString(" · "),
+                isPlaying = playing,
+                picture = m.extras?.getString(ItemExtras.TALENT_IMAGE),
+                cover = m.extras?.getString(ItemExtras.COVER),
+            )
+        }
+        // App scope: the widget should also be updated while this service is shutting down.
+        appContainer.appScope.launch { runCatching { NowPlayingWidget.push(this@PlaybackService, info) } }
+    }
+
     override fun onDestroy() {
+        if (player.currentMediaItem != null) updateWidget(playing = false)
         saveState()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
@@ -232,6 +250,15 @@ class PlaybackService : MediaSessionService() {
                 player.currentMediaItem?.mediaId?.toLongOrNull()?.let { id ->
                     scope.launch { runCatching { appContainer.repository.markPlayed(id) } }
                 }
+            }
+            if (events.containsAny(
+                    Player.EVENT_MEDIA_ITEM_TRANSITION,
+                    Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_MEDIA_METADATA_CHANGED,
+                    Player.EVENT_TIMELINE_CHANGED,
+                )
+            ) {
+                updateWidget()
             }
             if (events.containsAny(
                     Player.EVENT_TIMELINE_CHANGED,
