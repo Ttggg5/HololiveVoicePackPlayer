@@ -114,12 +114,15 @@ The mark comes from the official hololive logo, which is a trademark of COVER Co
 Requirements: JDK 17+ and the Android SDK (API 35).
 
 ```bash
-./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
+./gradlew assembleRelease        # optimized APK in app/build/outputs/apk/release/ (use this one)
+./gradlew assembleDebug          # debug APK in app/build/outputs/apk/debug/
 ./gradlew testDebugUnitTest      # unit tests
 ```
 
-Every push also builds a debug APK on GitHub Actions (download it from the run's **Artifacts**).
-To install it, copy it to your phone and open it with "install unknown apps" allowed, or run `adb install app-debug.apk`.
+Every push also builds both APKs on GitHub Actions (download them from the run's **Artifacts**).
+Install **holovoice-apk** (`app-release.apk`): it is optimized with R8 and scrolls much more smoothly than the debug build.
+It is signed with the debug key, so it's for personal use only. If you had the debug APK installed, Android may ask you to uninstall it first because the two are signed differently.
+To install, copy the APK to your phone and open it with "install unknown apps" allowed, or run `adb install app-release.apk`.
 
 ## Tests
 JVM unit tests live in `app/src/test` and run on every push in CI. Run them with:

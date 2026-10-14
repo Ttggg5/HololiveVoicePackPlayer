@@ -19,8 +19,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Optimized (R8) build for smooth scrolling. Signed with the debug key so it installs
+            // without a keystore; this app is for personal use only.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

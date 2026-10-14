@@ -19,7 +19,8 @@ import kotlinx.coroutines.launch
  */
 @Stable
 class PlayerSheet(private val scope: CoroutineScope, initiallyOpen: Boolean) {
-    val offset = Animatable(if (initiallyOpen) 0f else 1f)
+    // Bounded so a fast fling can't overshoot past fully open or closed.
+    val offset = Animatable(if (initiallyOpen) 0f else 1f).apply { updateBounds(0f, 1f) }
 
     /** Height of the area the player covers, in px. */
     var height by mutableFloatStateOf(1f)

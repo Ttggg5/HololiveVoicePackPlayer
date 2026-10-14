@@ -53,7 +53,6 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
@@ -300,7 +299,7 @@ fun NowPlayingScreen(
                                 Icon(
                                     if (fav) Icons.Filled.Star else Icons.Outlined.StarBorder,
                                     contentDescription = if (fav) "Remove favorite" else "Add favorite",
-                                    tint = if (fav) MaterialTheme.colorScheme.secondary else LocalContentColor.current,
+                                    tint = if (fav) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                     modifier = Modifier.size(28.dp),
                                 )
                             }

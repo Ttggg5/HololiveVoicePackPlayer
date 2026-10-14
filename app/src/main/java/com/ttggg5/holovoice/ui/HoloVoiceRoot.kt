@@ -449,13 +449,13 @@ fun HoloVoiceRoot(container: AppContainer) {
         Box(
             Modifier.fillMaxSize().graphicsLayer {
                 // Follows the drag (and the predictive back swipe): drops, shrinks a little and rounds its corners.
-                val drag = playerSheet.offset.value
+                val drag = playerSheet.offset.value.coerceIn(0f, 1f)
                 val p = backProgress.value
                 val shrink = (drag * 0.06f + p * 0.08f).coerceAtMost(0.12f)
                 scaleX = 1f - shrink
                 scaleY = 1f - shrink
                 translationY = drag * size.height + p * size.height * 0.08f
-                shape = RoundedCornerShape(((drag * 120) + p * 40).coerceAtMost(32f).dp)
+                shape = RoundedCornerShape(((drag * 120) + p * 40).coerceIn(0f, 32f).dp)
                 this.clip = drag > 0f || p > 0f
             },
         ) {
