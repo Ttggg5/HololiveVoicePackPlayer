@@ -13,7 +13,7 @@ The app ships no audio of its own. You import your packs from your phone.
   - talents by name, most clips or most played
   - Your choices are remembered.
 - **Grid or list**: switch clip collections between big picture tiles and a compact list.
-- **Search and filters**: a filter box on every clip list, plus *Favorites*, *Talent* and *Topic* filter chips in Search.
+- **Search and filters**: a filter box on every clip list, plus *Favorites*, *Talent* and *Topic* filter chips in Search. Before you type, Search shows your recent searches, your talents and topic cards to browse; while searching, results are grouped into matching talents (English or 日本語), topics and clips. The keyboard search key saves a query to recent searches.
 - **Undo**: removing from favorites, the queue or a playlist, or deleting a playlist, shows an *Undo* button.
 - **Clip thumbnails**: clips show their topic's thumbnail, with a small round talent picture on grid tiles. Inside a topic, clips show the talent picture instead. Up next and playlists show the talent's round picture with a small topic thumbnail on its corner, and list view adds a small talent badge to topic thumbnails.
 - **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories, shown as tabs on the topic screen. Long-press a topic to rename it, change its talent, or delete it.

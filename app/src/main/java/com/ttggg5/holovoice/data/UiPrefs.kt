@@ -111,6 +111,29 @@ class UiPrefs(context: Context) {
         prefs.edit().putInt("gridCellDp", clamped).apply()
     }
 
+    private val _recentSearches = MutableStateFlow(
+        prefs.getString("recentSearches", "").orEmpty().split('\n').filter { it.isNotBlank() },
+    )
+
+    /** Latest searches first (at most [MAX_RECENT_SEARCHES]). */
+    val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
+
+    fun addRecentSearch(query: String) {
+        val q = query.trim().replace('\n', ' ')
+        if (q.isEmpty()) return
+        setRecentSearches(listOf(q) + _recentSearches.value.filterNot { it.equals(q, ignoreCase = true) })
+    }
+
+    fun removeRecentSearch(query: String) = setRecentSearches(_recentSearches.value - query)
+
+    fun clearRecentSearches() = setRecentSearches(emptyList())
+
+    private fun setRecentSearches(list: List<String>) {
+        val kept = list.take(MAX_RECENT_SEARCHES)
+        _recentSearches.value = kept
+        prefs.edit().putString("recentSearches", kept.joinToString("\n")).apply()
+    }
+
     private val _onboardingDone = MutableStateFlow(prefs.getBoolean("onboardingDone", false))
     val onboardingDone: StateFlow<Boolean> = _onboardingDone.asStateFlow()
 
@@ -133,5 +156,6 @@ class UiPrefs(context: Context) {
         const val DEFAULT_GRID_DP = 160
         const val MIN_GRID_DP = 110
         const val MAX_GRID_DP = 260
+        const val MAX_RECENT_SEARCHES = 8
     }
 }

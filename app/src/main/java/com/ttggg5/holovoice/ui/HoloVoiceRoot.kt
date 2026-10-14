@@ -360,7 +360,12 @@ fun HoloVoiceRoot(container: AppContainer) {
                                 )
                             }
                             Tab.Search -> {
-                                SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
+                                SearchScreen(
+                                    viewModel { SearchViewModel(repository, container.uiPrefs) },
+                                    container.player,
+                                    onOpenTalent = { slug -> nav.navigate("talent/$slug") },
+                                    onOpenTopic = { id -> nav.navigate("pack/$id") },
+                                )
                             }
                         }
                     }
