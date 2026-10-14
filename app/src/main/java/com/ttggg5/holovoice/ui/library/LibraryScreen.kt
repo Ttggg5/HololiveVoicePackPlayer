@@ -339,7 +339,7 @@ private fun PlayingFromStrip(pack: PackWithCount, isPlaying: Boolean, onClick: (
             model = pack.pack.coverUri,
             wash = SolidColor(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
             modifier = Modifier.matchParentSize(),
-            blur = 5.dp,
+            blur = 3.dp,
         )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(10.dp)) {
             Artwork(pack.pack.coverUri, Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)), iconSize = 22.dp, placeholder = Icons.Filled.LibraryMusic)

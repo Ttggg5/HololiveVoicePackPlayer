@@ -79,7 +79,7 @@ fun MiniPlayer(
             model = state.coverUri ?: state.talentImageUrl,
             wash = SolidColor(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)),
             modifier = Modifier.matchParentSize(),
-            blur = 5.dp,
+            blur = 3.dp,
         )
         Column {
             LinearProgressIndicator(

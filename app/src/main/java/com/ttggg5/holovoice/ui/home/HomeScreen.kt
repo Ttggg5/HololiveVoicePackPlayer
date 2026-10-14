@@ -319,7 +319,7 @@ private fun HeroFrame(background: Any?, onClick: () -> Unit, content: @Composabl
             .background(MaterialTheme.colorScheme.primaryContainer)
             .clickable(onClick = onClick),
     ) {
-        BlurredCover(model = background, wash = heroWash, modifier = Modifier.matchParentSize(), blur = 5.dp)
+        BlurredCover(model = background, wash = heroWash, modifier = Modifier.matchParentSize(), blur = 3.dp)
         content()
     }
 }
