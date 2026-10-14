@@ -30,6 +30,6 @@ fun QueueScreen(player: PlayerController, onBack: () -> Unit) {
             )
         },
     ) { padding ->
-        QueueList(player, Modifier.padding(padding))
+        QueueList(player, Modifier.padding(padding), showNowPlaying = true)
     }
 }

@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -80,6 +81,8 @@ fun <T> TrackList(
     listState: LazyListState = rememberLazyListState(),
     contentPadding: PaddingValues = PaddingValues(vertical = 4.dp),
     header: (@Composable () -> Unit)? = null,
+    /** Background of a row; transparent lets the screen behind show through. */
+    rowColor: Color = MaterialTheme.colorScheme.surface,
 ) {
     // Local copy so the list follows the finger while dragging; synced from [items] otherwise.
     var local by remember { mutableStateOf(items) }
@@ -115,7 +118,8 @@ fun <T> TrackList(
                     state = dismissState,
                     enableDismissFromStartToEnd = false,
                     backgroundContent = {
-                        Box(
+                        // Only while swiping, so see-through rows don't show it at rest.
+                        if (dismissState.dismissDirection != SwipeToDismissBoxValue.Settled) Box(
                             Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 20.dp),
                             contentAlignment = Alignment.CenterEnd,
                         ) {
@@ -127,7 +131,14 @@ fun <T> TrackList(
                     Surface(
                         tonalElevation = if (isDragging) 6.dp else 0.dp,
                         shadowElevation = if (isDragging) 6.dp else 0.dp,
-                        color = if (data.highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                        color = when {
+                            isDragging -> MaterialTheme.colorScheme.surfaceContainerHigh
+                            data.highlighted && rowColor.alpha < 1f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                            data.highlighted -> MaterialTheme.colorScheme.primaryContainer
+                            else -> rowColor
+                        },
+                        // Explicit, since a see-through row would otherwise inherit whatever is behind it.
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

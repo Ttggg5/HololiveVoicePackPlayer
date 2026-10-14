@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,7 +59,7 @@ import com.ttggg5.holovoice.ui.components.TrackRow
  * swipe-up panel in the player, and the player's side panel on large screens.
  */
 @Composable
-fun QueueList(player: PlayerController, modifier: Modifier = Modifier) {
+fun QueueList(player: PlayerController, modifier: Modifier = Modifier, showNowPlaying: Boolean = false) {
     val state by player.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val undo = LocalUndo.current
@@ -108,10 +109,12 @@ fun QueueList(player: PlayerController, modifier: Modifier = Modifier) {
         onMove = if (state.shuffle) null else { from, to -> player.moveQueueItem(from, to) },
         listState = listState,
         modifier = modifier,
+        rowColor = Color.Transparent,
         header = {
             QueueHeader(
                 state = state,
                 player = player,
+                showNowPlaying = showNowPlaying,
                 left = (state.queue.size - currentPos - 1).coerceAtLeast(0),
                 onClear = { confirmClear = true },
             )
@@ -135,9 +138,10 @@ fun QueueList(player: PlayerController, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun QueueHeader(state: PlayerState, player: PlayerController, left: Int, onClear: () -> Unit) {
+private fun QueueHeader(state: PlayerState, player: PlayerController, showNowPlaying: Boolean, left: Int, onClear: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-        if (state.clipId != null) NowPlayingCard(state, player)
+        // Hidden inside Now Playing, where the player itself is right next to the queue.
+        if (showNowPlaying && state.clipId != null) NowPlayingCard(state, player)
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
@@ -175,7 +179,13 @@ private fun QueueHeader(state: PlayerState, player: PlayerController, left: Int,
             )
         }
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp)) {
-            Text("Up next", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(
+                "Up next",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
             Text(
                 "$left left · ${state.queue.size} in queue",
                 style = MaterialTheme.typography.labelLarge,
