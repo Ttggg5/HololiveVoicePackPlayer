@@ -118,20 +118,16 @@ class UiPrefs(context: Context) {
     /** Latest searches first (at most [MAX_RECENT_SEARCHES]). */
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
-    fun addRecentSearch(query: String) {
-        val q = query.trim().replace('\n', ' ')
-        if (q.isEmpty()) return
-        setRecentSearches(listOf(q) + _recentSearches.value.filterNot { it.equals(q, ignoreCase = true) })
-    }
+    fun addRecentSearch(query: String) = setRecentSearches(RecentSearches.add(_recentSearches.value, query))
 
-    fun removeRecentSearch(query: String) = setRecentSearches(_recentSearches.value - query)
+    fun removeRecentSearch(query: String) = setRecentSearches(RecentSearches.remove(_recentSearches.value, query))
 
     fun clearRecentSearches() = setRecentSearches(emptyList())
 
     private fun setRecentSearches(list: List<String>) {
-        val kept = list.take(MAX_RECENT_SEARCHES)
-        _recentSearches.value = kept
-        prefs.edit().putString("recentSearches", kept.joinToString("\n")).apply()
+        if (list == _recentSearches.value) return
+        _recentSearches.value = list
+        prefs.edit().putString("recentSearches", list.joinToString("\n")).apply()
     }
 
     private val _onboardingDone = MutableStateFlow(prefs.getBoolean("onboardingDone", false))
@@ -158,4 +154,16 @@ class UiPrefs(context: Context) {
         const val MAX_GRID_DP = 260
         const val MAX_RECENT_SEARCHES = 8
     }
+}
+
+/** The recent-searches list: latest first, no duplicates (ignoring case), at most [UiPrefs.MAX_RECENT_SEARCHES]. */
+object RecentSearches {
+    fun add(list: List<String>, query: String, max: Int = UiPrefs.MAX_RECENT_SEARCHES): List<String> {
+        // Stored newline-separated, so a query can't contain one.
+        val q = query.trim().replace('\n', ' ')
+        if (q.isEmpty()) return list
+        return (listOf(q) + list.filterNot { it.equals(q, ignoreCase = true) }).take(max)
+    }
+
+    fun remove(list: List<String>, query: String): List<String> = list - query
 }

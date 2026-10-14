@@ -47,4 +47,11 @@ class AlarmTimesTest {
         assertEquals("Mon, Wed", AlarmTimes.daysLabel(0b0000101))
         assertEquals("in 7 h 12 min", AlarmTimes.untilLabel((7 * 60 + 12) * 60_000L))
     }
+
+    @Test
+    fun untilLabelRoundsUpAndDropsMinutesOnceDaysShow() {
+        assertEquals("in 1 min", AlarmTimes.untilLabel(30_000))
+        assertEquals("in 2 h", AlarmTimes.untilLabel(2 * 3_600_000L))
+        assertEquals("in 1 d 3 h", AlarmTimes.untilLabel(((24 + 3) * 60 + 5) * 60_000L))
+    }
 }

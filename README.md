@@ -121,5 +121,23 @@ Requirements: JDK 17+ and the Android SDK (API 35).
 Every push also builds a debug APK on GitHub Actions (download it from the run's **Artifacts**).
 To install it, copy it to your phone and open it with "install unknown apps" allowed, or run `adb install app-debug.apk`.
 
+## Tests
+JVM unit tests live in `app/src/test` and run on every push in CI. Run them with:
+
+```
+./gradlew testDebugUnitTest
+```
+
+They cover:
+- file-name parsing and talent matching (English, 日本語, typos)
+- status tags in names
+- sorting
+- alarm times and labels
+- clip pictures and "who is speaking"
+- Home's smart lists
+- recent searches
+- per-topic talent pictures
+- duration formatting
+
 ## Tech
 Kotlin, Jetpack Compose (Material 3), Room, Media3 ExoPlayer + MediaSessionService, Storage Access Framework, and Coil. The minimum Android version is 8.0 (API 26).

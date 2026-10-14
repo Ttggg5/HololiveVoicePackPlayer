@@ -78,4 +78,35 @@ class SortingTest {
         assertEquals(listOf("p.png", "m.png"), duet.talentImages)
         assertEquals("Pack talent", base.speaker)
     }
+
+    private fun topic(id: Long, name: String, talent: String, clips: Int, imported: Long) = PackWithCount(
+        pack = Pack(id = id, name = name, talent = talent, coverUri = null, sourceUri = "", source = PackSource.FOLDER, importedAt = imported),
+        clipCount = clips,
+        categoryCount = 0,
+    )
+
+    @Test
+    fun topicSorts() {
+        val topics = listOf(
+            topic(1, "Topic 10", "Pekora", clips = 5, imported = 300),
+            topic(2, "Topic 2", "Miko", clips = 20, imported = 100),
+            topic(3, "Topic 1", "Pekora", clips = 1, imported = 200),
+        )
+        fun ids(sort: TopicSort) = sort.sorted(topics).map { it.pack.id }
+        assertEquals(listOf(3L, 2L, 1L), ids(TopicSort.NAME))
+        assertEquals(listOf(2L, 3L, 1L), ids(TopicSort.TALENT))
+        assertEquals(listOf(1L, 3L, 2L), ids(TopicSort.RECENTLY_ADDED))
+        assertEquals(listOf(2L, 1L, 3L), ids(TopicSort.MOST_CLIPS))
+    }
+
+    @Test
+    fun playlistSorts() {
+        fun list(id: Long, name: String, created: Long, entries: Int) =
+            PlaylistWithCount(Playlist(id = id, name = name, createdAt = created), entryCount = entries, coverUri = null)
+        val playlists = listOf(list(1, "Sleep", 100, 3), list(2, "Morning 2", 300, 1), list(3, "morning 10", 200, 8))
+        fun ids(sort: PlaylistSort) = sort.sorted(playlists).map { it.playlist.id }
+        assertEquals(listOf(2L, 3L, 1L), ids(PlaylistSort.NAME))
+        assertEquals(listOf(2L, 3L, 1L), ids(PlaylistSort.RECENT))
+        assertEquals(listOf(3L, 1L, 2L), ids(PlaylistSort.SIZE))
+    }
 }

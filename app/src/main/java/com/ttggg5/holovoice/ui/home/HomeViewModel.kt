@@ -44,21 +44,7 @@ class HomeViewModel(private val repository: PackRepository) : ViewModel() {
         val mostPlayed: List<ClipWithPack> = emptyList(),
     )
 
-    val smartLists: StateFlow<SmartLists> = state(repository.allClips.map(::buildSmartLists), SmartLists())
-
-    private fun buildSmartLists(clips: List<ClipWithPack>): SmartLists {
-        val talents = clips.flatMap { it.orderedTalents }.distinctBy { it.slug }.sortedBy { it.slug }
-        // Same talent all day, a different one tomorrow.
-        val today = talents.getOrNull((LocalDate.now().toEpochDay() % talents.size.coerceAtLeast(1)).toInt())?.let { t ->
-            TalentOfTheDay(t.slug, t.name, t.imageUrl, clips.filter { c -> c.orderedTalents.any { it.slug == t.slug } })
-        }
-        return SmartLists(
-            talentOfTheDay = today,
-            notPlayed = clips.filter { it.clip.playCount == 0 }.sortedByDescending { it.clip.addedAt },
-            mostPlayed = clips.filter { it.clip.playCount > 0 }
-                .sortedWith(compareByDescending<ClipWithPack> { it.clip.playCount }.thenByDescending { it.clip.lastPlayedAt }),
-        )
-    }
+    val smartLists: StateFlow<SmartLists> = state(repository.allClips.map { buildSmartLists(it, LocalDate.now()) }, SmartLists())
 
     fun withAllClips(block: (List<ClipWithPack>) -> Unit) {
         viewModelScope.launch { block(repository.getAllClips()) }
@@ -67,4 +53,19 @@ class HomeViewModel(private val repository: PackRepository) : ViewModel() {
     fun toggleFavorite(item: ClipWithPack) {
         viewModelScope.launch { repository.setFavorite(item.clip.id, !item.clip.isFavorite) }
     }
+}
+
+/** Home's smart lists for [clips]; [today] picks the talent of the day. */
+fun buildSmartLists(clips: List<ClipWithPack>, today: LocalDate): HomeViewModel.SmartLists {
+    val talents = clips.flatMap { it.orderedTalents }.distinctBy { it.slug }.sortedBy { it.slug }
+    // Same talent all day, a different one tomorrow.
+    val ofTheDay = talents.getOrNull((today.toEpochDay() % talents.size.coerceAtLeast(1)).toInt())?.let { t ->
+        HomeViewModel.TalentOfTheDay(t.slug, t.name, t.imageUrl, clips.filter { c -> c.orderedTalents.any { it.slug == t.slug } })
+    }
+    return HomeViewModel.SmartLists(
+        talentOfTheDay = ofTheDay,
+        notPlayed = clips.filter { it.clip.playCount == 0 }.sortedByDescending { it.clip.addedAt },
+        mostPlayed = clips.filter { it.clip.playCount > 0 }
+            .sortedWith(compareByDescending<ClipWithPack> { it.clip.playCount }.thenByDescending { it.clip.lastPlayedAt }),
+    )
 }

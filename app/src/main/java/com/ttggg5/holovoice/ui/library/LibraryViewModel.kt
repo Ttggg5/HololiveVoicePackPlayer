@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.ttggg5.holovoice.data.Pack
 import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.PackRepository
+import com.ttggg5.holovoice.data.ClipWithPack
 import com.ttggg5.holovoice.data.PackWithCount
 import com.ttggg5.holovoice.data.orderedTalents
 import com.ttggg5.holovoice.data.talents.Talent
@@ -27,16 +28,8 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
         repository.packs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Up to three talent pictures per topic (most clips first), for the avatars on each card. */
-    val packTalents: StateFlow<Map<Long, List<String>>> = repository.allClips.map { clips ->
-        clips.groupBy { it.clip.packId }.mapValues { (_, inPack) ->
-            inPack.flatMap { it.orderedTalents }
-                .filter { it.imageUrl != null }
-                .groupingBy { it.slug }.eachCount()
-                .entries.sortedByDescending { it.value }
-                .mapNotNull { e -> inPack.firstNotNullOfOrNull { c -> c.orderedTalents.firstOrNull { it.slug == e.key }?.imageUrl } }
-                .take(3)
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    val packTalents: StateFlow<Map<Long, List<String>>> = repository.allClips.map { topTalentPictures(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _importing = MutableStateFlow(false)
 
@@ -148,3 +141,14 @@ class LibraryViewModel(private val repository: PackRepository) : ViewModel() {
         }
     }
 }
+
+/** For each topic, the pictures of up to [max] of its talents, the ones in the most clips first. */
+fun topTalentPictures(clips: List<ClipWithPack>, max: Int = 3): Map<Long, List<String>> =
+    clips.groupBy { it.clip.packId }.mapValues { (_, inPack) ->
+        inPack.flatMap { it.orderedTalents }
+            .filter { it.imageUrl != null }
+            .groupBy { it.slug }
+            .values.sortedByDescending { it.size }
+            .mapNotNull { it.first().imageUrl }
+            .take(max)
+    }
