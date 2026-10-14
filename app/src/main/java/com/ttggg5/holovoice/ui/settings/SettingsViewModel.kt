@@ -1,5 +1,8 @@
 package com.ttggg5.holovoice.ui.settings
 
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ttggg5.holovoice.data.PackRepository
@@ -17,6 +20,13 @@ class SettingsViewModel(private val repository: PackRepository) : ViewModel() {
 
     /** Done / total while talent pictures are downloading (also the automatic first download). */
     val pictureProgress: StateFlow<Pair<Int, Int>?> = repository.talentPictureProgress
+
+    /** Topics, clips and talents in the library, for the summary at the top. */
+    data class LibraryStats(val topics: Int = 0, val clips: Int = 0, val talents: Int = 0)
+
+    val stats: StateFlow<LibraryStats> = combine(repository.packs, repository.talentSummaries) { packs, talents ->
+        LibraryStats(packs.size, packs.sumOf { it.clipCount }, talents.count { it.slug != null })
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryStats())
 
     init {
         reloadFolders()

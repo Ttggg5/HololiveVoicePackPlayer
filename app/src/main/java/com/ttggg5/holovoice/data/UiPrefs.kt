@@ -21,7 +21,7 @@ class UiPrefs(context: Context) {
     private val _clipSort = MutableStateFlow(read("clipSort", ClipSort.TRACK))
     val clipSort: StateFlow<ClipSort> = _clipSort.asStateFlow()
 
-    private val _topicSort = MutableStateFlow(read("topicSort", TopicSort.TALENT))
+    private val _topicSort = MutableStateFlow(read("topicSort", TopicSort.NAME))
     val topicSort: StateFlow<TopicSort> = _topicSort.asStateFlow()
 
     private val _playlistSort = MutableStateFlow(read("playlistSort", PlaylistSort.NAME))

@@ -16,7 +16,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Search and filters**: a filter box on every clip list, plus *Favorites*, *Talent* and *Topic* filter chips in Search. Before you type, Search shows your recent searches, your talents and topic cards to browse; while searching, results are grouped into matching talents (English or 日本語), topics and clips. The keyboard search key saves a query to recent searches.
 - **Undo**: removing from favorites, the queue or a playlist, or deleting a playlist, shows an *Undo* button.
 - **Clip thumbnails**: clips show their topic's thumbnail, with a small round talent picture on grid tiles. Inside a topic, clips show the talent picture instead. Up next and playlists show the talent's round picture with a small topic thumbnail on its corner, and list view adds a small talent badge to topic thumbnails.
-- **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories. The Topics tab shows every topic as a cover card with its name, talent pictures and clip count, a search bar, and a *Playing from* card for the topic you're listening to; sorting by talent groups the cards under each talent. Opening a topic shows a banner with its cover, its talents (tap one to open their page), clip / category / length / play counts, *Play all* and *Shuffle*, and category chips to filter the clips. Long-press a topic to rename it, change its talent, or delete it.
+- **Topics**: each imported folder or ZIP is one topic, and its sub-folders become categories. The Topics tab shows every topic as a cover card with its name, talent pictures and clip count, a search bar, and a *Playing from* card for the topic you're listening to; topics are sorted by name by default, and sorting by talent groups the cards under each talent. Opening a topic shows a banner with its cover, its talents (tap one to open their page), clip / category / length / play counts, *Play all* and *Shuffle*, and category chips to filter the clips. Long-press a topic to rename it, change its talent, or delete it.
 - **Auto-sync**: imported folders are rescanned when you open the app, so files you add or delete show up without importing again. Tap ⟳ in Topics, or pull down on Home, Topics or Talents, to re-scan right away. Picking a folder that is already in the library updates it instead of creating a duplicate.
 - **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.
 - **Now Playing**: the mini player and Now Playing show who is speaking (talent picture and name) and the topic › category. Tap the topic chip to open that topic. Now Playing has large cover art, a seek bar, previous/next, shuffle, repeat (all/one), favorite, and add to playlist.
@@ -36,19 +36,19 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Favorites and search**: star any clip, and search titles, packs and talents.
 
 ## Settings
-Open Settings from Home → ⋮ → *Settings*, or from the side rail on a tablet. It has:
+Open Settings from Home → ⋮ → *Settings*, or from the side rail on a tablet. A summary at the top shows the app version and how many topics, clips and talents you have; the options below are grouped in rounded cards, each with a coloured icon:
 - **Appearance**: theme (system / light / dark), *Match the playing talent* (on by default: the app's main colour fades to a colour taken from the speaking talent's picture), Material You colours, accent colour and tile size.
 - **Playback**:
   - how many seconds the rewind and skip-ahead buttons jump
   - the default speed for new queues
   - pause when headphones disconnect
   - restore the last queue when the app starts
-- **Gestures**: turn clip swipes, double-tap to favorite, tab and category swipes, player swipes, and vibration feedback on or off.
+- **Gestures**: turn clip swipes, double-tap to favorite, tab swipes, player swipes, and vibration feedback on or off.
 - **Library & talents**:
   - sync folders on start, and match talents on import
   - *Sync now*, *Refresh talent list*, *Match all talents* and *Redownload talent pictures*
-  - remove synced folders
-  - clear the play history
+- **Synced folders**: every imported folder, with a button to remove it.
+- **Data**: clear the play history.
 
 ## Widget and shortcuts
 
