@@ -1,6 +1,16 @@
 package com.ttggg5.holovoice.ui.nowplaying
 
 import com.ttggg5.holovoice.ui.theme.Motion
+import android.os.Build
+import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
@@ -101,7 +111,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
 import com.ttggg5.holovoice.ui.queue.QueueList
@@ -171,7 +180,9 @@ fun NowPlayingScreen(
         target.drag(delta)
     }
     Box(Modifier.fillMaxSize()) {
+    NowPlayingBackdrop(state)
     Scaffold(
+        containerColor = Color.Transparent,
         modifier = Modifier
             .draggable(
                 state = verticalDrag,
@@ -187,6 +198,7 @@ fun NowPlayingScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Now playing") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close")
@@ -211,16 +223,15 @@ fun NowPlayingScreen(
         // Phones: one column. Tablets/unfolded foldables: player on the left, queue on the right.
         Row(Modifier.fillMaxSize().padding(padding).navigationBarsPadding()) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp),
         ) {
-            // Topic cover, with the talent's picture as a badge; slides when the clip changes,
-            // and breathes down slightly while paused.
+            // The talent "on stage": their picture (or a split collage) in a glowing ring; slides when
+            // the clip changes, breathes down slightly while paused, and can be swiped for next/previous.
             val artScale by animateFloatAsState(
-                targetValue = if (state.isPlaying) 1f else 0.88f,
+                targetValue = if (state.isPlaying) 1f else 0.9f,
                 animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
                 label = "artScale",
             )
@@ -235,171 +246,169 @@ fun NowPlayingScreen(
                 modifier = Modifier.weight(1f).fillMaxWidth().artworkSwipe(player, state.hasNext),
             ) { s ->
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier
-                            .widthIn(max = 420.dp)
-                            .fillMaxWidth()
-                            .aspectRatio(1f, matchHeightConstraintsFirst = true)
-                            .graphicsLayer {
-                                scaleX = artScale
-                                scaleY = artScale
-                            },
-                    ) {
-                        Artwork(
-                            s.coverUri ?: s.artworkUri ?: s.talentImageUrl,
-                            Modifier.fillMaxSize().padding(bottom = 28.dp).clip(RoundedCornerShape(20.dp)),
-                            iconSize = 96.dp,
-                        )
-                        if (s.talentImageUrl != null && s.coverUri != null) {
-                            // Round badge: the talent's picture, or a split collage for several talents.
-                            Artwork(
-                                if (s.talentImages.size > 1) s.artworkUri else s.talentImageUrl,
-                                Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .size(72.dp)
-                                    .shadow(8.dp, CircleShape)
-                                    .clip(CircleShape)
-                                    .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape),
-                                iconSize = 32.dp,
+                    StageArtwork(s, Modifier.graphicsLayer {
+                        scaleX = artScale
+                        scaleY = artScale
+                    })
+                }
+            }
+
+            // Topic, title and who is speaking, left-aligned like a credit.
+            AnimatedContent(
+                targetState = state,
+                contentKey = { it.clipId },
+                transitionSpec = {
+                    (slideInVertically(Motion.enter()) { it / 3 } + fadeIn(Motion.enter(delay = 60))) togetherWith
+                        (slideOutVertically(Motion.exit()) { -it / 3 } + fadeOut(Motion.exit()))
+                },
+                label = "nowPlayingTitle",
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            ) { s ->
+                Column(Modifier.fillMaxWidth()) {
+                    if (s.album.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { s.packId?.let(onOpenTopic) }
+                                .padding(vertical = 4.dp, horizontal = 2.dp),
+                        ) {
+                            Artwork(s.coverUri, Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)), iconSize = 14.dp, placeholder = Icons.Filled.Folder)
+                            Text(
+                                listOfNotNull(s.album, s.category).joinToString(" › "),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = 8.dp),
                             )
                         }
                     }
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
-                IconButton(onClick = { sheet = Sheet.Playlist }, enabled = clip != null) {
-                    Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to playlist")
-                }
-                AnimatedContent(
-                    targetState = state,
-                    contentKey = { it.clipId },
-                    transitionSpec = {
-                        (slideInVertically(Motion.enter()) { it / 2 } + fadeIn(Motion.enter(delay = 60))) togetherWith
-                            (slideOutVertically(Motion.exit()) { -it / 2 } + fadeOut(Motion.exit()))
-                    },
-                    label = "nowPlayingTitle",
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                ) { s ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             s.title,
                             style = MaterialTheme.typography.headlineSmall,
-                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(vertical = 2.dp),
                         )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                            modifier = Modifier.padding(top = 6.dp),
-                        ) {
-                            if (s.subtitle.isNotEmpty()) {
-                                var talentMenu by remember { mutableStateOf(false) }
-                                val names = s.subtitle.split(" & ")
-                                Box {
-                                DropdownMenu(expanded = talentMenu, onDismissRequest = { talentMenu = false }) {
-                                    s.talentSlugs.forEachIndexed { i, slug ->
-                                        DropdownMenuItem(
-                                            text = { Text(names.getOrElse(i) { slug }) },
-                                            leadingIcon = {
-                                                Artwork(s.talentImages.getOrNull(i), Modifier.size(28.dp).clip(CircleShape), iconSize = 16.dp)
-                                            },
-                                            onClick = {
-                                                talentMenu = false
-                                                onOpenTalent(slug)
-                                            },
-                                        )
-                                    }
-                                }
-                                AssistChip(
-                                    onClick = {
+                        val favorite = clip?.clip?.isFavorite == true
+                        IconButton(onClick = { clip?.let(viewModel::toggleFavorite) }, enabled = clip != null) {
+                            AnimatedContent(
+                                targetState = favorite,
+                                transitionSpec = { scaleIn(initialScale = 0.4f) togetherWith scaleOut(targetScale = 0.4f) },
+                                label = "favorite",
+                            ) { fav ->
+                                Icon(
+                                    if (fav) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                    contentDescription = if (fav) "Remove favorite" else "Add favorite",
+                                    tint = if (fav) MaterialTheme.colorScheme.secondary else LocalContentColor.current,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
+                    }
+                    if (s.subtitle.isNotEmpty()) {
+                        var talentMenu by remember { mutableStateOf(false) }
+                        val names = s.subtitle.split(" & ")
+                        Box {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable {
                                         when (s.talentSlugs.size) {
                                             0 -> Unit
                                             1 -> onOpenTalent(s.talentSlugs.first())
                                             else -> talentMenu = true
                                         }
-                                    },
-                                    label = { Text(s.subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                    leadingIcon = {
-                                        if (s.talentImageUrl != null) {
-                                            Artwork(s.talentImageUrl, Modifier.size(20.dp).clip(CircleShape), iconSize = 12.dp)
-                                        } else {
-                                            Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        }
-                                    },
-                                    modifier = Modifier.widthIn(max = 180.dp),
-                                )
+                                    }
+                                    .padding(end = 8.dp, top = 2.dp, bottom = 2.dp),
+                            ) {
+                                if (s.talentImageUrl != null) {
+                                    Artwork(s.talentImageUrl, Modifier.size(26.dp).clip(CircleShape), iconSize = 14.dp)
+                                } else {
+                                    Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(22.dp))
                                 }
-                            }
-                            if (s.album.isNotEmpty()) {
-                                AssistChip(
-                                    onClick = { s.packId?.let(onOpenTopic) },
-                                    label = {
-                                        Text(
-                                            listOfNotNull(s.album, s.category).joinToString(" › "),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    },
-                                    leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                                    modifier = Modifier.widthIn(max = 200.dp),
+                                Text(
+                                    s.subtitle,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(start = 8.dp),
                                 )
+                            }
+                            DropdownMenu(expanded = talentMenu, onDismissRequest = { talentMenu = false }) {
+                                s.talentSlugs.forEachIndexed { i, slug ->
+                                    DropdownMenuItem(
+                                        text = { Text(names.getOrElse(i) { slug }) },
+                                        leadingIcon = {
+                                            Artwork(s.talentImages.getOrNull(i), Modifier.size(28.dp).clip(CircleShape), iconSize = 16.dp)
+                                        },
+                                        onClick = {
+                                            talentMenu = false
+                                            onOpenTalent(slug)
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                val favorite = clip?.clip?.isFavorite == true
-                IconButton(onClick = { clip?.let(viewModel::toggleFavorite) }, enabled = clip != null) {
-                    AnimatedContent(
-                        targetState = favorite,
-                        transitionSpec = { scaleIn(initialScale = 0.4f) togetherWith scaleOut(targetScale = 0.4f) },
-                        label = "favorite",
-                    ) { fav ->
-                        Icon(
-                            if (fav) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                            contentDescription = if (fav) "Remove favorite" else "Add favorite",
-                            tint = if (fav) MaterialTheme.colorScheme.secondary else LocalContentColor.current,
-                        )
+            }
+
+            // Controls on frosted glass.
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            ) {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    SeekBar(state, player)
+                    Transport(
+                        state,
+                        player,
+                        skipBackSec = skipBack,
+                        skipForwardSec = skipForward,
+                        onPickSkipBack = { sheet = Sheet.SkipBack },
+                        onPickSkipForward = { sheet = Sheet.SkipForward },
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    ) {
+                        val active = MaterialTheme.colorScheme.primary
+                        val inactive = LocalContentColor.current.copy(alpha = 0.55f)
+                        IconButton(onClick = player::toggleShuffle) {
+                            Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle", tint = if (state.shuffle) active else inactive)
+                        }
+                        TextButton(onClick = { sheet = Sheet.Speed }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                            Icon(Icons.Filled.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text(" ${formatSpeed(state.speed)}")
+                        }
+                        TextButton(onClick = { sheet = Sheet.Sleep }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                            Icon(Icons.Filled.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Text(" ${sleepLabel(state)}")
+                        }
+                        LoopButton(state, player, active, inactive)
+                        IconButton(onClick = player::cycleRepeat) {
+                            Icon(
+                                if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                                contentDescription = "Repeat",
+                                tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) inactive else active,
+                            )
+                        }
+                        IconButton(onClick = { sheet = Sheet.Playlist }, enabled = clip != null) {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Add to playlist", tint = inactive)
+                        }
+                    }
+                    if (!wide) {
+                        UpNextHandle(state, onClick = queueSheet::open)
                     }
                 }
-            }
-            SeekBar(state, player)
-            Transport(
-                state,
-                player,
-                skipBackSec = skipBack,
-                skipForwardSec = skipForward,
-                onPickSkipBack = { sheet = Sheet.SkipBack },
-                onPickSkipForward = { sheet = Sheet.SkipForward },
-            )
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            ) {
-                val active = MaterialTheme.colorScheme.primary
-                val inactive = LocalContentColor.current.copy(alpha = 0.5f)
-                IconButton(onClick = player::toggleShuffle) {
-                    Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle", tint = if (state.shuffle) active else inactive)
-                }
-                TextButton(onClick = { sheet = Sheet.Speed }) {
-                    Icon(Icons.Filled.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(" ${formatSpeed(state.speed)}")
-                }
-                TextButton(onClick = { sheet = Sheet.Sleep }) {
-                    Icon(Icons.Filled.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(" ${sleepLabel(state)}")
-                }
-                LoopButton(state, player, active, inactive)
-                IconButton(onClick = player::cycleRepeat) {
-                    Icon(
-                        if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                        contentDescription = "Repeat",
-                        tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) inactive else active,
-                    )
-                }
-            }
-            if (!wide) {
-                UpNextHandle(state, onClick = queueSheet::open)
             }
         }
         if (wide) {
@@ -471,6 +480,64 @@ private enum class Sheet { Speed, Sleep, Playlist, SkipBack, SkipForward }
 val SKIP_SECONDS = listOf(5, 10, 15, 30, 60)
 
 /** "Up next" bar at the bottom of the phone player; tap (or swipe up anywhere) to open the queue. */
+/**
+ * The page background: the topic thumbnail, heavily blurred and washed with the surface colour, so
+ * the page takes on the clip's colours while text stays readable in light and dark themes.
+ */
+@Composable
+private fun NowPlayingBackdrop(state: PlayerState) {
+    val surface = MaterialTheme.colorScheme.surface
+    Box(Modifier.fillMaxSize().background(surface)) {
+        Crossfade(
+            targetState = state.coverUri ?: state.talentImageUrl,
+            animationSpec = tween(Motion.LONG),
+            label = "backdrop",
+        ) { model ->
+            if (model != null) {
+                AsyncImage(
+                    // A tiny image scaled up is already soft; Android 12+ blurs it further.
+                    model = ImageRequest.Builder(LocalContext.current).data(model).size(48).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(40.dp) else Modifier),
+                )
+            }
+        }
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to surface.copy(alpha = 0.45f),
+                    0.5f to surface.copy(alpha = 0.6f),
+                    1f to surface.copy(alpha = 0.92f),
+                ),
+            ),
+        )
+    }
+}
+
+/** The talent's picture (or a split collage) in a glowing ring; the topic cover when no talent is known. */
+@Composable
+private fun StageArtwork(s: PlayerState, modifier: Modifier = Modifier) {
+    val hero = if (s.talentImages.size > 1) s.artworkUri else s.talentImageUrl
+    val shape = if (hero != null) CircleShape else RoundedCornerShape(28.dp)
+    val primary = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
+    Box(
+        modifier
+            .widthIn(max = 380.dp)
+            .fillMaxWidth(0.82f)
+            .aspectRatio(1f, matchHeightConstraintsFirst = true)
+            .shadow(28.dp, shape, ambientColor = primary, spotColor = primary)
+            .background(MaterialTheme.colorScheme.surface, shape)
+            .border(5.dp, Brush.sweepGradient(listOf(primary, secondary, primary)), shape)
+            .padding(9.dp),
+    ) {
+        Artwork(hero ?: s.coverUri ?: s.artworkUri, Modifier.fillMaxSize().clip(shape), iconSize = 96.dp)
+    }
+}
+
 /**
  * Up next as a panel over the player. It follows the finger: drag the header, or pull the list
  * down from its top, to lower it; tap the dimmed area above it to close.
