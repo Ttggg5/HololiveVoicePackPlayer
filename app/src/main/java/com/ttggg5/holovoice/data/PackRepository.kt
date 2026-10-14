@@ -76,6 +76,8 @@ class PackRepository(
         val result = directory.pictures.ensureAll(talents, force)
         val stored = talents.mapNotNull { t -> directory.pictures.localUri(t.slug)?.let { t.slug to it } }.toMap()
         db.clipTalentDao().setPictures(stored)
+        // Names saved before tags like "[Alum]" were split off get the clean name.
+        db.clipTalentDao().setNames(talents.associate { it.slug to it.nameEn })
         return result
     }
 

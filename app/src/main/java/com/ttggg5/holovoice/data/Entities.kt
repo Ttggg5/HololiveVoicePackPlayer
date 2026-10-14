@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.data
 
+import com.ttggg5.holovoice.data.talents.TalentTags
 import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
@@ -102,7 +103,7 @@ val ClipWithPack.orderedTalents: List<ClipTalent>
 
 /** Who is speaking: "A & B" for the matched talents, else the pack's talent. */
 val ClipWithPack.speaker: String
-    get() = orderedTalents.takeIf { it.isNotEmpty() }?.joinToString(" & ") { it.name } ?: talent
+    get() = orderedTalents.takeIf { it.isNotEmpty() }?.joinToString(" & ") { TalentTags.clean(it.name) } ?: talent
 
 /** Profile pictures of all talents in the clip, in order. */
 val ClipWithPack.talentImages: List<String> get() = orderedTalents.mapNotNull { it.imageUrl }

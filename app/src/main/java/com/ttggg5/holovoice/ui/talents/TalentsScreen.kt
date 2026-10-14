@@ -55,6 +55,7 @@ import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.TalentSort
 import com.ttggg5.holovoice.data.TalentSummary
 import com.ttggg5.holovoice.data.talents.TalentMatcher
+import com.ttggg5.holovoice.data.talents.TalentTags
 import com.ttggg5.holovoice.playback.PlayerState
 import com.ttggg5.holovoice.ui.components.LibraryRefreshBox
 import com.ttggg5.holovoice.ui.components.Artwork
@@ -71,6 +72,8 @@ private data class TalentCardData(
     val nameEn: String,
     val imageUrl: String?,
     val clipCount: Int,
+    /** Status tags taken off the name, e.g. "Alum". */
+    val tags: List<String> = emptyList(),
 )
 
 /**
@@ -120,23 +123,25 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
             val inLibrary = remember(mine, bySlug, sort) {
                 sort.sorted(mine).map { t ->
                     val official = t.slug?.let(bySlug::get)
+                    val (savedName, savedTags) = TalentTags.split(t.name.orEmpty())
                     TalentCardData(
                         slug = t.slug,
                         nameJa = official?.nameJa,
-                        nameEn = official?.nameEn ?: t.name ?: "No talent yet",
+                        nameEn = official?.nameEn ?: savedName.ifBlank { "No talent yet" },
                         imageUrl = official?.imageUrl ?: t.imageUrl,
                         clipCount = t.clipCount,
+                        tags = (official?.tags.orEmpty() + savedTags).distinct(),
                     )
                 }
             }
             val others = remember(mine, roster) {
                 val have = mine.mapNotNull { it.slug }.toSet()
-                roster.filter { it.slug !in have }.map { TalentCardData(it.slug, it.nameJa, it.nameEn, it.imageUrl, 0) }
+                roster.filter { it.slug !in have }.map { TalentCardData(it.slug, it.nameJa, it.nameEn, it.imageUrl, 0, it.tags) }
             }
             fun TalentCardData.matches(): Boolean {
                 if (query.isBlank()) return true
                 val q = TalentMatcher.normalize(query)
-                return listOfNotNull(nameEn, nameJa).any {
+                return (listOfNotNull(nameEn, nameJa) + tags).any {
                     it.contains(query.trim(), ignoreCase = true) || (q.isNotEmpty() && TalentMatcher.normalize(it).contains(q))
                 }
             }
@@ -246,6 +251,15 @@ private fun PortraitCard(talent: TalentCardData, inLibrary: Boolean, playing: Bo
                 iconSize = 44.dp,
                 placeholder = if (talent.slug == null) Icons.Filled.PersonOff else Icons.Filled.Face,
             )
+            if (talent.tags.isNotEmpty()) {
+                // Status tags like "Alum" sit on the picture instead of in the name.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                ) {
+                    talent.tags.forEach { TagBadge(it) }
+                }
+            }
             if (playing) {
                 Surface(
                     shape = CircleShape,

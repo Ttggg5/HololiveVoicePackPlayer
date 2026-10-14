@@ -257,6 +257,21 @@ abstract class ClipTalentDao {
     @Query("UPDATE clips SET talentImageUrl = :imageUrl WHERE talentSlug = :slug AND talentImageUrl IS NOT :imageUrl")
     abstract suspend fun setPrimaryPicture(slug: String, imageUrl: String)
 
+    @Query("UPDATE clip_talents SET name = :name WHERE slug = :slug AND name IS NOT :name")
+    abstract suspend fun setTalentName(slug: String, name: String)
+
+    @Query("UPDATE clips SET talentName = :name WHERE talentSlug = :slug AND talentName IS NOT :name")
+    abstract suspend fun setPrimaryName(slug: String, name: String)
+
+    /** Gives every clip of these talents (slug to name) the current name, e.g. without an "[Alum]" tag. */
+    @Transaction
+    open suspend fun setNames(names: Map<String, String>) {
+        names.forEach { (slug, name) ->
+            setTalentName(slug, name)
+            setPrimaryName(slug, name)
+        }
+    }
+
     /** Points every clip of [pictures]' talents (slug to picture) at that picture. */
     @Transaction
     open suspend fun setPictures(pictures: Map<String, String>) {

@@ -27,7 +27,16 @@ object TalentPageParser {
             val texts = (listOfNotNull(attr(imgTag, "alt")) + textPieces(inner)).map { it.trim() }.filter { it.isNotEmpty() }
             val ja = texts.firstOrNull { JAPANESE.containsMatchIn(it) }?.let { japanesePart(it) }
             val en = pickEnglish(texts, slug)
-            val talent = Talent(slug = slug, nameEn = en, nameJa = ja, imageUrl = image)
+            // "[Alum] Kiryu Coco" → name "Kiryu Coco" with the tag "Alum".
+            val (cleanEn, enTags) = TalentTags.split(en)
+            val (cleanJa, jaTags) = ja?.let(TalentTags::split) ?: (null to emptyList())
+            val talent = Talent(
+                slug = slug,
+                nameEn = cleanEn.ifBlank { en },
+                nameJa = cleanJa?.ifBlank { ja },
+                imageUrl = image,
+                tags = (enTags + jaTags).distinct(),
+            )
             bySlug[slug] = bySlug[slug]?.let { merge(it, talent) } ?: talent
         }
         return bySlug.values.toList()
@@ -39,6 +48,7 @@ object TalentPageParser {
         nameEn = if (a.nameEn == titleFromSlug(a.slug) && b.nameEn != titleFromSlug(b.slug)) b.nameEn else a.nameEn,
         nameJa = a.nameJa ?: b.nameJa,
         imageUrl = a.imageUrl,
+        tags = (a.tags + b.tags).distinct(),
     )
 
     fun titleFromSlug(slug: String): String =

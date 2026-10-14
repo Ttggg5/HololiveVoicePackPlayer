@@ -77,7 +77,8 @@ class TalentDirectory(context: Context, val pictures: TalentPictures) {
                     .put("slug", t.slug)
                     .put("en", t.nameEn)
                     .put("ja", t.nameJa ?: JSONObject.NULL)
-                    .put("img", t.imageUrl),
+                    .put("img", t.imageUrl)
+                    .put("tags", JSONArray(t.tags)),
             )
         }
         cacheFile.writeText(json.toString())
@@ -90,11 +91,16 @@ class TalentDirectory(context: Context, val pictures: TalentPictures) {
             val json = JSONArray(cacheFile.readText())
             (0 until json.length()).map { i ->
                 val o = json.getJSONObject(i)
+                // Caches written before tags were split off are cleaned here.
+                val (en, enTags) = TalentTags.split(o.getString("en"))
+                val (ja, jaTags) = if (o.isNull("ja")) null to emptyList() else TalentTags.split(o.getString("ja"))
+                val stored = o.optJSONArray("tags")?.let { a -> (0 until a.length()).map(a::getString) }.orEmpty()
                 Talent(
                     slug = o.getString("slug"),
-                    nameEn = o.getString("en"),
-                    nameJa = if (o.isNull("ja")) null else o.getString("ja"),
+                    nameEn = en,
+                    nameJa = ja,
                     imageUrl = o.getString("img"),
+                    tags = (stored + enTags + jaTags).distinct(),
                 )
             }
         }.getOrDefault(emptyList())
