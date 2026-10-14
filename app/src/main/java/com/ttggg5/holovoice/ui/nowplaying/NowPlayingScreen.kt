@@ -1,16 +1,12 @@
 package com.ttggg5.holovoice.ui.nowplaying
 
 import com.ttggg5.holovoice.ui.theme.Motion
-import android.os.Build
-import androidx.compose.animation.Crossfade
+import com.ttggg5.holovoice.ui.components.BlurredCover
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.geometry.Offset
@@ -489,37 +485,18 @@ val SKIP_SECONDS = listOf(5, 10, 15, 30, 60)
 @Composable
 private fun NowPlayingBackdrop(state: PlayerState) {
     val surface = MaterialTheme.colorScheme.surface
-    Box(Modifier.fillMaxSize().background(surface)) {
-        Crossfade(
-            targetState = state.coverUri ?: state.talentImageUrl,
-            animationSpec = tween(Motion.LONG),
-            label = "backdrop",
-        ) { model ->
-            if (model != null) {
-                AsyncImage(
-                    // Only lightly softened, so the topic picture stays recognisable.
-                    model = ImageRequest.Builder(LocalContext.current).data(model).size(480).build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(6.dp) else Modifier),
-                )
-            }
-        }
-        Box(
-            Modifier.fillMaxSize().background(
-                // Clear behind the talent picture, solid where the text and controls are.
-                Brush.verticalGradient(
-                    0f to surface.copy(alpha = 0.75f), // keeps the top bar readable
-                    0.14f to surface.copy(alpha = 0.25f),
-                    0.4f to surface.copy(alpha = 0.3f),
-                    0.6f to surface.copy(alpha = 0.88f),
-                    1f to surface.copy(alpha = 0.96f),
-                ),
-            ),
-        )
-    }
+    BlurredCover(
+        model = state.coverUri ?: state.talentImageUrl,
+        // Clear behind the talent picture, solid where the text and controls are.
+        wash = Brush.verticalGradient(
+            0f to surface.copy(alpha = 0.75f), // keeps the top bar readable
+            0.14f to surface.copy(alpha = 0.25f),
+            0.4f to surface.copy(alpha = 0.3f),
+            0.6f to surface.copy(alpha = 0.88f),
+            1f to surface.copy(alpha = 0.96f),
+        ),
+        modifier = Modifier.fillMaxSize().background(surface),
+    )
 }
 
 /** The talent's picture (or a split collage) in a glowing ring; the topic cover when no talent is known. */

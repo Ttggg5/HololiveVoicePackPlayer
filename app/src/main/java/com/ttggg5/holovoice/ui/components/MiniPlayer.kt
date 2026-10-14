@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.ui.graphics.SolidColor
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -72,6 +73,14 @@ fun MiniPlayer(
 ) {
     val position by player.position.collectAsStateWithLifecycle(initialValue = 0L)
     Surface(tonalElevation = 3.dp, shadowElevation = 6.dp, modifier = modifier.fillMaxWidth()) {
+        Box {
+        // The playing topic's thumbnail, blurred, behind the mini player.
+        BlurredCover(
+            model = state.coverUri ?: state.talentImageUrl,
+            wash = SolidColor(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)),
+            modifier = Modifier.matchParentSize(),
+            blur = 10.dp,
+        )
         Column {
             LinearProgressIndicator(
                 progress = { if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },
@@ -140,6 +149,7 @@ fun MiniPlayer(
                     Icon(Icons.Filled.SkipNext, contentDescription = "Next")
                 }
             }
+        }
         }
     }
 }

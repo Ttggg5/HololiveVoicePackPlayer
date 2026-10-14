@@ -1,5 +1,7 @@
 package com.ttggg5.holovoice.ui.home
 
+import androidx.compose.ui.graphics.SolidColor
+import com.ttggg5.holovoice.ui.components.BlurredCover
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -318,10 +320,18 @@ private fun HomeHeader(onShowHelp: () -> Unit, onOpenSettings: () -> Unit, onOpe
 @Composable
 private fun ContinueCard(state: com.ttggg5.holovoice.playback.PlayerState, player: PlayerController, onOpen: () -> Unit) {
     ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onOpen),
     ) {
+        Box {
+        // The playing topic's thumbnail, blurred, behind the card.
+        BlurredCover(
+            model = state.coverUri ?: state.talentImageUrl,
+            wash = SolidColor(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)),
+            modifier = Modifier.matchParentSize(),
+            blur = 10.dp,
+        )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
             Artwork(
                 state.artworkUri ?: state.talentImageUrl,
@@ -343,6 +353,7 @@ private fun ContinueCard(state: com.ttggg5.holovoice.playback.PlayerState, playe
             FilledIconButton(onClick = player::togglePlayPause, modifier = Modifier.size(56.dp)) {
                 PlayPauseIcon(state.isPlaying, Modifier.size(32.dp))
             }
+        }
         }
     }
 }
