@@ -1,6 +1,22 @@
 package com.ttggg5.holovoice.ui.alarms
 
 import com.ttggg5.holovoice.ui.theme.Motion
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import com.ttggg5.holovoice.data.talents.TalentTags
+import com.ttggg5.holovoice.ui.components.BlurredCover
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.Intent
@@ -41,7 +57,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
@@ -50,7 +65,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -61,7 +75,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -95,7 +108,7 @@ import com.ttggg5.holovoice.ui.components.EmptyMessage
 import com.ttggg5.holovoice.ui.components.LocalUndo
 import java.time.DayOfWeek
 
-/** Voice alarms: list, next alarm, and an editor for time, days and what to play. */
+/** Voice alarms: a next-alarm hero, the alarm cards, and an editor for time, days and what to play. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlarmsScreen(viewModel: AlarmsViewModel, onBack: () -> Unit) {
@@ -117,14 +130,17 @@ fun AlarmsScreen(viewModel: AlarmsViewModel, onBack: () -> Unit) {
 
     val sounds = remember(clips, talents, topics) { SoundNames(clips, talents, topics) }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text("Alarms") },
+            LargeTopAppBar(
+                title = { Text("Alarms", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
         floatingActionButton = {
@@ -139,7 +155,7 @@ fun AlarmsScreen(viewModel: AlarmsViewModel, onBack: () -> Unit) {
         LazyColumn(
             modifier = Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item(key = "hints") { PermissionHints() }
             if (list.isEmpty()) {
@@ -153,12 +169,15 @@ fun AlarmsScreen(viewModel: AlarmsViewModel, onBack: () -> Unit) {
                 }
             } else {
                 item(key = "next") {
-                    val next = viewModel.next(list)
+                    NextAlarmHero(viewModel.next(list), sounds) { editing = it }
+                }
+                item(key = "title") {
                     Text(
-                        next?.let { (_, at) -> "Next alarm ${AlarmTimes.untilLabel(at - System.currentTimeMillis())}" } ?: "All alarms are off",
-                        style = MaterialTheme.typography.titleMedium,
+                        "${list.size} alarms · ${list.count { it.enabled }} on",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                     )
                 }
             }
@@ -208,56 +227,197 @@ private class SoundNames(val clips: List<ClipWithPack>, val talents: List<Talent
     /** Picture and description of what [alarm] plays. */
     fun describe(alarm: Alarm): Pair<Any?, String> = when (alarm.source) {
         AlarmSource.CLIP -> clip(alarm.clipId)?.let { it.artwork to "${it.speaker} · ${it.clip.title}" } ?: (null to "Choose a clip")
-        AlarmSource.TALENT -> talent(alarm.talentSlug)?.let { it.imageUrl to "Random clip from ${it.name}" } ?: (null to "Choose a talent")
+        AlarmSource.TALENT -> talent(alarm.talentSlug)?.let { it.imageUrl to "Random clip from ${TalentTags.clean(it.name.orEmpty())}" } ?: (null to "Choose a talent")
         AlarmSource.TOPIC -> topic(alarm.packId)?.let { it.pack.coverUri to "Random clip from ${it.pack.name}" } ?: (null to "Choose a topic")
         AlarmSource.FAVORITES -> null to "A random favorite"
+    }
+
+    /** A picture to blur behind the alarm: the clip's topic thumbnail, the talent or the topic. */
+    fun backdrop(alarm: Alarm): Any? = when (alarm.source) {
+        AlarmSource.CLIP -> clip(alarm.clipId)?.let { it.coverUri ?: it.artwork }
+        AlarmSource.TALENT -> talent(alarm.talentSlug)?.imageUrl
+        AlarmSource.TOPIC -> topic(alarm.packId)?.pack?.coverUri
+        AlarmSource.FAVORITES -> null
+    }
+}
+
+/** The next alarm, big, over its sound's picture; or a note that every alarm is off. */
+@Composable
+private fun NextAlarmHero(next: Pair<Alarm, Long>?, sounds: SoundNames, onOpen: (Alarm) -> Unit) {
+    val context = LocalContext.current
+    val primary = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(Brush.linearGradient(listOf(primary, tertiary)))
+            .then(if (next != null) Modifier.clickable { onOpen(next.first) } else Modifier),
+    ) {
+        if (next != null) {
+            BlurredCover(
+                model = sounds.backdrop(next.first),
+                wash = Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.2f), Color.Black.copy(alpha = 0.6f))),
+                modifier = Modifier.matchParentSize(),
+                blur = 6.dp,
+            )
+        }
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Alarm, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Text(
+                    if (next != null) "  NEXT ALARM" else "  ALL ALARMS ARE OFF",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.9f),
+                )
+            }
+            if (next == null) {
+                Text(
+                    "Turn one on below, or add a new one.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                return@Column
+            }
+            val (alarm, at) = next
+            TimeText(alarm.hour, alarm.minute, DateFormat.is24HourFormat(context), color = Color.White, size = 56)
+            Text(
+                listOf(AlarmTimes.untilLabel(at - System.currentTimeMillis()).replaceFirstChar { it.uppercase() }, alarm.label)
+                    .filter { it.isNotBlank() }.joinToString(" · "),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+            )
+            Spacer(Modifier.height(12.dp))
+            SoundChip(alarm, sounds, onDark = true)
+        }
+    }
+}
+
+/** Hour and minute in a large light face, with a smaller AM/PM. */
+@Composable
+private fun TimeText(hour: Int, minute: Int, is24: Boolean, color: Color, size: Int) {
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            if (is24) "%02d:%02d".format(hour, minute) else "%d:%02d".format((hour + 11) % 12 + 1, minute),
+            fontSize = size.sp,
+            fontWeight = FontWeight.Light,
+            color = color,
+        )
+        if (!is24) {
+            Text(
+                if (hour < 12) "AM" else "PM",
+                style = MaterialTheme.typography.titleMedium,
+                color = color,
+                modifier = Modifier.padding(start = 6.dp, bottom = (size / 6).dp),
+            )
+        }
+    }
+}
+
+/** A pill with the picture and description of what the alarm plays. */
+@Composable
+private fun SoundChip(alarm: Alarm, sounds: SoundNames, onDark: Boolean = false) {
+    val (picture, text) = sounds.describe(alarm)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (onDark) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+    ) {
+        if (alarm.source == AlarmSource.FAVORITES) {
+            Box(
+                Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Star, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(16.dp))
+            }
+        } else {
+            Artwork(picture, Modifier.size(26.dp).clip(CircleShape), iconSize = 14.dp)
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (onDark) Color.White else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 
 @Composable
 private fun AlarmCard(alarm: Alarm, sounds: SoundNames, onClick: () -> Unit, onToggle: (Boolean) -> Unit) {
     val context = LocalContext.current
-    val dim = if (alarm.enabled) 1f else 0.5f
-    ElevatedCard(
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick),
+    val content by animateFloatAsState(if (alarm.enabled) 1f else 0.5f, tween(Motion.MEDIUM), label = "alarmDim")
+    val container by animateColorAsState(
+        if (alarm.enabled) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLow,
+        tween(Motion.MEDIUM),
+        label = "alarmCard",
+    )
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(24.dp),
+        color = container,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    formatTime(alarm.hour, alarm.minute, DateFormat.is24HourFormat(context)),
-                    fontSize = 40.sp,
-                    fontWeight = FontWeight.Light,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = dim),
-                )
-                Text(
-                    listOfNotNull(alarm.label.takeIf { it.isNotBlank() }, AlarmTimes.daysLabel(alarm.days)).joinToString(" · "),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val (picture, text) = sounds.describe(alarm)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                    if (alarm.source == AlarmSource.FAVORITES) {
-                        Icon(Icons.Filled.Star, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(24.dp))
-                    } else {
-                        Artwork(picture, Modifier.size(24.dp).clip(CircleShape), iconSize = 14.dp)
+        Column(Modifier.padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).alpha(content)) {
+                    if (alarm.label.isNotBlank()) {
+                        Text(
+                            alarm.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    TimeText(alarm.hour, alarm.minute, DateFormat.is24HourFormat(context), color = MaterialTheme.colorScheme.onSurface, size = 44)
+                }
+                Switch(checked = alarm.enabled, onCheckedChange = onToggle)
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.alpha(content),
+            ) {
+                if (alarm.days == 0) {
+                    Text("Once", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    DAYS.forEach { (day, letter) ->
+                        val on = alarm.days and AlarmTimes.bit(day) != 0
+                        Box(
+                            Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                letter,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     Text(
-                        text,
+                        "  " + AlarmTimes.daysLabel(alarm.days),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             }
-            Switch(checked = alarm.enabled, onCheckedChange = onToggle)
+            Box(Modifier.padding(top = 10.dp).alpha(content)) { SoundChip(alarm, sounds) }
         }
     }
 }
-
-private fun formatTime(hour: Int, minute: Int, is24: Boolean): String =
-    if (is24) "%02d:%02d".format(hour, minute) else "%d:%02d %s".format((hour + 11) % 12 + 1, minute, if (hour < 12) "AM" else "PM")
 
 /** Rows explaining missing permissions that would stop alarms from ringing properly. */
 @Composable
@@ -401,8 +561,15 @@ private fun AlarmEditor(
                         Artwork(picture, Modifier.size(40.dp).clip(CircleShape), iconSize = 20.dp)
                     }
                 },
+                trailingContent = if (alarm.source != AlarmSource.FAVORITES) {
+                    { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) }
+                } else {
+                    null
+                },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .padding(top = 8.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .clickable(enabled = alarm.source != AlarmSource.FAVORITES) { picking = alarm.source },
             )
 
@@ -421,11 +588,14 @@ private fun AlarmEditor(
                 if (onDelete != null) {
                     TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
                 }
-                TextButton(onClick = { onPreview(current) }, enabled = ready) { Text("Preview") }
+                TextButton(onClick = { onPreview(current) }, enabled = ready) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(" Preview")
+                }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 Spacer(Modifier.width(8.dp))
-                OutlinedButton(onClick = { onSave(current.copy(enabled = true)) }, enabled = ready) { Text("Save") }
+                Button(onClick = { onSave(current.copy(enabled = true)) }, enabled = ready) { Text("Save") }
             }
         }
     }

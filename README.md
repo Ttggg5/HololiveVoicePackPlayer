@@ -57,7 +57,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a table
 
 ## Voice alarms
 
-Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Settings › Playback › Voice alarms), or long-press a clip and choose *Set as alarm…*.
+Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Settings › Playback › Voice alarms), or long-press a clip and choose *Set as alarm…*. The page opens with a big *Next alarm* card (time, how long until it rings, and what it plays, over that sound's blurred picture); each alarm is a card with its time, label, highlighted weekdays, a sound pill and an on/off switch.
 
 - Set the time, the days it repeats (or once), a label and the snooze length (5, 10 or 15 minutes).
 - Choose what it plays:
