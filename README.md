@@ -33,7 +33,7 @@ The app ships no audio of its own. You import your packs from your phone.
   - If a match is wrong, long-press the clip and choose *Talents…* to pick one or more talents. You can also long-press a topic and choose *Set talents for all clips…*.
   - Talents ⋮ → *Match talents automatically* re-runs matching.
   - The talent list is cached and refreshed weekly.
-- **Favorites and search**: star any clip, and search titles, packs and talents.
+- **Favorites and search**: star any clip, and search titles, packs and talents. The Favorites page has a star banner with clip / talent / topic / length counts, *Play all* and *Shuffle*, and talent chips to show only one talent's favorites.
 
 ## Settings
 Open Settings from Home → ⋮ → *Settings*, or from the side rail on a tablet. A summary at the top shows the app version and how many topics, clips and talents you have; the options below are grouped in rounded cards, each with a coloured icon:
