@@ -3,7 +3,6 @@ package com.ttggg5.holovoice.ui.components
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -15,7 +14,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.data.UiPrefs
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -45,24 +43,3 @@ fun Modifier.pinchToResize(prefs: UiPrefs): Modifier {
     }
 }
 
-/**
- * Horizontal fling to move to the previous (-1) or next (+1) tab. It only sees drags that no
- * child consumed, so swipeable rows, horizontal lists and pagers keep working.
- */
-@Composable
-fun Modifier.swipeBetweenTabs(enabled: Boolean, onSwipe: (direction: Int) -> Unit): Modifier {
-    if (!enabled) return this
-    val callback by rememberUpdatedState(onSwipe)
-    val threshold = with(LocalDensity.current) { 96.dp.toPx() }
-    return this.pointerInput(Unit) {
-        var total = 0f
-        detectHorizontalDragGestures(
-            onDragStart = { total = 0f },
-            onDragEnd = { if (abs(total) > threshold) callback(if (total < 0) 1 else -1) },
-            onDragCancel = { total = 0f },
-        ) { change, amount ->
-            total += amount
-            change.consume()
-        }
-    }
-}

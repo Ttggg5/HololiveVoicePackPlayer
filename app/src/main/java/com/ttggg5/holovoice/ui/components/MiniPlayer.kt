@@ -50,7 +50,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -62,7 +62,14 @@ import com.ttggg5.holovoice.playback.PlayerState
 
 /** Compact player bar showing the clip, its talent and its topic; tap it to open Now Playing. */
 @Composable
-fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+fun MiniPlayer(
+    state: PlayerState,
+    player: PlayerController,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+    onSheetDrag: (Float) -> Unit = {},
+    onSheetRelease: (Float) -> Unit = {},
+) {
     val position by player.position.collectAsStateWithLifecycle(initialValue = 0L)
     Surface(tonalElevation = 3.dp, shadowElevation = 6.dp, modifier = modifier.fillMaxWidth()) {
         Column {
@@ -75,7 +82,7 @@ fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit,
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .playerSwipes(state, player, onOpen)
+                    .playerSwipes(state, player, onSheetDrag, onSheetRelease)
                     .clickable(onClick = onOpen)
                     .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             ) {
@@ -142,56 +149,72 @@ fun MiniPlayer(state: PlayerState, player: PlayerController, onOpen: () -> Unit,
  * The bar follows the finger and springs back.
  */
 @Composable
-private fun Modifier.playerSwipes(state: PlayerState, player: PlayerController, onOpen: () -> Unit): Modifier {
+private fun Modifier.playerSwipes(
+    state: PlayerState,
+    player: PlayerController,
+    onSheetDrag: (Float) -> Unit,
+    onSheetRelease: (Float) -> Unit,
+): Modifier {
     val enabled by LocalContext.current.appContainer.uiPrefs.playerSwipes.state.collectAsStateWithLifecycle()
     if (!enabled) return this
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val offsetX = remember { Animatable(0f) }
-    val offsetY = remember { Animatable(0f) }
     val latestState by rememberUpdatedState(state)
-    val latestOpen by rememberUpdatedState(onOpen)
-    val upThreshold = with(LocalDensity.current) { 48.dp.toPx() }
+    val latestDrag by rememberUpdatedState(onSheetDrag)
+    val latestRelease by rememberUpdatedState(onSheetRelease)
     return this
         .pointerInput(player) {
             val width = size.width.toFloat()
+            // Each drag locks to one direction: up/down moves the player sheet with the finger,
+            // left/right moves the clip for next/previous.
+            var vertical: Boolean? = null
+            val tracker = VelocityTracker()
             fun settle() {
-                scope.launch {
-                    val x = offsetX.value
-                    val y = offsetY.value
-                    when {
-                        y < -upThreshold -> {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            latestOpen()
+                when (vertical) {
+                    true -> latestRelease(tracker.calculateVelocity().y)
+                    false -> scope.launch {
+                        val x = offsetX.value
+                        when {
+                            x < -width * 0.25f && latestState.hasNext -> {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                offsetX.animateTo(-width, tween(140))
+                                player.next()
+                                offsetX.snapTo(width * 0.4f)
+                            }
+                            x > width * 0.25f -> {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                offsetX.animateTo(width, tween(140))
+                                player.previous()
+                                offsetX.snapTo(-width * 0.4f)
+                            }
                         }
-                        x < -width * 0.25f && latestState.hasNext -> {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            offsetX.animateTo(-width, tween(140))
-                            player.next()
-                            offsetX.snapTo(width * 0.4f)
-                        }
-                        x > width * 0.25f -> {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            offsetX.animateTo(width, tween(140))
-                            player.previous()
-                            offsetX.snapTo(-width * 0.4f)
-                        }
+                        offsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
                     }
-                    launch { offsetY.animateTo(0f, spring()) }
-                    offsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                    null -> Unit
                 }
+                vertical = null
             }
-            detectDragGestures(onDragEnd = ::settle, onDragCancel = ::settle) { change, drag ->
+            detectDragGestures(
+                onDragStart = {
+                    vertical = null
+                    tracker.resetTracking()
+                },
+                onDragEnd = ::settle,
+                onDragCancel = ::settle,
+            ) { change, drag ->
                 change.consume()
-                scope.launch {
-                    offsetX.snapTo(offsetX.value + drag.x)
-                    offsetY.snapTo((offsetY.value + drag.y).coerceIn(-upThreshold * 2, 0f))
+                tracker.addPosition(change.uptimeMillis, change.position)
+                if (vertical == null) vertical = abs(drag.y) > abs(drag.x)
+                if (vertical == true) {
+                    latestDrag(drag.y)
+                } else {
+                    scope.launch { offsetX.snapTo(offsetX.value + drag.x) }
                 }
             }
         }
         .graphicsLayer {
             translationX = offsetX.value
-            translationY = offsetY.value * 0.5f
             alpha = 1f - (abs(offsetX.value) / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.6f)
         }
 }

@@ -138,6 +138,7 @@ fun NowPlayingScreen(
     onOpenQueue: () -> Unit,
     onOpenTopic: (Long) -> Unit,
     onOpenTalent: (String) -> Unit,
+    playerSheet: PlayerSheet,
 ) {
     val state by player.state.collectAsStateWithLifecycle()
     val clip by viewModel.currentClip.collectAsStateWithLifecycle()
@@ -146,10 +147,7 @@ fun NowPlayingScreen(
     val skipBack by uiPrefs.skipBackSec.state.collectAsStateWithLifecycle()
     val skipForward by uiPrefs.skipForwardSec.state.collectAsStateWithLifecycle()
 
-    // Drag the whole screen down to minimize it back into the mini player.
-    val scope = rememberCoroutineScope()
-    val dragY = remember { Animatable(0f) }
-    var screenHeight by remember { mutableIntStateOf(1) }
+    // Drag the whole screen down to minimize it into the mini player; the sheet follows the finger.
     val prefs = LocalContext.current.appContainer.uiPrefs
     val playerSwipes by prefs.playerSwipes.state.collectAsStateWithLifecycle()
     val wide = LocalIsWideLayout.current
@@ -158,45 +156,28 @@ fun NowPlayingScreen(
     var upDrag by remember { mutableFloatStateOf(0f) }
     val upThreshold = with(LocalDensity.current) { 80.dp.toPx() }
     val dismissDrag = rememberDraggableState { delta ->
-        if (delta < 0f && dragY.value <= 0f) {
+        if (delta < 0f && playerSheet.offset.value <= 0f) {
             upDrag += delta
         } else {
-            scope.launch { dragY.snapTo((dragY.value + delta).coerceAtLeast(0f)) }
+            playerSheet.drag(delta)
         }
     }
     Scaffold(
         modifier = Modifier
-            .onSizeChanged { screenHeight = it.height }
             .draggable(
                 state = dismissDrag,
                 orientation = Orientation.Vertical,
                 enabled = playerSwipes,
                 onDragStarted = { upDrag = 0f },
                 onDragStopped = { velocity ->
-                    if (!wide && dragY.value <= 0f && (upDrag < -upThreshold || velocity < -2000f)) {
+                    if (!wide && playerSheet.offset.value <= 0f && (upDrag < -upThreshold || velocity < -2000f)) {
                         upDrag = 0f
                         showQueue = true
-                    } else if (dragY.value > screenHeight * 0.25f || velocity > 2500f) {
-                        // Carry on from the finger to the bottom, then close (nothing left to slide).
-                        dragY.animateTo(
-                            screenHeight.toFloat(),
-                            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-                            initialVelocity = velocity.coerceAtLeast(0f),
-                        )
-                        onBack()
                     } else {
-                        dragY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                        playerSheet.release(velocity)
                     }
                 },
-            )
-            .graphicsLayer {
-                translationY = dragY.value
-                val progress = (dragY.value / screenHeight).coerceIn(0f, 1f)
-                scaleX = 1f - progress * 0.06f
-                scaleY = 1f - progress * 0.06f
-                shape = RoundedCornerShape((progress * 120).coerceAtMost(32f).dp)
-                this.clip = progress > 0f
-            },
+            ),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(

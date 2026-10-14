@@ -79,7 +79,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 | Where | Gesture | Action |
 |---|---|---|
 | Mini player | Swipe left / right | Next / previous clip |
-| Mini player | Swipe up | Open Now Playing |
+| Mini player | Swipe up | Open Now Playing (it rises with your finger) |
 | Now Playing | Drag down | Minimize back to the mini player |
 | Now Playing | Swipe up | Show the queue |
 | Now Playing | Swipe the artwork left / right | Next / previous clip |
@@ -89,7 +89,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 | Clip tile or row | Long-press | More actions |
 | Clip, topic and talent grids | Pinch | Bigger or smaller tiles (remembered) |
 | Inside a topic | Swipe left / right | Change category |
-| Main tabs | Fling left / right on an empty area | Next / previous tab |
+| Main tabs | Swipe left / right | Next / previous tab (the next tab slides in with your finger) |
 
 ## Importing topics
 Tap **Import** on the Topics tab:

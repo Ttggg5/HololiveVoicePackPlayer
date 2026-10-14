@@ -6,16 +6,17 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.activity.compose.PredictiveBackHandler
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.layout.onSizeChanged
+import com.ttggg5.holovoice.ui.nowplaying.PlayerSheet
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,7 +51,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -86,7 +86,6 @@ import com.ttggg5.holovoice.ui.alarms.AlarmsScreen
 import com.ttggg5.holovoice.ui.alarms.AlarmsViewModel
 import com.ttggg5.holovoice.ui.settings.SettingsScreen
 import com.ttggg5.holovoice.ui.settings.SettingsViewModel
-import com.ttggg5.holovoice.ui.components.swipeBetweenTabs
 import com.ttggg5.holovoice.ui.components.UndoController
 import com.ttggg5.holovoice.ui.home.HomeScreen
 import com.ttggg5.holovoice.ui.home.HomeViewModel
@@ -124,53 +123,27 @@ private const val SETTINGS = "settings"
 private const val FAVORITES = "favorites"
 private const val ALARMS = "alarms"
 
-private fun isTab(route: String?) = Tab.entries.any { it.route == route }
-
-/** +1 when moving to a tab further right, -1 further left, 0 when not a tab-to-tab change. */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.tabDirection(): Int {
-    val from = Tab.entries.indexOfFirst { it.route == initialState.destination.route }
-    val to = Tab.entries.indexOfFirst { it.route == targetState.destination.route }
-    return if (from < 0 || to < 0) 0 else (to - from).coerceIn(-1, 1)
-}
-
-private val AnimatedContentTransitionScope<NavBackStackEntry>.toTab get() = isTab(targetState.destination.route)
-
 /*
- * Motion between destinations:
- * - tab to tab: shared axis X (a short slide in the direction of travel with a fade);
- * - opening a page: it slides in over the current one, which drifts back and dims a little (and back reverses it).
- * Now Playing is not a destination but an overlay on top (see HoloVoiceRoot).
+ * Motion between pages: a page slides in over the current one, which drifts back and dims a
+ * little (back reverses it). Tabs are a pager that follows the finger, and Now Playing is an
+ * overlay sheet on top (see HoloVoiceRoot), so neither needs a transition here.
  */
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTransition = when {
-    tabDirection() != 0 -> sharedAxisIn(tabDirection())
-    toTab -> fadeIn(Motion.enter(Motion.MEDIUM, delay = 60)) + scaleIn(Motion.enter(Motion.MEDIUM, delay = 60), initialScale = 0.96f)
-    else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG))
-}
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTransition =
+    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG))
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransition = when {
-    tabDirection() != 0 -> sharedAxisOut(tabDirection())
-    toTab -> fadeOut(Motion.exit(90))
-    else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG)) { it / 4 } +
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransition =
+    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, Motion.enter(Motion.LONG)) { it / 4 } +
         fadeOut(Motion.enter(Motion.LONG), targetAlpha = 0.6f)
-}
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition = when {
-    tabDirection() != 0 -> sharedAxisIn(tabDirection())
-    else -> slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM)) { it / 4 } +
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition =
+    slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM)) { it / 4 } +
         fadeIn(Motion.move(Motion.MEDIUM), initialAlpha = 0.6f)
-}
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTransition = when {
-    tabDirection() != 0 -> sharedAxisOut(tabDirection())
-    else -> slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM))
-}
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTransition =
+    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, Motion.move(Motion.MEDIUM))
 
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.sharedAxisIn(direction: Int): EnterTransition =
-    slideInHorizontally(Motion.enter(Motion.MEDIUM)) { width -> direction * width / 7 } + fadeIn(Motion.enter(Motion.MEDIUM, delay = 50))
-
-private fun AnimatedContentTransitionScope<NavBackStackEntry>.sharedAxisOut(direction: Int): ExitTransition =
-    slideOutHorizontally(Motion.exit(Motion.MEDIUM)) { width -> -direction * width / 7 } + fadeOut(Motion.exit(120))
-
+/** The five tabs live in one destination as pages of a pager. */
+private const val TABS = "tabs"
 private const val QUEUE = "queue"
 
 @Composable
@@ -181,30 +154,23 @@ fun HoloVoiceRoot(container: AppContainer) {
     val playerState by container.player.state.collectAsStateWithLifecycle()
     val repository = container.repository
 
-    val topLevel = Tab.entries.any { it.route == route }
+    val onTabs = route == TABS
 
-    // Now Playing is an overlay above the pages rather than a destination.
-    var playerOpen by rememberSaveable { mutableStateOf(false) }
-    val backProgress = remember { Animatable(0f) }
+    // Now Playing is an overlay sheet above the pages; drags from the mini player and the player move it.
     val overlayScope = rememberCoroutineScope()
-    LaunchedEffect(playerOpen) { if (playerOpen) backProgress.snapTo(0f) }
+    var savedPlayerOpen by rememberSaveable { mutableStateOf(false) }
+    val playerSheet = remember { PlayerSheet(overlayScope, savedPlayerOpen) }
+    LaunchedEffect(playerSheet) { snapshotFlow { playerSheet.isOpen }.collect { savedPlayerOpen = it } }
+    val backProgress = remember { Animatable(0f) }
+    LaunchedEffect(playerSheet.isOpen) { if (playerSheet.isOpen) backProgress.snapTo(0f) }
     // Nothing to show once the queue is cleared.
-    LaunchedEffect(playerState.clipId) { if (playerState.clipId == null) playerOpen = false }
+    LaunchedEffect(playerState.clipId) { if (playerState.clipId == null && playerSheet.isOpen) playerSheet.close() }
     // Tapping the media notification opens the player.
     val openPlayerRequest by container.openPlayerRequested.collectAsStateWithLifecycle()
     LaunchedEffect(openPlayerRequest) {
         if (openPlayerRequest) {
             container.openPlayerRequested.value = false
-            playerOpen = true
-        }
-    }
-    PredictiveBackHandler(enabled = playerOpen) { events ->
-        try {
-            events.collect { backProgress.snapTo(it.progress) }
-            playerOpen = false
-        } catch (e: CancellationException) {
-            overlayScope.launch { backProgress.animateTo(0f, Motion.move()) }
-            throw e
+            playerSheet.open()
         }
     }
 
@@ -233,20 +199,27 @@ fun HoloVoiceRoot(container: AppContainer) {
             showHelp = false
         })
     }
-    fun goToTab(tab: Tab) = nav.navigate(tab.route) {
-        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
+    // Tabs are pages of a pager, so swiping between them follows the finger. A sub-page keeps the
+    // tab it was opened from highlighted; picking a tab from a sub-page goes back to the tabs first.
+    val tabPager = rememberPagerState { Tab.entries.size }
+    val currentTab = Tab.entries[tabPager.currentPage]
+    fun goToTab(tab: Tab) {
+        if (!onTabs) nav.popBackStack(TABS, inclusive = false)
+        scope.launch { tabPager.animateScrollToPage(tab.ordinal, animationSpec = Motion.move(Motion.LONG)) }
     }
-
-    // The tab a sub-page was opened from stays highlighted; tapping it again goes back to its top page.
-    var currentTab by rememberSaveable { mutableStateOf(Tab.Home.route) }
-    LaunchedEffect(route) { if (isTab(route)) currentTab = route!! }
-    fun selectTab(tab: Tab) {
-        if (tab.route == currentTab && route != tab.route) {
-            if (!nav.popBackStack(tab.route, inclusive = false)) goToTab(tab)
-        } else {
-            goToTab(tab)
+    fun selectTab(tab: Tab) = goToTab(tab)
+    // Back on another tab returns to Home first, as before.
+    BackHandler(enabled = onTabs && tabPager.currentPage != Tab.Home.ordinal && !playerSheet.isOpen) {
+        goToTab(Tab.Home)
+    }
+    // Back closes the player, previewing it on Android 14+ (it shrinks and drops with the swipe).
+    PredictiveBackHandler(enabled = playerSheet.isOpen) { events ->
+        try {
+            events.collect { backProgress.snapTo(it.progress) }
+            playerSheet.close()
+        } catch (e: CancellationException) {
+            overlayScope.launch { backProgress.animateTo(0f, Motion.move()) }
+            throw e
         }
     }
 
@@ -269,7 +242,7 @@ fun HoloVoiceRoot(container: AppContainer) {
             Spacer(Modifier.height(8.dp))
             Tab.entries.forEach { tab ->
                 NavigationRailItem(
-                    selected = currentTab == tab.route,
+                    selected = currentTab == tab,
                     onClick = { selectTab(tab) },
                     icon = { Icon(tab.icon, contentDescription = null) },
                     label = { Text(tab.label) },
@@ -285,7 +258,7 @@ fun HoloVoiceRoot(container: AppContainer) {
             Spacer(Modifier.height(8.dp))
         }
     }
-    Box(Modifier.weight(1f)) {
+    Box(Modifier.weight(1f).onSizeChanged { playerSheet.height = it.height.toFloat() }) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -298,13 +271,19 @@ fun HoloVoiceRoot(container: AppContainer) {
                     enter = expandVertically(Motion.enter(Motion.MEDIUM), expandFrom = Alignment.Top) + fadeIn(Motion.enter(Motion.MEDIUM)),
                     exit = shrinkVertically(Motion.exit(Motion.MEDIUM), shrinkTowards = Alignment.Top) + fadeOut(Motion.exit()),
                 ) {
-                    MiniPlayer(playerState, container.player, onOpen = { playerOpen = true })
+                    MiniPlayer(
+                        playerState,
+                        container.player,
+                        onOpen = playerSheet::open,
+                        onSheetDrag = playerSheet::drag,
+                        onSheetRelease = playerSheet::release,
+                    )
                 }
                 if (!wide) {
                     NavigationBar {
                         Tab.entries.forEach { tab ->
                             NavigationBarItem(
-                                selected = currentTab == tab.route,
+                                selected = currentTab == tab,
                                 onClick = { selectTab(tab) },
                                 icon = { Icon(tab.icon, contentDescription = null) },
                                 label = { Text(tab.label) },
@@ -329,41 +308,61 @@ fun HoloVoiceRoot(container: AppContainer) {
 
         NavHost(
             nav,
-            startDestination = Tab.Home.route,
-            modifier = Modifier
-                // Fling left/right on a tab to move to the neighbouring tab.
-                .swipeBetweenTabs(enabled = topLevel && tabSwipes) { direction ->
-                    val index = Tab.entries.indexOfFirst { it.route == route }
-                    Tab.entries.getOrNull(index + direction)?.let(::goToTab)
-                },
+            startDestination = TABS,
             enterTransition = { enter() },
             exitTransition = { exit() },
             popEnterTransition = { popEnter() },
             popExitTransition = { popExit() },
         ) {
-            composable(Tab.Home.route) {
-                Page {
-                    HomeScreen(
-                        viewModel = viewModel { HomeViewModel(repository) },
-                        player = container.player,
-                        onOpenTopic = { id -> nav.navigate("pack/$id") },
-                        onOpenTalent = { slug -> nav.navigate("talent/$slug") },
-                        onOpenFavorites = { nav.navigate(FAVORITES) },
-                        onOpenNowPlaying = { playerOpen = true },
-                        onBrowseTopics = { goToTab(Tab.Library) },
-                        onShowHelp = { showHelp = true },
-                        onOpenSettings = openSettings,
-                        onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
-                    )
-                }
-            }
-            composable(Tab.Talents.route) {
-                Page {
-                    TalentsScreen(
-                        viewModel = viewModel { TalentsViewModel(repository) },
-                        playerState = playerState,
-                        onOpen = { slug -> nav.navigate("talent/$slug") },
-                    )
+            composable(TABS) {
+                HorizontalPager(
+                    state = tabPager,
+                    userScrollEnabled = tabSwipes,
+                    beyondViewportPageCount = 1,
+                    key = { Tab.entries[it].route },
+                ) { page ->
+                    Page {
+                        when (Tab.entries[page]) {
+                            Tab.Home -> {
+                                HomeScreen(
+                                    viewModel = viewModel { HomeViewModel(repository) },
+                                    player = container.player,
+                                    onOpenTopic = { id -> nav.navigate("pack/$id") },
+                                    onOpenTalent = { slug -> nav.navigate("talent/$slug") },
+                                    onOpenFavorites = { nav.navigate(FAVORITES) },
+                                    onOpenNowPlaying = playerSheet::open,
+                                    onBrowseTopics = { goToTab(Tab.Library) },
+                                    onShowHelp = { showHelp = true },
+                                    onOpenSettings = openSettings,
+                                    onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
+                                )
+                            }
+                            Tab.Library -> {
+                                LibraryScreen(
+                                    viewModel = viewModel { LibraryViewModel(repository) },
+                                    playerState = playerState,
+                                    onOpenPack = { id -> nav.navigate("pack/$id") },
+                                )
+                            }
+                            Tab.Talents -> {
+                                TalentsScreen(
+                                    viewModel = viewModel { TalentsViewModel(repository) },
+                                    playerState = playerState,
+                                    onOpen = { slug -> nav.navigate("talent/$slug") },
+                                )
+                            }
+                            Tab.Playlists -> {
+                                PlaylistsScreen(
+                                    viewModel = viewModel { PlaylistsViewModel(repository) },
+                                    player = container.player,
+                                    onOpen = { id -> nav.navigate("playlist/$id") },
+                                )
+                            }
+                            Tab.Search -> {
+                                SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
+                            }
+                        }
+                    }
                 }
             }
             composable(
@@ -376,24 +375,6 @@ fun HoloVoiceRoot(container: AppContainer) {
                         viewModel = viewModel { TalentViewModel(slug, repository) },
                         player = container.player,
                         onBack = { nav.popBackStack() },
-                    )
-                }
-            }
-            composable(Tab.Library.route) {
-                Page {
-                    LibraryScreen(
-                        viewModel = viewModel { LibraryViewModel(repository) },
-                        playerState = playerState,
-                        onOpenPack = { id -> nav.navigate("pack/$id") },
-                    )
-                }
-            }
-            composable(Tab.Playlists.route) {
-                Page {
-                    PlaylistsScreen(
-                        viewModel = viewModel { PlaylistsViewModel(repository) },
-                        player = container.player,
-                        onOpen = { id -> nav.navigate("playlist/$id") },
                     )
                 }
             }
@@ -440,11 +421,6 @@ fun HoloVoiceRoot(container: AppContainer) {
                     AlarmsScreen(viewModel { AlarmsViewModel(container.alarms, repository, container.player) }, onBack = { nav.popBackStack() })
                 }
             }
-            composable(Tab.Search.route) {
-                Page {
-                    SearchScreen(viewModel { SearchViewModel(repository) }, container.player)
-                }
-            }
             composable("pack/{packId}", arguments = listOf(navArgument("packId") { type = NavType.LongType }),
             ) { entry ->
                 Page {
@@ -460,44 +436,37 @@ fun HoloVoiceRoot(container: AppContainer) {
     }
 
     // Now Playing opens over the current page, so that page shows underneath while it slides or is dragged.
-    val scrim by animateFloatAsState(
-        if (playerOpen) 0.32f else 0f,
-        if (playerOpen) Motion.enter(Motion.LONG) else Motion.exit(Motion.MEDIUM),
-        label = "playerScrim",
-    )
-    if (scrim > 0f) {
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = scrim }.background(Color.Black))
-    }
-    androidx.compose.animation.AnimatedVisibility(
-        visible = playerOpen,
-        enter = slideInVertically(Motion.enter(Motion.LONG)) { it },
-        exit = slideOutVertically(Motion.exit(Motion.MEDIUM)) { it },
-    ) {
+    if (playerSheet.isVisible) {
+        val open = 1f - playerSheet.offset.value
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 0.32f * open }.background(Color.Black))
         Box(
             Modifier.fillMaxSize().graphicsLayer {
-                // Follows the predictive back swipe: shrinks, drops a little and rounds its corners.
+                // Follows the drag (and the predictive back swipe): drops, shrinks a little and rounds its corners.
+                val drag = playerSheet.offset.value
                 val p = backProgress.value
-                scaleX = 1f - p * 0.08f
-                scaleY = 1f - p * 0.08f
-                translationY = p * size.height * 0.08f
-                shape = RoundedCornerShape((p * 40).dp)
-                this.clip = p > 0f
+                val shrink = (drag * 0.06f + p * 0.08f).coerceAtMost(0.12f)
+                scaleX = 1f - shrink
+                scaleY = 1f - shrink
+                translationY = drag * size.height + p * size.height * 0.08f
+                shape = RoundedCornerShape(((drag * 120) + p * 40).coerceAtMost(32f).dp)
+                this.clip = drag > 0f || p > 0f
             },
         ) {
             NowPlayingScreen(
                 viewModel = viewModel { NowPlayingViewModel(repository, container.player) },
                 player = container.player,
-                onBack = { playerOpen = false },
+                playerSheet = playerSheet,
+                onBack = playerSheet::close,
                 onOpenQueue = {
-                    playerOpen = false
+                    playerSheet.close()
                     nav.navigate(QUEUE) { launchSingleTop = true }
                 },
                 onOpenTopic = { id ->
-                    playerOpen = false
+                    playerSheet.close()
                     nav.navigate("pack/$id")
                 },
                 onOpenTalent = { slug ->
-                    playerOpen = false
+                    playerSheet.close()
                     nav.navigate("talent/$slug")
                 },
             )
