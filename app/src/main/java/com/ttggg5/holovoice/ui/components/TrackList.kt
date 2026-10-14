@@ -76,6 +76,7 @@ fun <T> TrackList(
     onLongClick: ((T) -> Unit)? = null,
     listState: LazyListState = rememberLazyListState(),
     contentPadding: PaddingValues = PaddingValues(vertical = 4.dp),
+    header: (@Composable () -> Unit)? = null,
 ) {
     // Local copy so the list follows the finger while dragging; synced from [items] otherwise.
     var local by remember { mutableStateOf(items) }
@@ -86,11 +87,14 @@ fun <T> TrackList(
         if (!dragging) local = items
     }
 
+    // A header (if any) is the first list item; it never moves and nothing is dropped above it.
+    val offset = if (header != null) 1 else 0
     val reorderState = rememberReorderableLazyListState(listState) { from, to ->
-        local = local.moved(from.index, to.index)
+        if (from.index >= offset && to.index >= offset) local = local.moved(from.index - offset, to.index - offset)
     }
 
     LazyColumn(state = listState, modifier = modifier.fillMaxSize(), contentPadding = contentPadding) {
+        header?.let { h -> item(key = "header") { h() } }
         itemsIndexed(local, key = { _, item -> key(item) }) { index, item ->
             ReorderableItem(reorderState, key = key(item)) { isDragging ->
                 var removed by remember(item) { mutableStateOf(false) }

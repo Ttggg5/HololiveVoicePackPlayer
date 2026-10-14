@@ -1,7 +1,34 @@
 package com.ttggg5.holovoice.ui.playlists
 
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.ttggg5.holovoice.data.orderedTalents
+import com.ttggg5.holovoice.ui.components.BlurredCover
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -46,6 +73,7 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
+    val covers by viewModel.covers.collectAsStateWithLifecycle()
     val clips = items.orEmpty().map { it.item }
     var menuOpen by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
@@ -54,23 +82,29 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
     val undo = LocalUndo.current
     val appScope = LocalContext.current.appContainer.appScope
 
+    // The top bar is see-through over the banner and fills in once the list scrolls under it.
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text(playlist?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    if (scrollBehavior.state.overlappedFraction > 0.5f) {
+                        Text(playlist?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                scrollBehavior = scrollBehavior,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { player.playQueue(clips, shuffle = false) }, enabled = clips.isNotEmpty()) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = "Play all")
-                    }
-                    IconButton(onClick = { player.playQueue(clips, shuffle = true) }, enabled = clips.isNotEmpty()) {
-                        Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle all")
-                    }
                     IconButton(onClick = { menuOpen = true }) {
                         Icon(Icons.Filled.MoreVert, contentDescription = "More")
                     }
@@ -92,16 +126,42 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
             )
         },
     ) { padding ->
-        val list = items
-        when {
-            list == null -> Unit
-            list.isEmpty() -> EmptyMessage(
-                "This playlist is empty",
-                "Long-press any clip and choose \"Add to playlist\".",
-                Modifier.padding(padding),
-                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
-            )
-            else -> TrackList(
+        val list = items ?: return@Scaffold
+        val header: @Composable () -> Unit = {
+            PlaylistHeader(
+                name = playlist?.name.orEmpty(),
+                covers = covers,
+                details = listOf(
+                    "${clips.size} clips",
+                    formatTotal(clips.sumOf { it.clip.durationMs ?: 0L }),
+                    clips.flatMap { it.orderedTalents }.distinctBy { it.slug }.size.takeIf { it > 0 }?.let { "$it talents" }.orEmpty(),
+                ).filter { it.isNotEmpty() }.joinToString(" · "),
+                onRename = { renaming = true },
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Button(onClick = { player.playQueue(clips, shuffle = false) }, enabled = clips.isNotEmpty(), modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                        Text(" Play all")
+                    }
+                    FilledTonalButton(onClick = { player.playQueue(clips, shuffle = true) }, enabled = clips.isNotEmpty(), modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.Shuffle, contentDescription = null)
+                        Text(" Shuffle")
+                    }
+                }
+            }
+        }
+        if (list.isEmpty()) {
+            Column(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
+                header()
+                EmptyMessage(
+                    "This playlist is empty",
+                    "Long-press any clip and choose \"Add to playlist\".",
+                    icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                    fill = false,
+                )
+            }
+        } else {
+            TrackList(
                 items = list,
                 key = { it.entryId },
                 row = { entry ->
@@ -128,7 +188,10 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
                     }
                 },
                 onMove = viewModel::move,
-                modifier = Modifier.padding(padding),
+                // The header starts under the top bar so the banner reaches the top of the screen.
+                modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                header = header,
             )
         }
     }
@@ -166,5 +229,54 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Blurred banner of the first cover, the playlist's mosaic, its name (tap to rename) and details. */
+@Composable
+private fun PlaylistHeader(name: String, covers: List<String>, details: String, onRename: () -> Unit, actions: @Composable () -> Unit) {
+    val surface = MaterialTheme.colorScheme.surface
+    Box(Modifier.fillMaxWidth()) {
+        BlurredCover(
+            model = covers.firstOrNull(),
+            wash = Brush.verticalGradient(
+                0f to surface.copy(alpha = 0.35f),
+                0.6f to surface.copy(alpha = 0.6f),
+                1f to surface,
+            ),
+            modifier = Modifier.fillMaxWidth().height(240.dp).background(MaterialTheme.colorScheme.surfaceContainer),
+            blur = 4.dp,
+        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(top = 96.dp)) {
+            PlaylistArt(
+                covers,
+                Modifier
+                    .size(170.dp)
+                    .shadow(16.dp, RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(24.dp)),
+                iconSize = 64.dp,
+            )
+            Text(
+                name,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(top = 14.dp, start = 24.dp, end = 24.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onRename),
+            )
+            if (details.isNotEmpty()) {
+                Text(
+                    details,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            actions()
+        }
     }
 }

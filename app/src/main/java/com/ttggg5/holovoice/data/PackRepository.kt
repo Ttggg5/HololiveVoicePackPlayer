@@ -42,6 +42,11 @@ class PackRepository(
 
     val playlists: Flow<List<PlaylistWithCount>> = db.playlistDao().observeAll()
 
+    /** Up to four different topic thumbnails per playlist (by playlist id), for the mosaics. */
+    val playlistCovers: Flow<Map<Long, List<String>>> = db.playlistDao().observeCovers().map { rows ->
+        rows.groupBy({ it.playlistId }, { it.coverUri }).mapValues { (_, covers) -> covers.distinct().take(4) }
+    }
+
     fun playlist(id: Long): Flow<Playlist?> = db.playlistDao().observe(id)
 
     fun playlistItems(id: Long): Flow<List<PlaylistItem>> = db.playlistDao().observeEntries(id)

@@ -10,12 +10,39 @@ import com.ttggg5.holovoice.data.PlaylistWithCount
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class PlaylistsViewModel(private val repository: PackRepository) : ViewModel() {
     val playlists: StateFlow<List<PlaylistWithCount>?> =
         repository.playlists.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Up to four topic thumbnails per playlist, for the mosaics. */
+    val covers: StateFlow<Map<Long, List<String>>> =
+        repository.playlistCovers.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** For the pinned Favorites card. */
+    val favoriteCount: StateFlow<Int> =
+        repository.favorites.map { it.size }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    fun rename(id: Long, name: String) {
+        viewModelScope.launch { repository.renamePlaylist(id, name) }
+    }
+
+    /** Deletes a playlist; [onDeleted] gets a function that recreates it (undo). */
+    fun delete(id: Long, name: String, onDeleted: (undo: () -> Unit) -> Unit) {
+        viewModelScope.launch {
+            val clipIds = repository.playlistItems(id).first().map { it.item.clip.id }
+            repository.deletePlaylist(id)
+            onDeleted {
+                viewModelScope.launch {
+                    val newId = repository.createPlaylist(name)
+                    repository.addToPlaylist(newId, clipIds)
+                }
+            }
+        }
+    }
 
     fun create(name: String, onCreated: (Long) -> Unit = {}) {
         viewModelScope.launch { onCreated(repository.createPlaylist(name)) }
@@ -28,6 +55,10 @@ class PlaylistsViewModel(private val repository: PackRepository) : ViewModel() {
 }
 
 class PlaylistViewModel(private val playlistId: Long, private val repository: PackRepository) : ViewModel() {
+    /** Up to four topic thumbnails of this playlist, for its mosaic and banner. */
+    val covers: StateFlow<List<String>> = repository.playlistCovers.map { it[playlistId].orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val playlist: StateFlow<Playlist?> =
         repository.playlist(playlistId).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val items: StateFlow<List<PlaylistItem>?> =

@@ -21,7 +21,7 @@ The app ships no audio of its own. You import your packs from your phone.
 - **Soundboard**: each pack is a grid of clips. Tap a clip to play the pack from that clip onward, and tap the playing clip again to pause. Long-press a clip for *Play next*, *Add to queue*, *Add to playlist* and *Favorite*.
 - **Now Playing**: the mini player and Now Playing show who is speaking (talent picture and name) and the topic › category. Tap the topic chip to open that topic. Now Playing has large cover art, a seek bar, previous/next, shuffle, repeat (all/one), favorite, and add to playlist.
 - **Queue (Up next)**: jump to any clip, drag to reorder, swipe left to remove, or clear the queue.
-- **Playlists**: create your own playlists that mix clips from any pack. You can reorder and remove clips, and rename or delete playlists.
+- **Playlists**: create your own playlists that mix clips from any pack. The Playlists tab shows each one as a card with a mosaic of its topics' thumbnails, its clip count and length, and a play button (long-press for shuffle, rename or delete); a pinned Favorites card sits first. A playlist's page has a blurred banner, its mosaic, name (tap to rename), clips / length / talents, *Play all* and *Shuffle*; drag to reorder and swipe to remove clips.
 - **Playback speed**: 0.5× to 2×.
 - **Sleep timer**: pause after 5 to 90 minutes or at the end of the current clip. It keeps working when the app is closed.
 - **Resume**: the queue, position, speed, shuffle and repeat are restored after the app is closed. On Android 13+ the system media controls can resume playback.

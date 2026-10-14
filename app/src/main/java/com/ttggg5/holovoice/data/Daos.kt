@@ -169,11 +169,25 @@ abstract class PlaylistDao {
                 INNER JOIN clips ON clips.id = e.clipId
                 INNER JOIN packs ON packs.id = clips.packId
                 WHERE e.playlistId = playlists.id AND packs.coverUri IS NOT NULL
-                ORDER BY e.position LIMIT 1) AS coverUri
+                ORDER BY e.position LIMIT 1) AS coverUri,
+            (SELECT COALESCE(SUM(clips.durationMs), 0) FROM playlist_entries e
+                INNER JOIN clips ON clips.id = e.clipId
+                WHERE e.playlistId = playlists.id) AS totalMs
         FROM playlists ORDER BY name COLLATE NOCASE
         """,
     )
     abstract fun observeAll(): Flow<List<PlaylistWithCount>>
+
+    @Query(
+        """
+        SELECT e.playlistId AS playlistId, packs.coverUri AS coverUri FROM playlist_entries e
+            INNER JOIN clips ON clips.id = e.clipId
+            INNER JOIN packs ON packs.id = clips.packId
+            WHERE packs.coverUri IS NOT NULL
+            ORDER BY e.playlistId, e.position
+        """,
+    )
+    abstract fun observeCovers(): Flow<List<PlaylistCover>>
 
     @Query("SELECT * FROM playlists WHERE id = :id")
     abstract fun observe(id: Long): Flow<Playlist?>

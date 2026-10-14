@@ -356,6 +356,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                                     viewModel = viewModel { PlaylistsViewModel(repository) },
                                     player = container.player,
                                     onOpen = { id -> nav.navigate("playlist/$id") },
+                                    onOpenFavorites = { nav.navigate(FAVORITES) },
                                 )
                             }
                             Tab.Search -> {

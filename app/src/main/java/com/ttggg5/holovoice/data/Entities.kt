@@ -140,6 +140,14 @@ data class PlaylistWithCount(
     @Embedded val playlist: Playlist,
     @ColumnInfo(name = "entryCount") val entryCount: Int,
     @ColumnInfo(name = "coverUri") val coverUri: String?,
+    /** Sum of the clips' lengths (clips without a known length count as 0). */
+    @ColumnInfo(name = "totalMs") val totalMs: Long = 0,
+)
+
+/** A topic thumbnail used in a playlist, in entry order (for the playlist's mosaic). */
+data class PlaylistCover(
+    @ColumnInfo(name = "playlistId") val playlistId: Long,
+    @ColumnInfo(name = "coverUri") val coverUri: String,
 )
 
 /** One row of a playlist: the clip plus the entry id that identifies this occurrence. */
