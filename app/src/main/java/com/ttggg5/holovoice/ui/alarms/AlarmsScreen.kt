@@ -1,5 +1,17 @@
 package com.ttggg5.holovoice.ui.alarms
 
+import com.ttggg5.holovoice.alarm.AlarmLog
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MoreVert
+import android.widget.Toast
+import android.content.ClipboardManager
+import android.content.ClipData
+import android.os.PowerManager
+import android.media.AudioManager
+import android.annotation.SuppressLint
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -119,6 +131,9 @@ fun AlarmsScreen(viewModel: AlarmsViewModel, onBack: () -> Unit) {
     val pendingClip by viewModel.pendingClip.collectAsStateWithLifecycle()
     val undo = LocalUndo.current
     var editing by remember { mutableStateOf<Alarm?>(null) }
+    var menu by remember { mutableStateOf(false) }
+    var showLog by remember { mutableStateOf(false) }
+    if (showLog) AlarmLogDialog(onDismiss = { showLog = false })
 
     // "Set as alarm…" on a clip opens the editor with that clip chosen.
     LaunchedEffect(pendingClip) {
@@ -139,6 +154,21 @@ fun AlarmsScreen(viewModel: AlarmsViewModel, onBack: () -> Unit) {
                 title = { Text("Alarms", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Alarm log") },
+                                leadingIcon = { Icon(Icons.Filled.History, contentDescription = null) },
+                                onClick = {
+                                    menu = false
+                                    showLog = true
+                                },
+                            )
+                        }
+                    }
                 },
                 scrollBehavior = scrollBehavior,
             )
@@ -430,6 +460,8 @@ private fun PermissionHints() {
     }
     val notifications = context.getSystemService(NotificationManager::class.java)
     val alarmManager = context.getSystemService(AlarmManager::class.java)
+    val audio = context.getSystemService(AudioManager::class.java)
+    val power = context.getSystemService(PowerManager::class.java)
     val hints = remember(refresh) {
         buildList {
             if (!notifications.areNotificationsEnabled()) {
@@ -437,6 +469,14 @@ private fun PermissionHints() {
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
                 add("Allow alarms & reminders so alarms ring on time" to Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
+            }
+            if (audio.getStreamVolume(AudioManager.STREAM_ALARM) == 0) {
+                add("Your alarm volume is off, so alarms are silent" to Intent(Settings.ACTION_SOUND_SETTINGS))
+            }
+            if (!power.isIgnoringBatteryOptimizations(context.packageName)) {
+                @SuppressLint("BatteryLife")
+                val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
+                add("Let Holo Voice run in the background so the voice can play when the alarm rings" to request)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !notifications.canUseFullScreenIntent()) {
                 add("Allow full-screen alarms to see the alarm on the lock screen" to Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}")))
@@ -687,5 +727,41 @@ private fun PickRow(picture: Any?, title: String, subtitle: String, onClick: () 
         supportingContent = { Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingContent = { Artwork(picture, Modifier.size(40.dp).clip(CircleShape), iconSize = 20.dp) },
         modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
+/** What happened when alarms went off, to explain (and report) an alarm that didn't ring. */
+@Composable
+private fun AlarmLogDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var log by remember { mutableStateOf(AlarmLog.read(context)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Alarm log") },
+        text = {
+            Text(
+                log.ifBlank { "Nothing yet. The next time an alarm goes off, what happened is listed here." },
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                clipboard.setPrimaryClip(ClipData.newPlainText("Holo Voice alarm log", log))
+                Toast.makeText(context, "Alarm log copied", Toast.LENGTH_SHORT).show()
+            }, enabled = log.isNotBlank()) { Text("Copy") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = {
+                    AlarmLog.clear(context)
+                    log = ""
+                }, enabled = log.isNotBlank()) { Text("Clear") }
+                TextButton(onClick = onDismiss) { Text("Close") }
+            }
+        },
     )
 }

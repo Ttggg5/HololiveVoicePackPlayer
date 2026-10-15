@@ -86,7 +86,10 @@ class AlarmService : Service() {
                 if (id >= 0) ring(id) else stopRinging()
             }
             ACTION_SNOOZE -> snoozeAndStop()
-            ACTION_STOP -> stopRinging()
+            ACTION_STOP -> {
+                AlarmLog.record(this, "Stopped")
+                stopRinging()
+            }
             else -> if (ringingId < 0) stopSelf()
         }
         return START_NOT_STICKY
@@ -102,6 +105,7 @@ class AlarmService : Service() {
         )
         true
     } catch (e: Exception) {
+        AlarmLog.record(this, "Couldn't start ringing in the foreground", e)
         false
     }
 
@@ -119,6 +123,7 @@ class AlarmService : Service() {
                 val repo = appContainer.alarms
                 val alarm = repo.get(alarmId)
                 if (alarm == null) {
+                    AlarmLog.record(this@AlarmService, "Alarm $alarmId no longer exists")
                     stopRinging()
                     return@launch
                 }
@@ -129,8 +134,10 @@ class AlarmService : Service() {
                 runCatching {
                     getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(alarm, clip, picture))
                 }
+                AlarmLog.record(this@AlarmService, "Ringing with " + (clip?.let { "\"${it.clip.title}\"" } ?: "the alarm tone (no clip)"))
                 play(clip?.clip?.fileUri?.let(Uri::parse))
             } catch (e: Exception) {
+                AlarmLog.record(this@AlarmService, "Error while starting to ring", e)
                 // Whatever went wrong, still wake the user: the system alarm sound.
                 if (player == null) runCatching { play(null) }
             }
@@ -149,6 +156,7 @@ class AlarmService : Service() {
         p.volume = START_VOLUME
         p.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
+                AlarmLog.record(this@AlarmService, "Couldn't play the clip (${error.errorCodeName}); using the alarm tone")
                 // The clip couldn't be read (moved, no access): ring with the system alarm sound instead.
                 val fallback = RingtoneManager.getActualDefaultRingtoneUri(this@AlarmService, RingtoneManager.TYPE_ALARM)
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -172,6 +180,7 @@ class AlarmService : Service() {
 
     private fun snoozeAndStop() {
         val id = ringingId
+        AlarmLog.record(this, "Snoozed")
         if (id >= 0) appContainer.appScope.launch { appContainer.alarms.snooze(id) }
         stopRinging()
     }
@@ -259,6 +268,7 @@ class AlarmService : Service() {
         private const val START_VOLUME = 0.2f
         private const val PICTURE_PX = 256
         private const val FALLBACK_NOTIFICATION_ID = 7302
+        private const val RING_CHANNEL_ID = "alarm_ring"
 
         private val _ringing = MutableStateFlow<Ringing?>(null)
         val ringing: StateFlow<Ringing?> = _ringing.asStateFlow()
@@ -275,8 +285,8 @@ class AlarmService : Service() {
          * opens the alarm screen, which then starts the ringing itself.
          */
         fun showFallback(context: Context, alarmId: Long) {
-            runCatching {
-                ensureChannel(context)
+            try {
+                ensureRingChannel(context)
                 val open = PendingIntent.getActivity(
                     context,
                     alarmId.toInt(),
@@ -285,29 +295,74 @@ class AlarmService : Service() {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 )
-                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                fun action(action: String) = PendingIntent.getBroadcast(
+                    context,
+                    action.hashCode(),
+                    Intent(context, AlarmReceiver::class.java).setAction(action).putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+                val notification = NotificationCompat.Builder(context, RING_CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_stat_holovoice)
                     .setContentTitle("Alarm")
-                    .setContentText("Tap to open the alarm")
+                    .setContentText("Tap to open the alarm and hear the voice")
                     .setCategory(NotificationCompat.CATEGORY_ALARM)
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                    .setAutoCancel(true)
+                    .setOngoing(true)
                     .setContentIntent(open)
                     .setFullScreenIntent(open, true)
+                    .addAction(0, "Snooze", action(AlarmReceiver.ACTION_SNOOZE_FALLBACK))
+                    .addAction(0, "Stop", action(AlarmReceiver.ACTION_STOP_FALLBACK))
                     .build()
+                    // Keep ringing (the channel's alarm tone) until it's handled.
+                    .apply { flags = flags or Notification.FLAG_INSISTENT }
                 context.getSystemService(NotificationManager::class.java).notify(FALLBACK_NOTIFICATION_ID, notification)
+                AlarmLog.record(context, "Ringing with the alarm tone (notification)")
+            } catch (e: Exception) {
+                AlarmLog.record(context, "Couldn't show the alarm notification", e)
             }
+        }
+
+        fun cancelFallback(context: Context) {
+            context.getSystemService(NotificationManager::class.java).cancel(FALLBACK_NOTIFICATION_ID)
+        }
+
+        /** A loud channel for [showFallback]: the phone's alarm tone at alarm volume, with vibration. */
+        private fun ensureRingChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val manager = context.getSystemService(NotificationManager::class.java)
+            if (manager.getNotificationChannel(RING_CHANNEL_ID) != null) return
+            val tone = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            manager.createNotificationChannel(
+                NotificationChannel(RING_CHANNEL_ID, "Alarm ringing", NotificationManager.IMPORTANCE_HIGH).apply {
+                    description = "Rings when an alarm can't start its voice clip by itself"
+                    setSound(
+                        tone,
+                        android.media.AudioAttributes.Builder()
+                            .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build(),
+                    )
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 600, 400, 600)
+                    setBypassDnd(true)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                },
+            )
         }
 
         /** Starts ringing [alarmId] from the alarm screen (after [showFallback]). */
         fun ringFromScreen(context: Context, alarmId: Long) {
-            context.getSystemService(NotificationManager::class.java).cancel(FALLBACK_NOTIFICATION_ID)
-            runCatching {
+            cancelFallback(context)
+            try {
                 ContextCompat.startForegroundService(
                     context,
                     Intent(context, AlarmService::class.java).setAction(ACTION_RING).putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId),
                 )
+                AlarmLog.record(context, "Alarm screen started the voice clip")
+            } catch (e: Exception) {
+                AlarmLog.record(context, "Alarm screen couldn't start the voice clip", e)
             }
         }
 

@@ -70,7 +70,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - An alarm that isn't stopped gives up after 10 minutes and counts as snoozed.
 - If the clip can't be played (for example, the file was moved), the system alarm sound plays instead.
 - Alarms survive restarts and time-zone changes.
-- If Android won't let the alarm start ringing in the background, a full-screen alarm notification opens the alarm screen, which starts it instead. If anything else goes wrong while ringing, it falls back to the system alarm sound.
+- If the phone won't let the alarm start its voice clip in the background (some phones' battery managers block it), the alarm still rings loudly with your phone's alarm tone, repeating, with *Snooze* / *Stop*; tap it to open the alarm screen and hear the voice. The Alarms page shows red hints for anything that can stop alarms working (notifications, exact alarms, full-screen alarms, alarm volume at 0, battery restrictions) and ⋮ → *Alarm log* lists what happened each time an alarm went off, with *Copy* for bug reports.
 - If Android blocks notifications, exact alarms or full-screen alarms, the Alarms screen shows a red row that opens the right setting.
 
 ## Player
