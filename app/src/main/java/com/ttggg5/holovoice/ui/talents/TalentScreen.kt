@@ -1,5 +1,14 @@
 package com.ttggg5.holovoice.ui.talents
 
+import com.ttggg5.holovoice.ui.components.LocalUndo
+import androidx.compose.runtime.remember
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -70,6 +79,10 @@ fun TalentScreen(viewModel: TalentViewModel, player: PlayerController, onBack: (
     val talent by viewModel.talent.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
     var topicFilter by rememberSaveable { mutableStateOf<Long?>(null) }
+    val undo = LocalUndo.current
+    var menu by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
 
     val all = clips.orEmpty()
     val topics = all.map { Triple(it.clip.packId, it.packName, it.coverUri) }.distinctBy { it.first }
@@ -78,7 +91,7 @@ fun TalentScreen(viewModel: TalentViewModel, player: PlayerController, onBack: (
     val (savedName, savedTags) = TalentTags.split(summary?.name.orEmpty())
     val nameEn = talent?.nameEn ?: savedName.ifBlank { if (viewModel.slug == null) "No talent yet" else "" }
     val nameJa = talent?.nameJa
-    val tags = (talent?.tags.orEmpty() + savedTags).distinct()
+    val tags = (talent?.tags.orEmpty() + savedTags + listOfNotNull(CUSTOM_TAG.takeIf { viewModel.isCustom })).distinct()
     val picture = talent?.imageUrl ?: summary?.imageUrl
 
     // The top bar is see-through over the banner and fills in once the list scrolls under it.
@@ -98,7 +111,33 @@ fun TalentScreen(viewModel: TalentViewModel, player: PlayerController, onBack: (
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                actions = {
+                    // Talents the user added can be edited or removed.
+                    if (viewModel.isCustom) {
+                        Box {
+                            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit talent") },
+                                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                    onClick = {
+                                        menu = false
+                                        editing = true
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete talent", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Filled.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        menu = false
+                                        confirmDelete = true
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
@@ -161,6 +200,36 @@ fun TalentScreen(viewModel: TalentViewModel, player: PlayerController, onBack: (
                 },
             )
         }
+    }
+
+    if (editing) {
+        talent?.let { t ->
+            TalentEditorDialog(
+                existing = t,
+                onDismiss = { editing = false },
+                onSaved = {
+                    editing = false
+                    viewModel.reload()
+                },
+            )
+        }
+    }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete ${nameJa ?: nameEn}?") },
+            text = { Text("The talent is removed from the app and from every clip. Your files are not changed.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    viewModel.delete {
+                        undo?.show("Deleted ${nameEn}")
+                        onBack()
+                    }
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
     }
 }
 

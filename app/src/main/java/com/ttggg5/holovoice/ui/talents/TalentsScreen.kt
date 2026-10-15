@@ -39,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.TalentSort
+import com.ttggg5.holovoice.data.talents.CustomTalents
 import com.ttggg5.holovoice.data.talents.TalentMatcher
 import com.ttggg5.holovoice.data.talents.TalentTags
 import com.ttggg5.holovoice.playback.PlayerState
@@ -114,6 +116,19 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
     val sort by prefs.talentSort.collectAsStateWithLifecycle()
     val undo = LocalUndo.current
     var query by rememberSaveable { mutableStateOf("") }
+    // Non-null while the "Add a talent" dialog is open; holds the name to start with.
+    var adding by rememberSaveable { mutableStateOf<String?>(null) }
+    adding?.let { name ->
+        TalentEditorDialog(
+            initialName = name,
+            onDismiss = { adding = null },
+            onSaved = { t ->
+                adding = null
+                viewModel.loadRoster()
+                undo?.show("Added ${t.nameEn}")
+            },
+        )
+    }
 
     Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) { padding ->
         val mine = talents
@@ -125,6 +140,7 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                 onSort = prefs::setTalentSort,
                 busy = busy,
                 onMatch = { viewModel.matchTalents { undo?.show(it) } },
+                onAdd = { adding = query.trim() },
             )
             AnimatedVisibility(visible = busy) {
                 LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
@@ -150,13 +166,13 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                         nameEn = official?.nameEn ?: savedName.ifBlank { "No talent yet" },
                         imageUrl = official?.imageUrl ?: t.imageUrl,
                         clipCount = t.clipCount,
-                        tags = (official?.tags.orEmpty() + savedTags).distinct(),
+                        tags = (official?.tags.orEmpty() + savedTags + customTag(t.slug)).distinct(),
                     )
                 }
             }
             val others = remember(mine, roster) {
                 val have = mine.mapNotNull { it.slug }.toSet()
-                roster.filter { it.slug !in have }.map { TalentCardData(it.slug, it.nameJa, it.nameEn, it.imageUrl, 0, it.tags) }
+                roster.filter { it.slug !in have }.map { TalentCardData(it.slug, it.nameJa, it.nameEn, it.imageUrl, 0, it.tags + customTag(it.slug)) }
             }
             fun TalentCardData.matches(): Boolean {
                 if (query.isBlank()) return true
@@ -221,7 +237,14 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                     }
                     if (shownMine.isEmpty() && shownOthers.isEmpty()) {
                         item(key = "none", span = { GridItemSpan(maxLineSpan) }) {
-                            EmptyMessage("No members match", "Try another name.", icon = Icons.Filled.Search, fill = false)
+                            EmptyMessage(
+                                "No members match",
+                                "Not on the hololive list? Add them yourself.",
+                                icon = Icons.Filled.Search,
+                                actionLabel = "Add \"${query.trim()}\" as a talent",
+                                onAction = { adding = query.trim() },
+                                fill = false,
+                            )
                         }
                     }
                 }
@@ -238,6 +261,7 @@ private fun TalentsHeader(
     onSort: (TalentSort) -> Unit,
     busy: Boolean,
     onMatch: () -> Unit,
+    onAdd: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 20.dp, top = 12.dp, end = 4.dp, bottom = 8.dp)) {
         Column(Modifier.weight(1f)) {
@@ -247,6 +271,9 @@ private fun TalentsHeader(
                 members.takeIf { it > 0 }?.let { "$it members" },
             )
             Text(counts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = onAdd) {
+            Icon(Icons.Filled.PersonAdd, contentDescription = "Add a talent")
         }
         IconButton(onClick = onMatch, enabled = !busy) {
             Icon(Icons.Filled.Face, contentDescription = "Match talents automatically")
@@ -437,3 +464,8 @@ private fun RosterAvatar(talent: TalentCardData, onClick: () -> Unit) {
         )
     }
 }
+
+/** The tag shown on talents the user added themselves. */
+const val CUSTOM_TAG = "Custom"
+
+private fun customTag(slug: String?): List<String> = if (CustomTalents.isCustom(slug)) listOf(CUSTOM_TAG) else emptyList()

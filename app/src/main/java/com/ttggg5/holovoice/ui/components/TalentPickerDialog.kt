@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.appContainer
 import com.ttggg5.holovoice.data.talents.Talent
 import com.ttggg5.holovoice.data.talents.TalentMatcher
+import com.ttggg5.holovoice.ui.talents.TalentEditorDialog
 
 /**
  * Searchable, multi-select list of all talents with their pictures. Picks keep the order they were
@@ -77,6 +79,21 @@ fun TalentPickerDialog(
         }
     }
     val bySlug = talents.orEmpty().associateBy { it.slug }
+
+    // Non-null while "Add a talent" is open; holds the name to start with.
+    var adding by remember { mutableStateOf<String?>(null) }
+    adding?.let { name ->
+        TalentEditorDialog(
+            initialName = name,
+            onDismiss = { adding = null },
+            onSaved = { t ->
+                adding = null
+                talents = talents.orEmpty() + t
+                query = ""
+                if (t.slug !in picked) picked.add(t.slug)
+            },
+        )
+    }
 
     fun toggle(slug: String) {
         if (slug in picked) picked.remove(slug) else picked.add(slug)
@@ -124,11 +141,14 @@ fun TalentPickerDialog(
                     list == null -> Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
-                    list.isEmpty() -> Text(
-                        error ?: "The talent list is empty. Connect to the internet and tap refresh.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 16.dp),
-                    )
+                    list.isEmpty() -> Column {
+                        Text(
+                            error ?: "The talent list is empty. Connect to the internet and tap refresh.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                        AddTalentRow(query) { adding = query.trim() }
+                    }
                     else -> {
                         val filtered = remember(list, query) { list.filter { TalentMatcher.matchesSearch(query, it) } }
                         LazyColumn(Modifier.padding(top = 8.dp).height(340.dp)) {
@@ -152,6 +172,8 @@ fun TalentPickerDialog(
                                     }
                                 }
                             }
+                            // Someone not on the hololive list: add them here.
+                            item(key = "add") { AddTalentRow(query) { adding = query.trim() } }
                         }
                     }
                 }
@@ -169,4 +191,21 @@ fun TalentPickerDialog(
             }
         },
     )
+}
+
+@Composable
+private fun AddTalentRow(query: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
+    ) {
+        Icon(Icons.Filled.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 12.dp, end = 16.dp))
+        Text(
+            if (query.isBlank()) "Add a talent…" else "Add \"${query.trim()}\" as a talent…",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }

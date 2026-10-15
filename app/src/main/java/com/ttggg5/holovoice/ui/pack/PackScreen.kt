@@ -1,5 +1,18 @@
 package com.ttggg5.holovoice.ui.pack
 
+import com.ttggg5.holovoice.ui.library.EditPackDialog
+import com.ttggg5.holovoice.ui.components.TalentPickerDialog
+import com.ttggg5.holovoice.ui.components.LocalUndo
+import androidx.compose.runtime.remember
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -72,6 +85,11 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val playerState by player.state.collectAsStateWithLifecycle()
     var category by rememberSaveable { mutableStateOf<String?>(null) }
+    val undo = LocalUndo.current
+    var menu by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    var pickTalents by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     // Forget a category that no longer exists (e.g. after a re-scan).
     val selected = category?.takeIf { it in categories }
     val clips = if (selected == null) allClips else allClips.filter { it.clip.category == selected }
@@ -95,7 +113,48 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                actions = {
+                    Box {
+                        IconButton(onClick = { menu = true }, enabled = pack != null) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "Topic options")
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Edit topic") },
+                                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                onClick = {
+                                    menu = false
+                                    editing = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Set talents for all clips") },
+                                leadingIcon = { Icon(Icons.Filled.Groups, contentDescription = null) },
+                                onClick = {
+                                    menu = false
+                                    pickTalents = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Match talents automatically") },
+                                leadingIcon = { Icon(Icons.Filled.Face, contentDescription = null) },
+                                onClick = {
+                                    menu = false
+                                    viewModel.matchTalents { undo?.show(it) }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete topic", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Filled.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    menu = false
+                                    confirmDelete = true
+                                },
+                            )
+                        }
+                    }
+                },
+colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
@@ -154,6 +213,60 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                 }
             },
         )
+    }
+
+    pack?.let { p ->
+        if (editing) {
+            EditPackDialog(
+                pack = p,
+                onDismiss = { editing = false },
+                onSave = { name, talent ->
+                    viewModel.rename(p, name, talent)
+                    editing = false
+                },
+                onDelete = {
+                    editing = false
+                    confirmDelete = true
+                },
+                onSetTalents = { talents ->
+                    viewModel.setTalents(p, talents) { undo?.show(it) }
+                    editing = false
+                },
+            )
+        }
+        if (pickTalents) {
+            TalentPickerDialog(
+                title = "Talents for all clips",
+                initialSlugs = emptyList(),
+                onConfirm = { talents ->
+                    pickTalents = false
+                    viewModel.setTalents(p, talents) { undo?.show(it) }
+                },
+                onDismiss = { pickTalents = false },
+            )
+        }
+        if (confirmDelete) {
+            AlertDialog(
+                onDismissRequest = { confirmDelete = false },
+                title = { Text("Delete ${p.name}?") },
+                text = {
+                    Text(
+                        "The topic is removed from the library. Files imported from a ZIP are deleted; " +
+                            "files in a picked folder are left untouched.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmDelete = false
+                        viewModel.delete(p) {
+                            undo?.show("Deleted ${p.name}")
+                            onBack()
+                        }
+                    }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            )
+        }
     }
 }
 

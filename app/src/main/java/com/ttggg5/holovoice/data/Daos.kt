@@ -266,10 +266,10 @@ abstract class ClipTalentDao {
     abstract suspend fun setPrimary(clipId: Long, slug: String?, name: String?, imageUrl: String?, manual: Boolean)
 
     @Query("UPDATE clip_talents SET imageUrl = :imageUrl WHERE slug = :slug AND imageUrl IS NOT :imageUrl")
-    abstract suspend fun setTalentPicture(slug: String, imageUrl: String)
+    abstract suspend fun setTalentPicture(slug: String, imageUrl: String?)
 
     @Query("UPDATE clips SET talentImageUrl = :imageUrl WHERE talentSlug = :slug AND talentImageUrl IS NOT :imageUrl")
-    abstract suspend fun setPrimaryPicture(slug: String, imageUrl: String)
+    abstract suspend fun setPrimaryPicture(slug: String, imageUrl: String?)
 
     @Query("UPDATE clip_talents SET name = :name WHERE slug = :slug AND name IS NOT :name")
     abstract suspend fun setTalentName(slug: String, name: String)
@@ -288,11 +288,29 @@ abstract class ClipTalentDao {
 
     /** Points every clip of [pictures]' talents (slug to picture) at that picture. */
     @Transaction
-    open suspend fun setPictures(pictures: Map<String, String>) {
+    open suspend fun setPictures(pictures: Map<String, String?>) {
         pictures.forEach { (slug, uri) ->
             setTalentPicture(slug, uri)
             setPrimaryPicture(slug, uri)
         }
+    }
+
+    @Query("SELECT DISTINCT clipId FROM clip_talents WHERE slug = :slug")
+    abstract suspend fun clipsWith(slug: String): List<Long>
+
+    @Query("SELECT * FROM clip_talents WHERE clipId = :clipId ORDER BY position")
+    abstract suspend fun talentsOf(clipId: Long): List<ClipTalent>
+
+    @Query("UPDATE clips SET talentSlug = NULL, talentName = NULL, talentImageUrl = NULL WHERE talentSlug = :slug")
+    abstract suspend fun clearPrimary(slug: String)
+
+    /** Takes [slug] off every clip; the clips keep their other talents. */
+    @Transaction
+    open suspend fun removeTalent(slug: String) {
+        for (clipId in clipsWith(slug)) {
+            replace(clipId, talentsOf(clipId).filterNot { it.slug == slug }, manual = false)
+        }
+        clearPrimary(slug)
     }
 
     /** Replaces all talents of a clip; the first one is also stored as the clip's primary talent. */

@@ -86,6 +86,33 @@ class PackRepository(
         return result
     }
 
+    /** Talents the user added themselves. */
+    suspend fun customTalents(): List<Talent> = talentLinker.directory.custom()
+
+    fun isCustomTalent(slug: String?): Boolean = talentLinker.directory.isCustom(slug)
+
+    /** Adds a talent that isn't on the hololive site, then matches files named after them. */
+    suspend fun addTalent(nameEn: String, nameJa: String?, picture: Uri?): Talent {
+        val talent = talentLinker.directory.addCustom(nameEn, nameJa, picture)
+        runCatching { rematchAllTalents() }
+        return talent
+    }
+
+    /** Edits a custom talent and updates the name and picture already shown on their clips. */
+    suspend fun editTalent(slug: String, nameEn: String, nameJa: String?, picture: Uri?, removePicture: Boolean): Talent? {
+        val talent = talentLinker.directory.updateCustom(slug, nameEn, nameJa, picture, removePicture) ?: return null
+        db.clipTalentDao().setNames(mapOf(slug to talent.nameEn))
+        db.clipTalentDao().setPictures(mapOf(slug to talent.imageUrl.ifEmpty { null }))
+        runCatching { rematchAllTalents() }
+        return talent
+    }
+
+    /** Removes a custom talent and takes them off every clip. */
+    suspend fun deleteTalent(slug: String) {
+        talentLinker.directory.removeCustom(slug)
+        db.clipTalentDao().removeTalent(slug)
+    }
+
     /** Re-runs automatic matching on every clip (manual picks are kept). Returns matched and total counts. */
     suspend fun rematchAllTalents(): Pair<Int, Int> {
         val talents = talentLinker.directory.load()

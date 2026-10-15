@@ -27,6 +27,8 @@ fun Artwork(
 ) {
     Box(modifier.background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
         Icon(placeholder, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(iconSize))
+        // An empty string means "no picture" (e.g. a talent added without one).
+        val model = model.takeUnless { it == "" }
         val collage = Collage.parse(model)
         if (collage != null) {
             TalentCollage(collage, Modifier.fillMaxSize())

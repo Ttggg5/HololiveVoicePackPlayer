@@ -33,5 +33,5 @@ class TalentLinker(private val db: AppDatabase, val directory: TalentDirectory) 
         }
     }
 
-    private fun Talent.toClipTalent(clipId: Long) = ClipTalent(clipId, slug, nameEn, imageUrl, 0)
+    private fun Talent.toClipTalent(clipId: Long) = ClipTalent(clipId, slug, nameEn, imageUrl.ifEmpty { null }, 0)
 }

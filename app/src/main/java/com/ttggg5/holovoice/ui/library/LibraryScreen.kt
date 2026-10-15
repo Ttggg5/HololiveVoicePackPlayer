@@ -63,7 +63,6 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -72,12 +71,10 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -92,7 +89,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.data.Pack
 import com.ttggg5.holovoice.data.PackWithCount
-import com.ttggg5.holovoice.data.talents.Talent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -119,7 +115,6 @@ import com.ttggg5.holovoice.ui.components.SortMenu
 import com.ttggg5.holovoice.ui.components.pinchToResize
 import com.ttggg5.holovoice.ui.components.EmptyMessage
 import com.ttggg5.holovoice.ui.components.EqualizerBars
-import com.ttggg5.holovoice.ui.components.TalentPickerDialog
 
 /** All topics: a headline with counts, a search bar, what's playing, then cover cards (grouped by talent when sorted that way). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -538,67 +533,6 @@ private fun AvatarStack(images: List<String>) {
             )
         }
     }
-}
-
-@Composable
-private fun EditPackDialog(
-    pack: Pack,
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
-    onDelete: () -> Unit,
-    onSetTalents: (List<Talent>) -> Unit,
-) {
-    var name by rememberSaveable { mutableStateOf(pack.name) }
-    var talent by rememberSaveable { mutableStateOf(pack.talent) }
-    var confirmDelete by remember { mutableStateOf(false) }
-    var pickTalent by remember { mutableStateOf(false) }
-
-    if (pickTalent) {
-        TalentPickerDialog(
-            title = "Talents for all clips",
-            initialSlugs = emptyList(),
-            onConfirm = onSetTalents,
-            onDismiss = { pickTalent = false },
-        )
-        return
-    }
-
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete ${pack.name}?") },
-            text = {
-                Text(
-                    "The topic is removed from the library. Files imported from a ZIP are deleted; " +
-                        "files in a picked folder are left untouched.",
-                )
-            },
-            confirmButton = { TextButton(onClick = onDelete) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
-        )
-        return
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit topic") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true)
-                OutlinedTextField(value = talent, onValueChange = { talent = it }, label = { Text("Talent") }, singleLine = true)
-                TextButton(onClick = { pickTalent = true }) {
-                    Text("Set talents for all clips…")
-                }
-                TextButton(onClick = { confirmDelete = true }) {
-                    Text("Delete topic", color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(name, talent) }, enabled = name.isNotBlank()) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }
 
 /** "Add voice packs" bottom sheet with one roomy card per import mode. */

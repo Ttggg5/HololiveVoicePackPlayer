@@ -1,6 +1,7 @@
 package com.ttggg5.holovoice.data.talents
 
 import android.content.Context
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -16,16 +17,89 @@ import java.net.URL
  * and cached in app storage so matching works offline after the first download.
  * Talents come back with their stored picture ([TalentPictures]) when it has been downloaded.
  */
-class TalentDirectory(context: Context, val pictures: TalentPictures) {
+class TalentDirectory(private val context: Context, val pictures: TalentPictures) {
     private val cacheFile = File(context.filesDir, "talents.json")
     private val mutex = Mutex()
     private var memory: List<Talent>? = null
 
-    /** Cached talents, refreshed from the site when the cache is empty or older than a week. */
-    suspend fun load(): List<Talent> = withLocalPictures(loadRemote())
+    /** Talents the user added themselves (not on the hololive site), with their own pictures. */
+    private val customFile = File(context.filesDir, "custom_talents.json")
+    private val customDir = File(context.filesDir, "custom_talents")
+    private val customMutex = Mutex()
+    private var customMemory: List<Talent>? = null
+
+    /** Cached talents, refreshed from the site when the cache is empty or older than a week, plus the user's own. */
+    suspend fun load(): List<Talent> = withLocalPictures(loadRemote()) + custom()
 
     /** Downloads the list now. Throws if the site can't be reached or nothing could be parsed. */
-    suspend fun refresh(): List<Talent> = withLocalPictures(refreshRemote())
+    suspend fun refresh(): List<Talent> = withLocalPictures(refreshRemote()) + custom()
+
+    /** The talents the user added. */
+    suspend fun custom(): List<Talent> = customMutex.withLock { customMemory ?: readCustom().also { customMemory = it } }
+
+    fun isCustom(slug: String?): Boolean = CustomTalents.isCustom(slug)
+
+    /** Adds a talent; [picture] (e.g. from the photo picker) is copied into app storage. */
+    suspend fun addCustom(nameEn: String, nameJa: String?, picture: Uri?): Talent = customMutex.withLock {
+        val list = customMemory ?: readCustom()
+        val slug = CustomTalents.slug(System.currentTimeMillis(), list.map { it.slug }.toSet())
+        val talent = Talent(slug, CustomTalents.clean(nameEn), CustomTalents.cleanOrNull(nameJa), picture?.let { copyPicture(slug, it) }.orEmpty())
+        writeCustom(list + talent)
+        talent
+    }
+
+    /** Renames a custom talent; a new [picture] replaces the old one, [removePicture] clears it. */
+    suspend fun updateCustom(slug: String, nameEn: String, nameJa: String?, picture: Uri?, removePicture: Boolean = false): Talent? =
+        customMutex.withLock {
+            val list = customMemory ?: readCustom()
+            val old = list.firstOrNull { it.slug == slug } ?: return@withLock null
+            val image = when {
+                picture != null -> copyPicture(slug, picture).also { deletePicture(old.imageUrl) }
+                removePicture -> "".also { deletePicture(old.imageUrl) }
+                else -> old.imageUrl
+            }
+            val updated = old.copy(nameEn = CustomTalents.clean(nameEn), nameJa = CustomTalents.cleanOrNull(nameJa), imageUrl = image)
+            writeCustom(list.map { if (it.slug == slug) updated else it })
+            updated
+        }
+
+    suspend fun removeCustom(slug: String) = customMutex.withLock {
+        val list = customMemory ?: readCustom()
+        list.firstOrNull { it.slug == slug }?.let { deletePicture(it.imageUrl) }
+        writeCustom(list.filterNot { it.slug == slug })
+    }
+
+    /** Copies the picked picture under a new name each time, so image caches show the new one. */
+    private suspend fun copyPicture(slug: String, source: Uri): String = withContext(Dispatchers.IO) {
+        customDir.mkdirs()
+        val target = File(customDir, "$slug-${System.currentTimeMillis()}.img")
+        context.contentResolver.openInputStream(source)?.use { input -> target.outputStream().use { input.copyTo(it) } }
+            ?: error("Couldn't read the picture")
+        "file://${target.absolutePath}"
+    }
+
+    private suspend fun deletePicture(uri: String) = withContext(Dispatchers.IO) {
+        if (uri.startsWith("file://")) File(uri.removePrefix("file://")).takeIf { it.parentFile == customDir }?.delete()
+    }
+
+    private suspend fun writeCustom(list: List<Talent>) = withContext(Dispatchers.IO) {
+        val json = JSONArray()
+        list.forEach { t ->
+            json.put(JSONObject().put("slug", t.slug).put("en", t.nameEn).put("ja", t.nameJa ?: JSONObject.NULL).put("img", t.imageUrl))
+        }
+        customFile.writeText(json.toString())
+        customMemory = list
+    }
+
+    private suspend fun readCustom(): List<Talent> = withContext(Dispatchers.IO) {
+        runCatching {
+            val json = JSONArray(customFile.readText())
+            (0 until json.length()).map { i ->
+                val o = json.getJSONObject(i)
+                Talent(o.getString("slug"), o.getString("en"), if (o.isNull("ja")) null else o.getString("ja"), o.optString("img"))
+            }
+        }.getOrDefault(emptyList())
+    }
 
     /** Like [load], but with the picture URLs on the hololive site. */
     suspend fun loadRemote(): List<Talent> = mutex.withLock {

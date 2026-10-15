@@ -29,7 +29,8 @@ class TalentsViewModel(private val repository: PackRepository) : ViewModel() {
         loadRoster()
     }
 
-    private fun loadRoster() {
+    /** Loads the roster again, e.g. after the user added a talent. */
+    fun loadRoster() {
         viewModelScope.launch { _roster.value = runCatching { repository.talents() }.getOrDefault(emptyList()) }
     }
 
@@ -67,11 +68,27 @@ class TalentViewModel(routeSlug: String, private val repository: PackRepository)
     private val _talent = MutableStateFlow<Talent?>(null)
     val talent: StateFlow<Talent?> = _talent.asStateFlow()
 
+    /** True for a talent the user added (they can edit or delete it). */
+    val isCustom: Boolean = repository.isCustomTalent(slug)
+
     init {
+        reload()
+    }
+
+    fun reload() {
         if (slug != null) {
             viewModelScope.launch {
                 _talent.value = runCatching { repository.talents() }.getOrNull()?.firstOrNull { it.slug == slug }
             }
+        }
+    }
+
+    /** Deletes this custom talent and takes them off every clip; [onDone] runs afterwards. */
+    fun delete(onDone: () -> Unit) {
+        val s = slug ?: return
+        viewModelScope.launch {
+            repository.deleteTalent(s)
+            onDone()
         }
     }
 
