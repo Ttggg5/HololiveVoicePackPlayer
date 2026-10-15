@@ -9,8 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.ttggg5.holovoice.ui.theme.Motion
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 
 /**
@@ -41,17 +41,19 @@ class PlayerSheet(private val scope: CoroutineScope, initiallyOpen: Boolean) {
 
     fun open() {
         isOpen = true
-        scope.launch { offset.animateTo(0f, Motion.enter(Motion.LONG)) }
+        scope.launch { offset.animateTo(0f, SETTLE) }
     }
 
     fun close() {
         isOpen = false
-        scope.launch { offset.animateTo(1f, Motion.exit(Motion.MEDIUM)) }
+        scope.launch { offset.animateTo(1f, SETTLE) }
     }
 
-    /** Moves the player by [dyPx] (down is positive), following the finger. */
+    /** Moves the player by [dyPx] (down is positive), following the finger in the same frame. */
     fun drag(dyPx: Float) {
-        scope.launch { offset.snapTo((offset.value + dyPx / height.coerceAtLeast(1f)).coerceIn(0f, 1f)) }
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            offset.snapTo((offset.value + dyPx / height.coerceAtLeast(1f)).coerceIn(0f, 1f))
+        }
     }
 
     /** Finishes a drag: open or close depending on how far and how fast it was moved. */
@@ -66,7 +68,7 @@ class PlayerSheet(private val scope: CoroutineScope, initiallyOpen: Boolean) {
         scope.launch {
             offset.animateTo(
                 if (open) 0f else 1f,
-                spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+                SETTLE,
                 initialVelocity = velocity,
             )
         }
@@ -74,5 +76,8 @@ class PlayerSheet(private val scope: CoroutineScope, initiallyOpen: Boolean) {
 
     private companion object {
         const val FLING = 0.8f
+
+        /** Opening, closing and settling after a drag: smooth, no bounce, keeps the finger's speed. */
+        val SETTLE = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
     }
 }

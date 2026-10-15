@@ -1,5 +1,9 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.animation.core.AnimationVector1D
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.CoroutineStart
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.graphics.SolidColor
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedContent
@@ -70,9 +74,23 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
     onSheetDrag: (Float) -> Unit = {},
     onSheetRelease: (Float) -> Unit = {},
+    /** Closes the player (swipe the bar down, or ✕ while paused). */
+    onDismiss: () -> Unit = {},
 ) {
     val position by player.position.collectAsStateWithLifecycle(initialValue = 0L)
-    Surface(tonalElevation = 3.dp, shadowElevation = 6.dp, modifier = modifier.fillMaxWidth()) {
+    // How far the bar has been pulled down towards closing.
+    val offsetY = remember { Animatable(0f) }
+    // How far the clip has been swiped sideways towards next/previous.
+    val offsetX = remember { Animatable(0f) }
+    Surface(
+        tonalElevation = 3.dp,
+        shadowElevation = 6.dp,
+        // Gestures are read here, outside the moving layer, so the bar can follow the finger.
+        modifier = modifier.fillMaxWidth().playerSwipes(state, player, onSheetDrag, onSheetRelease, offsetX, offsetY, onDismiss).graphicsLayer {
+            translationY = offsetY.value
+            alpha = 1f - (offsetY.value / size.height.coerceAtLeast(1f)).coerceIn(0f, 0.8f)
+        },
+    ) {
         Box {
         // The playing topic's thumbnail, blurred, behind the mini player.
         BlurredCover(
@@ -91,7 +109,10 @@ fun MiniPlayer(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .playerSwipes(state, player, onSheetDrag, onSheetRelease)
+                    .graphicsLayer {
+                        translationX = offsetX.value
+                        alpha = 1f - (abs(offsetX.value) / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.6f)
+                    }
                     .clickable(onClick = onOpen)
                     .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
             ) {
@@ -139,8 +160,21 @@ fun MiniPlayer(
                         }
                     }
                 }
-                IconButton(onClick = player::previous) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous")
+                // While paused the first button closes the player (previous is still a swipe right away).
+                AnimatedContent(
+                    targetState = state.isPlaying,
+                    transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.6f)) togetherWith (fadeOut() + scaleOut(targetScale = 0.6f)) },
+                    label = "miniFirstButton",
+                ) { playing ->
+                    if (playing) {
+                        IconButton(onClick = player::previous) {
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous")
+                        }
+                    } else {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Filled.Close, contentDescription = "Close player")
+                        }
+                    }
                 }
                 IconButton(onClick = player::togglePlayPause) {
                     PlayPauseIcon(state.isPlaying)
@@ -164,25 +198,44 @@ private fun Modifier.playerSwipes(
     player: PlayerController,
     onSheetDrag: (Float) -> Unit,
     onSheetRelease: (Float) -> Unit,
+    offsetX: Animatable<Float, AnimationVector1D>,
+    offsetY: Animatable<Float, AnimationVector1D>,
+    onDismiss: () -> Unit,
 ): Modifier {
     val enabled by LocalContext.current.appContainer.uiPrefs.playerSwipes.state.collectAsStateWithLifecycle()
     if (!enabled) return this
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
-    val offsetX = remember { Animatable(0f) }
     val latestState by rememberUpdatedState(state)
     val latestDrag by rememberUpdatedState(onSheetDrag)
     val latestRelease by rememberUpdatedState(onSheetRelease)
+    val latestDismiss by rememberUpdatedState(onDismiss)
     return this
         .pointerInput(player) {
             val width = size.width.toFloat()
-            // Each drag locks to one direction: up/down moves the player sheet with the finger,
-            // left/right moves the clip for next/previous.
+            val height = size.height.toFloat()
+            // Each drag locks to one direction: up moves the player sheet with the finger, down pulls
+            // the bar away to close the player, left/right moves the clip for next/previous.
             var vertical: Boolean? = null
+            var closing = false
             val tracker = VelocityTracker()
             fun settle() {
+                when {
+                    vertical == true && closing -> scope.launch {
+                        val vy = tracker.calculateVelocity().y
+                        if (offsetY.value > height * 0.5f || vy > 1_500f) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            offsetY.animateTo(height * 1.2f, tween(160))
+                            latestDismiss()
+                            // If the bar is still here (nothing was closed), bring it back.
+                            delay(600)
+                        }
+                        offsetY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                    }
+                    vertical == true -> latestRelease(tracker.calculateVelocity().y)
+                }
                 when (vertical) {
-                    true -> latestRelease(tracker.calculateVelocity().y)
+                    true -> Unit
                     false -> scope.launch {
                         val x = offsetX.value
                         when {
@@ -208,6 +261,7 @@ private fun Modifier.playerSwipes(
             detectDragGestures(
                 onDragStart = {
                     vertical = null
+                    closing = false
                     tracker.resetTracking()
                 },
                 onDragEnd = ::settle,
@@ -215,17 +269,18 @@ private fun Modifier.playerSwipes(
             ) { change, drag ->
                 change.consume()
                 tracker.addPosition(change.uptimeMillis, change.position)
-                if (vertical == null) vertical = abs(drag.y) > abs(drag.x)
-                if (vertical == true) {
+                if (vertical == null) {
+                    vertical = abs(drag.y) > abs(drag.x)
+                    closing = vertical == true && drag.y > 0f
+                }
+                if (vertical == true && closing) {
+                    scope.launch(start = CoroutineStart.UNDISPATCHED) { offsetY.snapTo((offsetY.value + drag.y).coerceAtLeast(0f)) }
+                } else if (vertical == true) {
                     latestDrag(drag.y)
                 } else {
                     scope.launch { offsetX.snapTo(offsetX.value + drag.x) }
                 }
             }
-        }
-        .graphicsLayer {
-            translationX = offsetX.value
-            alpha = 1f - (abs(offsetX.value) / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.6f)
         }
 }
 

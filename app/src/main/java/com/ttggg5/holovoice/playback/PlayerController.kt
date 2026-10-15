@@ -268,6 +268,29 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
         c.addMediaItem(index.coerceIn(0, c.mediaItemCount), item)
     }
 
+    /**
+     * Closes the player: stops playback and clears the queue. [onDismissed] gets an undo that puts the
+     * same queue back at the same clip and position (paused), with shuffle and repeat as they were.
+     */
+    fun dismiss(onDismissed: (undo: () -> Unit) -> Unit = {}) = withController { c ->
+        if (c.mediaItemCount == 0) return@withController
+        val items = (0 until c.mediaItemCount).map(c::getMediaItemAt)
+        val index = c.currentMediaItemIndex.coerceIn(0, items.lastIndex)
+        val position = c.currentPosition.coerceAtLeast(0L)
+        val shuffle = c.shuffleModeEnabled
+        val repeat = c.repeatMode
+        c.stop()
+        c.clearMediaItems()
+        onDismissed {
+            withController { r ->
+                r.setMediaItems(items, index, position)
+                r.shuffleModeEnabled = shuffle
+                r.repeatMode = repeat
+                r.prepare()
+            }
+        }
+    }
+
     fun clearQueue() = withController { c ->
         c.stop()
         c.clearMediaItems()

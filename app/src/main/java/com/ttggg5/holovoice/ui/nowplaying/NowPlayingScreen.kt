@@ -418,7 +418,9 @@ fun NowPlayingScreen(
         }
     }
 
-    if (!wide && queueSheet.isVisible) QueuePanel(queueSheet, player)
+    // Always composed on phones (parked below the screen while closed), so its size is known and the
+    // list is built before the first swipe; the panel then follows the finger from the very first frame.
+    if (!wide) QueuePanel(queueSheet, player)
     }
 
     when (sheet) {
@@ -522,13 +524,16 @@ private fun StageArtwork(s: PlayerState, modifier: Modifier = Modifier) {
 @Composable
 private fun QueuePanel(sheet: PlayerSheet, player: PlayerController) {
     Box(Modifier.fillMaxSize()) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = 0.32f * (1f - sheet.offset.value) }
-                .background(Color.Black)
-                .pointerInput(sheet) { detectTapGestures { sheet.close() } },
-        )
+        // The dimmed area (tap to close) only exists while the panel is up, so it never blocks the player.
+        if (sheet.isVisible) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 0.32f * (1f - sheet.offset.value) }
+                    .background(Color.Black)
+                    .pointerInput(sheet) { detectTapGestures { sheet.close() } },
+            )
+        }
         val headerDrag = rememberDraggableState { sheet.drag(it) }
         val listDrag = remember(sheet) {
             object : NestedScrollConnection {

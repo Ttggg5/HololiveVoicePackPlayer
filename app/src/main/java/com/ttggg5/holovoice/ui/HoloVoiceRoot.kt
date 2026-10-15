@@ -303,6 +303,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                         onOpen = playerSheet::open,
                         onSheetDrag = playerSheet::drag,
                         onSheetRelease = playerSheet::release,
+                        onDismiss = { container.player.dismiss { restore -> undo.show("Player closed", restore) } },
                     )
                 }
                 if (!wide) {
