@@ -1,5 +1,7 @@
 package com.ttggg5.holovoice.alarm
 
+import android.media.AudioManager
+import android.media.AudioFocusRequest
 import androidx.core.content.ContextCompat
 import android.app.Notification
 import android.app.NotificationChannel
@@ -139,7 +141,13 @@ class AlarmService : Service() {
             } catch (e: Exception) {
                 AlarmLog.record(this@AlarmService, "Error while starting to ring", e)
                 // Whatever went wrong, still wake the user: the system alarm sound.
-                if (player == null) runCatching { play(null) }
+                if (player == null) {
+                    // Can't play here at all: ring with the alarm-tone notification instead.
+                    runCatching { play(null) }.onFailure {
+                        AlarmLog.record(this@AlarmService, "Couldn't play the alarm tone either", it)
+                        if (ringingId >= 0) showFallback(this@AlarmService, ringingId)
+                    }
+                }
             }
         }
     }
@@ -148,10 +156,12 @@ class AlarmService : Service() {
         val p = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_ALARM).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(),
-                /* handleAudioFocus = */ true,
+                // ExoPlayer only manages focus for media/game audio, so the alarm asks for it itself below.
+                /* handleAudioFocus = */ false,
             )
             .build()
         player = p
+        requestFocus()
         p.repeatMode = Player.REPEAT_MODE_ONE
         p.volume = START_VOLUME
         p.addListener(object : Player.Listener {
@@ -200,6 +210,32 @@ class AlarmService : Service() {
         handler.removeCallbacks(ramp)
         player?.release()
         player = null
+        abandonFocus()
+    }
+
+    private var focusRequest: AudioFocusRequest? = null
+
+    /** Pauses other audio (e.g. the music player) while the alarm rings. */
+    private fun requestFocus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        runCatching {
+            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
+                .build()
+            getSystemService(AudioManager::class.java).requestAudioFocus(request)
+            focusRequest = request
+        }
+    }
+
+    private fun abandonFocus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        focusRequest?.let { runCatching { getSystemService(AudioManager::class.java).abandonAudioFocusRequest(it) } }
+        focusRequest = null
     }
 
     override fun onDestroy() {
