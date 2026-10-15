@@ -18,7 +18,10 @@ import com.ttggg5.holovoice.data.ClipWithPack
 import com.ttggg5.holovoice.data.UiPrefs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
@@ -150,12 +153,20 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
      */
     fun playFrom(clips: List<ClipWithPack>, index: Int) {
         val target = clips.getOrNull(index) ?: return
+        val openPlayer = prefs.openPlayerOnTap.value
         if (_state.value.clipId == target.clip.id) {
-            togglePlayPause()
-            return
+            // With the player opening, tapping the current clip shows it (and resumes it) instead of pausing.
+            if (!openPlayer || !_state.value.isPlaying) togglePlayPause()
+        } else {
+            playQueue(clips, index)
         }
-        playQueue(clips, index)
+        if (openPlayer) _openRequests.tryEmit(target.clip.id)
     }
+
+    private val _openRequests = MutableSharedFlow<Long>(extraBufferCapacity = 1)
+
+    /** Clips tapped while "open player when you tap a clip" is on; the app opens Now Playing once that clip is loaded. */
+    val openRequests: SharedFlow<Long> = _openRequests.asSharedFlow()
 
     /**
      * Queues [clips] starting at [startIndex]. [shuffle] turns shuffle on (random start) or off;

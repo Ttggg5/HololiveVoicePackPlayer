@@ -92,6 +92,8 @@ class UiPrefs(context: Context) {
     val defaultSpeed = FloatPref("defaultSpeed", 1f)
     val pauseOnUnplug = BoolPref("pauseOnUnplug", true)
     val resumeOnStart = BoolPref("resumeOnStart", true)
+    /** Tapping a clip also opens Now Playing. */
+    val openPlayerOnTap = BoolPref("openPlayerOnTap", true)
 
     // Gestures
     val clipSwipes = BoolPref("clipSwipes", true)

@@ -71,6 +71,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import com.ttggg5.holovoice.AppContainer
 import com.ttggg5.holovoice.ui.components.MiniPlayer
 import androidx.compose.material.icons.filled.Face
@@ -182,6 +183,12 @@ fun HoloVoiceRoot(container: AppContainer) {
     LaunchedEffect(playerSheet.isOpen) { if (playerSheet.isOpen) backProgress.snapTo(0f) }
     // Nothing to show once the queue is cleared.
     LaunchedEffect(playerState.clipId) { if (playerState.clipId == null && playerSheet.isOpen) playerSheet.close() }
+    // Tapping a clip opens the player once the controller reports that clip, so the sheet never opens empty.
+    LaunchedEffect(Unit) {
+        container.player.openRequests.collect { id ->
+            withTimeoutOrNull(2_000) { snapshotFlow { playerState.clipId }.first { it == id } }?.let { playerSheet.open() }
+        }
+    }
     // Tapping the media notification opens the player.
     val openPlayerRequest by container.openPlayerRequested.collectAsStateWithLifecycle()
     LaunchedEffect(openPlayerRequest) {

@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.SettingsBackupRestore
@@ -246,6 +247,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                     }
                     Divider()
                     SwitchRow(Icons.Filled.Headphones, IconTint.Teal, "Pause when headphones disconnect", null, prefs.pauseOnUnplug)
+                    Divider()
+                    SwitchRow(Icons.Filled.OpenInFull, IconTint.Blue, "Open player when you tap a clip", "Turn off to keep browsing while it plays", prefs.openPlayerOnTap)
                     Divider()
                     SwitchRow(Icons.Filled.Restore, IconTint.Green, "Restore last queue on start", "Pick up where you left off after the app was closed", prefs.resumeOnStart)
                     Divider()

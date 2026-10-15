@@ -43,6 +43,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a wide 
   - how many seconds the rewind and skip-ahead buttons jump
   - the default speed for new queues
   - pause when headphones disconnect
+  - open the player when you tap a clip (on by default)
   - restore the last queue when the app starts
 - **Gestures**: turn clip swipes, double-tap to favorite, tab swipes, player swipes, and vibration feedback on or off.
 - **Library & talents**:
@@ -92,6 +93,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - If Android blocks notifications, exact alarms or full-screen alarms, the Alarms screen shows a red row that opens the right setting.
 
 ## Player
+- Tapping a clip plays it and opens Now Playing; tapping the clip that's already loaded opens the player (and resumes it if paused). Turn *Open player when you tap a clip* off in Settings › Playback to stay on the page instead; a tap then plays or pauses. *Play all* and *Shuffle* never open it.
 - Rewind and skip-ahead buttons sit beside previous and next. They jump 10 seconds by default; change this in Settings, or long-press either button.
 - **A–B loop**: tap *A–B* to mark the start, tap again to mark the end, and that part repeats (also with the screen off). Tap *Loop* to stop; it also ends when the next clip starts.
 - The player opens over the page you're on. Drag it down (you see that page underneath) or press back to close it. Tapping the media notification opens it.
