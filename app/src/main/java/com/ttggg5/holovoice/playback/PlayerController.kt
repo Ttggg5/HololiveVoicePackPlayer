@@ -229,17 +229,36 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
         c.play()
     }
 
-    fun moveQueueItem(from: Int, to: Int) = withController { c ->
-        if (from in 0 until c.mediaItemCount && to in 0 until c.mediaItemCount) c.moveMediaItem(from, to)
+    /** Player index of the queue entry [key] right now (keys come from [QueueItem.key]), or null if it's gone. */
+    private fun indexOf(c: Player, key: String): Int? = buildQueue(c).firstOrNull { it.key == key }?.index
+
+    /** Jumps to the queue entry [key]. Looked up when it runs, so a list that's a moment old can't pick the wrong clip. */
+    fun skipTo(key: String) = withController { c -> indexOf(c, key)?.let { skipTo(it) } }
+
+    /** Moves queue entry [fromKey] to where [toKey] is now. */
+    fun moveQueueItem(fromKey: String, toKey: String) = withController { c ->
+        val from = indexOf(c, fromKey) ?: return@withController
+        val to = indexOf(c, toKey) ?: return@withController
+        if (from != to) c.moveMediaItem(from, to)
     }
 
-    /** Removes the item at player index [index]; [onRemoved] gets it back so the removal can be undone. */
-    fun removeQueueItem(index: Int, onRemoved: (MediaItem) -> Unit = {}) = withController { c ->
-        if (index in 0 until c.mediaItemCount) {
-            val item = c.getMediaItemAt(index)
-            c.removeMediaItem(index)
-            onRemoved(item)
-        }
+    /** Puts queue entry [key] right after the playing clip. */
+    fun playNext(key: String) = withController { c ->
+        val from = indexOf(c, key) ?: return@withController
+        val current = c.currentMediaItemIndex
+        val to = if (from > current) current + 1 else current
+        if (from != to && to in 0 until c.mediaItemCount) c.moveMediaItem(from, to)
+    }
+
+    /**
+     * Removes queue entry [key]. It's looked up when the removal runs, so swiping rows quickly (before
+     * the list catches up) always removes the swiped clip. [onRemoved] gets its index and item for Undo.
+     */
+    fun removeQueueItem(key: String, onRemoved: (Int, MediaItem) -> Unit = { _, _ -> }) = withController { c ->
+        val index = indexOf(c, key) ?: return@withController
+        val item = c.getMediaItemAt(index)
+        c.removeMediaItem(index)
+        onRemoved(index, item)
     }
 
     /** Puts a removed item back at [index] (undo). */
