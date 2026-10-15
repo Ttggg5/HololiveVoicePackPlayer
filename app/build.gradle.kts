@@ -5,6 +5,13 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Every CI run gets a higher version, so a new APK installs over the old one.
+val buildNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toIntOrNull() ?: 1
+
+// The app's own signing key, given to CI as secrets (see README › Building). Without it the debug key is used.
+val keystorePath = providers.environmentVariable("HOLOVOICE_KEYSTORE").orNull?.takeIf { file(it).isFile }
+val keystorePassword = providers.environmentVariable("HOLOVOICE_KEYSTORE_PASSWORD").orNull
+
 android {
     namespace = "com.ttggg5.holovoice"
     compileSdk = 35
@@ -13,18 +20,33 @@ android {
         applicationId = "com.ttggg5.holovoice"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = buildNumber
+        versionName = "0.1.$buildNumber"
     }
 
+    signingConfigs {
+        if (keystorePath != null && keystorePassword != null) {
+            create("holovoice") {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                keyAlias = "holovoice"
+                keyPassword = keystorePassword
+            }
+        }
+    }
+    val appSigning = signingConfigs.findByName("holovoice") ?: signingConfigs.getByName("debug")
+
     buildTypes {
+        debug {
+            // Same key as release, so either APK installs over the other.
+            signingConfig = appSigning
+        }
         release {
-            // Optimized (R8) build for smooth scrolling. Signed with the debug key so it installs
-            // without a keystore; this app is for personal use only.
+            // Optimized (R8) build for smooth scrolling.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = appSigning
         }
     }
     compileOptions {

@@ -144,8 +144,13 @@ Requirements: JDK 17+ and the Android SDK (API 35).
 ```
 
 Every push also builds both APKs on GitHub Actions (download them from the run's **Artifacts**).
-Install **holovoice-apk** (`app-release.apk`): it is optimized with R8 and scrolls much more smoothly than the debug build.
-It is signed with the debug key, so it's for personal use only. If you had the debug APK installed, Android may ask you to uninstall it first because the two are signed differently.
+Install **holovoice-0.1.N** (`app-release.apk`): it is optimized with R8 and scrolls much more smoothly than the debug build (**holovoice-0.1.N-debug**).
+
+**Updating without uninstalling.** Every CI run gets a higher version (`0.1.N`, N = the run number, shown in Settings), and every build is signed with the app's own key, so a new APK installs straight over the old one and keeps your data. The key is kept in two repository secrets (Settings › Secrets and variables › Actions):
+- `HOLOVOICE_KEYSTORE_BASE64`: the keystore file (`holovoice.jks`, key alias `holovoice`), base64-encoded
+- `HOLOVOICE_KEYSTORE_PASSWORD`: its password (also the key's password)
+
+Without them (local builds, forks) the debug key is used, and those APKs can't update one signed with the app's key. Keep a copy of the keystore: GitHub can't show a secret again, and a new key means uninstalling once more (make a backup in Settings › Backup & restore first).
 To install, copy the APK to your phone and open it with "install unknown apps" allowed, or run `adb install app-release.apk`.
 
 ## Crash reports
