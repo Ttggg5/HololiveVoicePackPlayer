@@ -141,7 +141,10 @@ class PackRepository(
 
     fun recentlyPlayed(limit: Int = 20): Flow<List<ClipWithPack>> = db.clipDao().observeRecentlyPlayed(limit)
 
-    suspend fun clearPlayHistory() = db.clipDao().clearPlayHistory()
+    suspend fun clearPlayHistory() {
+        db.clipDao().clearPlayHistory()
+        db.playEventDao().clear()
+    }
 
     /** A folder the app keeps in sync, for the Settings page. */
     data class SyncedFolder(val uri: String, val name: String, val isLibrary: Boolean, val topics: Int)
@@ -174,7 +177,20 @@ class PackRepository(
     private fun folderName(uri: String): String =
         Uri.decode(Uri.parse(uri).lastPathSegment.orEmpty()).substringAfterLast(':').substringAfterLast('/').ifEmpty { uri }
 
-    suspend fun markPlayed(clipId: Long) = db.clipDao().markPlayed(clipId, System.currentTimeMillis())
+    /** Counts a play of [clipId] and starts its history entry; returns the entry id for [addListened]. */
+    suspend fun markPlayed(clipId: Long): Long {
+        val now = System.currentTimeMillis()
+        db.clipDao().markPlayed(clipId, now)
+        return db.playEventDao().insert(PlayEvent(clipId = clipId, playedAt = now))
+    }
+
+    /** Adds [ms] of actual listening to play history entry [eventId]. */
+    suspend fun addListened(eventId: Long, ms: Long) {
+        if (ms > 0) db.playEventDao().addListened(eventId, ms)
+    }
+
+    /** Every play in the history, oldest first (for listening stats). */
+    val playEvents: Flow<List<PlayEvent>> get() = db.playEventDao().observeAll()
 
     suspend fun insertPlaylistEntryAt(playlistId: Long, clipId: Long, index: Int) =
         db.playlistDao().insertAt(playlistId, clipId, index)

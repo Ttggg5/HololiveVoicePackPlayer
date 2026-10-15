@@ -5,6 +5,7 @@ import android.content.Context
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import com.ttggg5.holovoice.data.AppDatabase
+import com.ttggg5.holovoice.data.backup.BackupManager
 import com.ttggg5.holovoice.data.PackImporter
 import com.ttggg5.holovoice.data.LibraryRoots
 import com.ttggg5.holovoice.data.PackRepository
@@ -47,6 +48,14 @@ class AppContainer(context: Context) {
     )
     val player = PlayerController(context, uiPrefs)
     val alarms = AlarmRepository(db.alarmDao(), AlarmScheduler(context))
+    val backup = BackupManager(
+        context,
+        db,
+        uiPrefs,
+        talentLinker.directory,
+        alarms,
+        appVersion = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty(),
+    )
 
     /** Set when the media notification is tapped; the app then opens Now Playing. */
     val openPlayerRequested = MutableStateFlow(false)

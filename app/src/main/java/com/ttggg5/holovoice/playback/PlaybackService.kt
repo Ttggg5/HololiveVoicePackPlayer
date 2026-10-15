@@ -84,7 +84,7 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(appContainer.uiPrefs.pauseOnUnplug.value)
             .build()
-        player.addListener(PlayerListener())
+        player.addListener(playerListener)
         val openApp = PendingIntent.getActivity(
             this,
             0,
@@ -171,6 +171,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        playerListener.flushListening()
         if (player.currentMediaItem != null) updateWidget(playing = false)
         saveState()
         handler.removeCallbacksAndMessages(null)
@@ -236,20 +237,45 @@ class PlaybackService : MediaSessionService() {
         )
     }
 
+    private val playerListener = PlayerListener()
+
     private inner class PlayerListener : Player.Listener {
         /** Whether the current item has already been counted as played. */
         private var counted = false
 
+        /** The play-history entry of the current item (for listening time). */
+        private var event: Deferred<Long?>? = null
+
+        /** When the current stretch of listening started (elapsed realtime), or 0 while not playing. */
+        private var playingSince = 0L
+
+        /** Adds the listening since [playingSince] to the current play-history entry. */
+        fun flushListening() {
+            if (playingSince == 0L) return
+            val ms = SystemClock.elapsedRealtime() - playingSince
+            playingSince = 0L
+            val entry = event ?: return
+            // App-wide scope, so the last stretch is still saved while the service shuts down.
+            appContainer.appScope.launch { runCatching { entry.await()?.let { appContainer.repository.addListened(it, ms) } } }
+        }
+
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) || player.playbackState == Player.STATE_ENDED) {
+                flushListening()
                 counted = false
+                event = null
             }
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) && loopEndMs >= 0) setLoop(-1L, -1L)
             if (player.isPlaying && !counted) {
                 counted = true
                 player.currentMediaItem?.mediaId?.toLongOrNull()?.let { id ->
-                    scope.launch { runCatching { appContainer.repository.markPlayed(id) } }
+                    event = appContainer.appScope.async { runCatching { appContainer.repository.markPlayed(id) }.getOrNull() }
                 }
+            }
+            if (player.isPlaying) {
+                if (playingSince == 0L) playingSince = SystemClock.elapsedRealtime()
+            } else {
+                flushListening()
             }
             if (events.containsAny(
                     Player.EVENT_MEDIA_ITEM_TRANSITION,

@@ -4,7 +4,7 @@ An Android app for listening to the Hololive voice packs you own (for example, o
 The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
-- **Home**: a big hero card at the top shows what's playing over its blurred topic thumbnail (with play/pause and progress; tap for Now Playing), or *Talent of the day* (a different talent each day) when nothing is loaded. Quick chips below it: *Shuffle all*, *Favorites*, *New for you*, *Most played* and *Alarms*. Then shelves: your talents, recently played, new topics, *Not played yet*, *Most played* and favorites; clip cards show the topic thumbnail with a small talent badge. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
+- **Home**: a big hero card at the top shows what's playing over its blurred topic thumbnail (with play/pause and progress; tap for Now Playing), or *Talent of the day* (a different talent each day) when nothing is loaded. Quick chips below it: *Shuffle all*, *Favorites*, *New for you*, *Most played*, *Stats* and *Alarms*. Then shelves: your talents, recently played, new topics, *Not played yet*, *Most played* and favorites; clip cards show the topic thumbnail with a small talent badge. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
 - **Talents tab**: every hololive member with their Japanese and English names, under a big *Talents* headline with counts and a search bar. A *Now speaking* card shows who is talking in the current clip. Talents you have clips for are full photo cards with the names and clip count on a dark gradient (in the sort you choose; the speaking talent gets a ring); the rest of the official roster follows as small dimmed round pictures. Status tags in names (like "[Alum]") are shown as a small badge instead of in the name. Search works in English or 日本語. Tap one to open their page: a banner with their picture, both names, any status tags, clip / topic / play counts, *Play all* and *Shuffle*, and topic filters above all their clips.
 - **Add your own talents**: someone not on the hololive list (a guest, another agency, a new debut)? Tap the add-person button on the Talents tab, search for them and tap *Add … as a talent*, or use *Add a talent* at the bottom of any talent picker. Give an English (or romaji) name, an optional 日本語 name and an optional picture from your gallery; files named after them are matched right away. Added talents carry a *Custom* badge, and their page has ⋮ → *Edit talent* / *Delete talent* (deleting takes them off every clip; your files aren't touched).
 - **Sorting everywhere**:
@@ -55,6 +55,23 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a wide 
 
 - **Home-screen widget**: long-press your home screen → Widgets → Holo Voice. It shows the playing clip's talent picture, title and who is speaking over the topic's thumbnail, with previous, play/pause and next. The buttons work even when the app is closed (the last queue continues), and tapping the widget opens Now Playing. It's resizable (4×2 by default).
 - **App shortcuts**: long-press the app icon for *Continue*, *Shuffle all* and *Favorites*, plus *Shuffle* for your two most played talents. Drag one to the home screen to pin it.
+
+## Listening stats
+
+Open **Stats** from the Home quick chips (or Settings › Playback › Listening stats) to see your listening for the last 7 days, 30 days, this year or all time:
+
+- How long you listened (time actually played, not clip length), plays, different clips and talents, and your day streak.
+- A bar chart of plays per day (per month for the year and all time); tap a bar to see its value.
+- *When you listen*: a 24-hour strip that's darker for the hours you listen most.
+- Top talents, clips and topics, each with a bar; tap a clip to play the top list, a talent or topic to open it.
+
+The detailed history starts with the version that added it; *All time* also counts the plays from before.
+
+## Backup & restore
+
+Settings › **Backup & restore** saves your own data to a JSON file you choose (`holovoice-backup-YYYY-MM-DD.json`): settings, favorites, play counts and listening history, playlists, alarms, talents you picked by hand and custom talents with their pictures. The voice files themselves aren't in it.
+
+To restore, for example on a new phone or after reinstalling, **import your folders first**, then choose *Restore from file…*. Clips are found again by their file, or by topic, sub-folder, title and track number. Playlists, alarms and settings are replaced by the backup's; favorites, play counts and history are added to what you have, so restoring twice is safe. A summary says what came back and how many clips weren't found.
 
 ## Voice alarms
 

@@ -4,6 +4,14 @@ import com.ttggg5.holovoice.ui.components.CrashReportDialog
 import com.ttggg5.holovoice.CrashLog
 import androidx.compose.material.icons.filled.BugReport
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.ttggg5.holovoice.data.backup.BackupSummary
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.DarkMode
@@ -43,10 +52,12 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -109,7 +120,7 @@ private val SPEEDS = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp: () -> Unit, onOpenAlarms: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp: () -> Unit, onOpenAlarms: () -> Unit, onOpenStats: () -> Unit) {
     val context = LocalContext.current
     val prefs = context.appContainer.uiPrefs
     val undo = LocalUndo.current
@@ -129,6 +140,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                 showCrash = false
             })
         }
+    }
+    val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
+    val restoreResult by viewModel.restoreResult.collectAsStateWithLifecycle()
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { viewModel.backUp(it, notify) }
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { viewModel.openBackup(it, notify) }
     }
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
@@ -231,6 +250,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                     SwitchRow(Icons.Filled.Restore, IconTint.Green, "Restore last queue on start", "Pick up where you left off after the app was closed", prefs.resumeOnStart)
                     Divider()
                     LinkRow(Icons.Filled.Alarm, IconTint.Pink, "Voice alarms", "Wake up to a talent's voice", onOpenAlarms)
+                    Divider()
+                    LinkRow(Icons.Filled.Insights, IconTint.Indigo, "Listening stats", "Time listened, top talents and clips", onOpenStats)
                 }
 
                 // Gestures
@@ -308,6 +329,25 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                     }
                 }
 
+                // Backup & restore
+                Group("Backup & restore") {
+                    SettingRow(
+                        icon = Icons.Filled.Backup,
+                        tint = IconTint.Teal,
+                        title = "Back up now",
+                        subtitle = "Save favorites, playlists, alarms, history, custom talents and settings to a file",
+                        onClick = { if (!busy) backupLauncher.launch("holovoice-backup-${LocalDate.now()}.json") },
+                    )
+                    Divider()
+                    SettingRow(
+                        icon = Icons.Filled.SettingsBackupRestore,
+                        tint = IconTint.Blue,
+                        title = "Restore from file…",
+                        subtitle = "Import your folders first, so the clips in the backup can be found",
+                        onClick = { if (!busy) restoreLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    )
+                }
+
                 // Data
                 Group("Data") {
                     SettingRow(
@@ -351,6 +391,42 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                 }) { Text("Remove") }
             },
             dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text("Cancel") } },
+        )
+    }
+    pendingRestore?.let { backup ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelRestore,
+            icon = { Icon(Icons.Filled.SettingsBackupRestore, contentDescription = null) },
+            title = { Text("Restore this backup?") },
+            text = {
+                val date = remember(backup.createdAt) {
+                    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                        .format(Instant.ofEpochMilli(backup.createdAt).atZone(ZoneId.systemDefault()))
+                }
+                Text(
+                    "Made $date with ${BackupSummary.of(backup).describe()}.\n\n" +
+                        "Your playlists, alarms and settings are replaced by the ones in the backup. " +
+                        "Favorites, play counts and history are added to what you have.",
+                )
+            },
+            confirmButton = { TextButton(onClick = { viewModel.confirmRestore(notify) }) { Text("Restore") } },
+            dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text("Cancel") } },
+        )
+    }
+    restoreResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRestoreResult,
+            icon = { Icon(Icons.Filled.Check, contentDescription = null) },
+            title = { Text("Restore finished") },
+            text = {
+                Text(
+                    "Restored ${result.describe()}." + if (result.missingClips > 0) {
+                        "\n\n${result.missingClips} clips from the backup aren't in your library. " +
+                            "Import their folders, then restore again to bring back their favorites, history and playlist entries."
+                    } else "",
+                )
+            },
+            confirmButton = { TextButton(onClick = viewModel::dismissRestoreResult) { Text("Done") } },
         )
     }
     if (confirmClear) {

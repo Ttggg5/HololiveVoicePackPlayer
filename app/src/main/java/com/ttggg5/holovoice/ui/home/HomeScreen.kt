@@ -43,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
@@ -116,6 +117,7 @@ fun HomeScreen(
     onShowHelp: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAlarms: () -> Unit,
+    onOpenStats: () -> Unit,
 ) {
     val topics by viewModel.topics.collectAsStateWithLifecycle()
     val recentTopics by viewModel.recentTopics.collectAsStateWithLifecycle()
@@ -181,6 +183,7 @@ fun HomeScreen(
                 onNew = { player.playQueue(smart.notPlayed, shuffle = true) }.takeIf { smart.notPlayed.isNotEmpty() },
                 onMostPlayed = { player.playQueue(smart.mostPlayed) }.takeIf { smart.mostPlayed.isNotEmpty() },
                 onAlarms = onOpenAlarms,
+                onStats = onOpenStats,
             )
         }
         if (talents.isNotEmpty()) {
@@ -434,12 +437,14 @@ private fun QuickChips(
     onNew: (() -> Unit)?,
     onMostPlayed: (() -> Unit)?,
     onAlarms: () -> Unit,
+    onStats: () -> Unit,
 ) {
     val chips = listOfNotNull(
         Triple("Shuffle all", Icons.Filled.Shuffle, onShuffleAll),
         onFavorites?.let { Triple("Favorites", Icons.Filled.Star, it) },
         onNew?.let { Triple("New for you", Icons.Filled.AutoAwesome, it) },
         onMostPlayed?.let { Triple("Most played", Icons.Filled.LocalFireDepartment, it) },
+        Triple("Stats", Icons.Filled.Insights, onStats),
         Triple("Alarms", Icons.Filled.Alarm, onAlarms),
     )
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

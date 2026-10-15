@@ -99,6 +99,8 @@ import com.ttggg5.holovoice.ui.components.NoHaptics
 import com.ttggg5.holovoice.ui.alarms.AlarmsScreen
 import com.ttggg5.holovoice.ui.alarms.AlarmsViewModel
 import com.ttggg5.holovoice.ui.settings.SettingsScreen
+import com.ttggg5.holovoice.ui.stats.StatsScreen
+import com.ttggg5.holovoice.ui.stats.StatsViewModel
 import com.ttggg5.holovoice.ui.settings.SettingsViewModel
 import com.ttggg5.holovoice.ui.components.UndoController
 import com.ttggg5.holovoice.ui.home.HomeScreen
@@ -136,6 +138,7 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 private const val SETTINGS = "settings"
 private const val FAVORITES = "favorites"
 private const val ALARMS = "alarms"
+private const val STATS = "stats"
 
 /*
  * Motion between pages: a page slides in over the current one, which drifts back and dims a
@@ -362,6 +365,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                                     onShowHelp = { showHelp = true },
                                     onOpenSettings = openSettings,
                                     onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
+                                    onOpenStats = { nav.navigate(STATS) { launchSingleTop = true } },
                                 )
                             }
                             Tab.Library -> {
@@ -440,10 +444,22 @@ fun HoloVoiceRoot(container: AppContainer) {
             ) {
                 Page {
                     SettingsScreen(
-                        viewModel = viewModel { SettingsViewModel(repository) },
+                        viewModel = viewModel { SettingsViewModel(repository, container.backup) },
                         onBack = { nav.popBackStack() },
                         onShowHelp = { showHelp = true },
                         onOpenAlarms = { nav.navigate(ALARMS) { launchSingleTop = true } },
+                        onOpenStats = { nav.navigate(STATS) { launchSingleTop = true } },
+                    )
+                }
+            }
+            composable(STATS) {
+                Page {
+                    StatsScreen(
+                        viewModel = viewModel { StatsViewModel(repository) },
+                        player = container.player,
+                        onBack = { nav.popBackStack() },
+                        onOpenTalent = { slug -> nav.navigate("talent/$slug") },
+                        onOpenTopic = { id -> nav.navigate("pack/$id") },
                     )
                 }
             }

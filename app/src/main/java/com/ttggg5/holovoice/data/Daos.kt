@@ -32,6 +32,9 @@ interface PackDao {
     @Query("SELECT * FROM packs WHERE sourceUri LIKE :pattern")
     suspend fun getPacksWithSourceLike(pattern: String): List<Pack>
 
+    @Query("SELECT * FROM packs")
+    suspend fun getAll(): List<Pack>
+
     @Query("SELECT DISTINCT sourceUri FROM packs WHERE source = 'FOLDER'")
     suspend fun folderSources(): List<String>
 
@@ -157,6 +160,10 @@ interface ClipDao {
 
     @Query("UPDATE clips SET isFavorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: Long, favorite: Boolean)
+
+    /** Raises a clip's play count and last-played time to at least these (used by restore). */
+    @Query("UPDATE clips SET playCount = MAX(playCount, :playCount), lastPlayedAt = MAX(lastPlayedAt, :lastPlayedAt) WHERE id = :id")
+    suspend fun mergePlayStats(id: Long, playCount: Int, lastPlayedAt: Long)
 }
 
 @Dao
@@ -202,6 +209,15 @@ abstract class PlaylistDao {
 
     @Insert
     abstract suspend fun insert(playlist: Playlist): Long
+
+    @Query("SELECT * FROM playlists ORDER BY id")
+    abstract suspend fun getAll(): List<Playlist>
+
+    @Query("SELECT * FROM playlist_entries ORDER BY playlistId, position")
+    abstract suspend fun getAllEntries(): List<PlaylistEntry>
+
+    @Query("DELETE FROM playlists")
+    abstract suspend fun deleteAll()
 
     @Query("UPDATE playlists SET name = :name WHERE id = :id")
     abstract suspend fun rename(id: Long, name: String)

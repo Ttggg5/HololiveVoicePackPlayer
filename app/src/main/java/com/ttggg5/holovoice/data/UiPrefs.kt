@@ -15,27 +15,32 @@ enum class Accent(val label: String) { HOLO_BLUE("Holo blue"), SAKURA_PINK("Saku
 class UiPrefs(context: Context) {
     private val prefs = context.getSharedPreferences("ui", Context.MODE_PRIVATE)
 
+    /** Re-read each value from [prefs]; run after a restore replaced them. */
+    private val reloaders = mutableListOf<() -> Unit>()
+
+    private fun <T> stored(read: () -> T): MutableStateFlow<T> = MutableStateFlow(read()).also { flow -> reloaders += { flow.value = read() } }
+
     private inline fun <reified E : Enum<E>> read(key: String, default: E): E =
         runCatching { enumValueOf<E>(prefs.getString(key, default.name)!!) }.getOrDefault(default)
 
-    private val _clipSort = MutableStateFlow(read("clipSort", ClipSort.TRACK))
+    private val _clipSort = stored { read("clipSort", ClipSort.TRACK) }
     val clipSort: StateFlow<ClipSort> = _clipSort.asStateFlow()
 
-    private val _topicSort = MutableStateFlow(read("topicSort", TopicSort.NAME))
+    private val _topicSort = stored { read("topicSort", TopicSort.NAME) }
     val topicSort: StateFlow<TopicSort> = _topicSort.asStateFlow()
 
-    private val _playlistSort = MutableStateFlow(read("playlistSort", PlaylistSort.NAME))
+    private val _playlistSort = stored { read("playlistSort", PlaylistSort.NAME) }
     val playlistSort: StateFlow<PlaylistSort> = _playlistSort.asStateFlow()
 
-    private val _talentSort = MutableStateFlow(read("talentSort", TalentSort.NAME))
+    private val _talentSort = stored { read("talentSort", TalentSort.NAME) }
     val talentSort: StateFlow<TalentSort> = _talentSort.asStateFlow()
 
-    private val _clipView = MutableStateFlow(read("clipView", ClipView.GRID))
+    private val _clipView = stored { read("clipView", ClipView.GRID) }
     val clipView: StateFlow<ClipView> = _clipView.asStateFlow()
 
     /** A persisted on/off setting. */
     inner class BoolPref(private val key: String, default: Boolean) {
-        private val flow = MutableStateFlow(prefs.getBoolean(key, default))
+        private val flow = stored { prefs.getBoolean(key, default) }
         val state: StateFlow<Boolean> = flow.asStateFlow()
         val value: Boolean get() = flow.value
         fun set(v: Boolean) {
@@ -46,7 +51,7 @@ class UiPrefs(context: Context) {
 
     /** A persisted number setting. */
     inner class IntPref(private val key: String, default: Int) {
-        private val flow = MutableStateFlow(prefs.getInt(key, default))
+        private val flow = stored { prefs.getInt(key, default) }
         val state: StateFlow<Int> = flow.asStateFlow()
         val value: Int get() = flow.value
         fun set(v: Int) {
@@ -56,7 +61,7 @@ class UiPrefs(context: Context) {
     }
 
     inner class FloatPref(private val key: String, default: Float) {
-        private val flow = MutableStateFlow(prefs.getFloat(key, default))
+        private val flow = stored { prefs.getFloat(key, default) }
         val state: StateFlow<Float> = flow.asStateFlow()
         val value: Float get() = flow.value
         fun set(v: Float) {
@@ -66,7 +71,7 @@ class UiPrefs(context: Context) {
     }
 
     inner class EnumPref<E : Enum<E>>(private val key: String, default: E, parse: (String) -> E) {
-        private val flow = MutableStateFlow(runCatching { parse(prefs.getString(key, default.name)!!) }.getOrDefault(default))
+        private val flow = stored { runCatching { parse(prefs.getString(key, default.name)!!) }.getOrDefault(default) }
         val state: StateFlow<E> = flow.asStateFlow()
         val value: E get() = flow.value
         fun set(v: E) {
@@ -103,7 +108,7 @@ class UiPrefs(context: Context) {
     /** The phone-brand tip about lock-screen / pop-up permissions was dismissed. */
     val vendorAlarmTipDismissed = BoolPref("vendorAlarmTipDismissed", false)
 
-    private val _gridCellDp = MutableStateFlow(prefs.getInt("gridCellDp", DEFAULT_GRID_DP))
+    private val _gridCellDp = stored { prefs.getInt("gridCellDp", DEFAULT_GRID_DP) }
 
     /** Minimum width of a grid tile; pinch on a grid to change it. */
     val gridCellDp: StateFlow<Int> = _gridCellDp.asStateFlow()
@@ -115,9 +120,9 @@ class UiPrefs(context: Context) {
         prefs.edit().putInt("gridCellDp", clamped).apply()
     }
 
-    private val _recentSearches = MutableStateFlow(
-        prefs.getString("recentSearches", "").orEmpty().split('\n').filter { it.isNotBlank() },
-    )
+    private val _recentSearches = stored {
+        prefs.getString("recentSearches", "").orEmpty().split('\n').filter { it.isNotBlank() }
+    }
 
     /** Latest searches first (at most [MAX_RECENT_SEARCHES]). */
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
@@ -134,7 +139,7 @@ class UiPrefs(context: Context) {
         prefs.edit().putString("recentSearches", list.joinToString("\n")).apply()
     }
 
-    private val _onboardingDone = MutableStateFlow(prefs.getBoolean("onboardingDone", false))
+    private val _onboardingDone = stored { prefs.getBoolean("onboardingDone", false) }
     val onboardingDone: StateFlow<Boolean> = _onboardingDone.asStateFlow()
 
     fun setClipSort(v: ClipSort) = save("clipSort", v).also { _clipSort.value = v }
@@ -146,6 +151,26 @@ class UiPrefs(context: Context) {
     fun setOnboardingDone(done: Boolean) {
         prefs.edit().putBoolean("onboardingDone", done).apply()
         _onboardingDone.value = done
+    }
+
+    /** Every stored setting, for a backup. */
+    fun exportAll(): Map<String, Any> = prefs.all.mapNotNull { (k, v) -> v?.let { k to it } }.toMap()
+
+    /** Replaces all settings with [values] (from a backup) and applies them right away. */
+    fun importAll(values: Map<String, Any>) {
+        val edit = prefs.edit().clear()
+        values.forEach { (k, v) ->
+            when (v) {
+                is Boolean -> edit.putBoolean(k, v)
+                is Int -> edit.putInt(k, v)
+                is Long -> edit.putLong(k, v)
+                is Float -> edit.putFloat(k, v)
+                is String -> edit.putString(k, v)
+                is Set<*> -> edit.putStringSet(k, v.map { it.toString() }.toSet())
+            }
+        }
+        edit.apply()
+        reloaders.forEach { it() }
     }
 
     private fun save(key: String, value: Enum<*>) {

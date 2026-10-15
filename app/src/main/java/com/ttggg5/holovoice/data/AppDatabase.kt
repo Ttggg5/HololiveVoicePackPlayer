@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Pack::class, Clip::class, Playlist::class, PlaylistEntry::class, ClipTalent::class, Alarm::class],
-    version = 7,
+    entities = [Pack::class, Clip::class, Playlist::class, PlaylistEntry::class, ClipTalent::class, Alarm::class, PlayEvent::class],
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -18,11 +18,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun clipTalentDao(): ClipTalentDao
     abstract fun alarmDao(): AlarmDao
+    abstract fun playEventDao(): PlayEventDao
 
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "holovoice.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
     }
 }
@@ -98,5 +99,18 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
                 "`label` TEXT NOT NULL, `source` TEXT NOT NULL, `clipId` INTEGER, `talentSlug` TEXT, `packId` INTEGER, " +
                 "`snoozeMinutes` INTEGER NOT NULL, `snoozeUntil` INTEGER NOT NULL)",
         )
+    }
+}
+
+/** v8 keeps a history of plays (when, and how long was listened) for listening stats. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `play_events` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`clipId` INTEGER NOT NULL, `playedAt` INTEGER NOT NULL, `listenedMs` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`clipId`) REFERENCES `clips`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_play_events_clipId` ON `play_events` (`clipId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_play_events_playedAt` ON `play_events` (`playedAt`)")
     }
 }

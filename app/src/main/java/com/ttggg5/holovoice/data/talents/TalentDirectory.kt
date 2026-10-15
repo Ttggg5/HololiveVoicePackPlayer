@@ -69,6 +69,33 @@ class TalentDirectory(private val context: Context, val pictures: TalentPictures
         writeCustom(list.filterNot { it.slug == slug })
     }
 
+    /**
+     * Adds talents from a backup, keeping their slugs so clips still point at them; one with the same slug
+     * is replaced. [pictures] holds the picture bytes by slug. Returns the stored talents.
+     */
+    suspend fun restoreCustom(talents: List<Talent>, pictures: Map<String, ByteArray>): List<Talent> = customMutex.withLock {
+        val list = customMemory ?: readCustom()
+        val restored = talents.map { t ->
+            list.firstOrNull { it.slug == t.slug }?.let { deletePicture(it.imageUrl) }
+            t.copy(imageUrl = pictures[t.slug]?.let { savePicture(t.slug, it) }.orEmpty())
+        }
+        val slugs = restored.map { it.slug }.toSet()
+        writeCustom(list.filterNot { it.slug in slugs } + restored)
+        restored
+    }
+
+    /** The stored picture of a custom talent, for a backup. */
+    suspend fun customPicture(talent: Talent): ByteArray? = withContext(Dispatchers.IO) {
+        talent.imageUrl.takeIf { it.startsWith("file://") }?.let { File(it.removePrefix("file://")) }?.takeIf { it.isFile }?.readBytes()
+    }
+
+    private suspend fun savePicture(slug: String, bytes: ByteArray): String = withContext(Dispatchers.IO) {
+        customDir.mkdirs()
+        val target = File(customDir, "$slug-${System.currentTimeMillis()}.img")
+        target.writeBytes(bytes)
+        "file://${target.absolutePath}"
+    }
+
     /** Copies the picked picture under a new name each time, so image caches show the new one. */
     private suspend fun copyPicture(slug: String, source: Uri): String = withContext(Dispatchers.IO) {
         customDir.mkdirs()

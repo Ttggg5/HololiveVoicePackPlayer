@@ -14,6 +14,7 @@ coil = "2.7.0"
 palette = "1.0.0"
 reorderable = "2.4.3"
 junit = "4.13.2"
+orgJson = "20240303"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -37,6 +38,7 @@ androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", versi
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

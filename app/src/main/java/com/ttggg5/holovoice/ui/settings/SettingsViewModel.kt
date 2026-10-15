@@ -6,12 +6,24 @@ import kotlinx.coroutines.flow.stateIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ttggg5.holovoice.data.PackRepository
+import com.ttggg5.holovoice.data.backup.Backup
+import com.ttggg5.holovoice.data.backup.BackupManager
+import com.ttggg5.holovoice.data.backup.BackupSummary
+import android.net.Uri
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class SettingsViewModel(private val repository: PackRepository) : ViewModel() {
+class SettingsViewModel(private val repository: PackRepository, private val backup: BackupManager) : ViewModel() {
+    /** A backup file that was opened and waits for the user to confirm the restore. */
+    private val _pendingRestore = MutableStateFlow<Backup?>(null)
+    val pendingRestore: StateFlow<Backup?> = _pendingRestore.asStateFlow()
+
+    /** What the last restore brought back, shown in a dialog. */
+    private val _restoreResult = MutableStateFlow<BackupSummary?>(null)
+    val restoreResult: StateFlow<BackupSummary?> = _restoreResult.asStateFlow()
+
     private val _folders = MutableStateFlow<List<PackRepository.SyncedFolder>>(emptyList())
     val folders: StateFlow<List<PackRepository.SyncedFolder>> = _folders.asStateFlow()
 
@@ -48,6 +60,42 @@ class SettingsViewModel(private val repository: PackRepository) : ViewModel() {
             }
             onDone(message)
         }
+    }
+
+    fun backUp(uri: Uri, onDone: (String) -> Unit) = run(onDone) {
+        "Backed up " + backup.export(uri).describe()
+    }
+
+    /** Reads [uri]; a valid backup then waits in [pendingRestore] for confirmation. */
+    fun openBackup(uri: Uri, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            _busy.value = true
+            try {
+                _pendingRestore.value = backup.read(uri)
+            } catch (e: Exception) {
+                onError(e.message ?: "Couldn't read the backup")
+            } finally {
+                _busy.value = false
+            }
+        }
+    }
+
+    fun cancelRestore() {
+        _pendingRestore.value = null
+    }
+
+    fun confirmRestore(onError: (String) -> Unit) {
+        val pending = _pendingRestore.value ?: return
+        _pendingRestore.value = null
+        run({ if (it.isNotEmpty()) onError(it) }) {
+            _restoreResult.value = backup.restore(pending)
+            reloadFolders()
+            ""
+        }
+    }
+
+    fun dismissRestoreResult() {
+        _restoreResult.value = null
     }
 
     fun refreshTalents(onDone: (String) -> Unit) = run(onDone) {
