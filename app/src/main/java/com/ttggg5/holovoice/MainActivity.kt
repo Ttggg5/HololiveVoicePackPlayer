@@ -1,5 +1,10 @@
 package com.ttggg5.holovoice
 
+import com.ttggg5.holovoice.ui.components.CrashReportDialog
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -33,6 +38,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             HoloVoiceTheme {
                 HoloVoiceRoot(appContainer)
+                // The last crash (if any), so it can be copied and reported.
+                var crash by remember { mutableStateOf(CrashLog.read(this)) }
+                crash?.let { report ->
+                    CrashReportDialog(report, onDismiss = {
+                        CrashLog.clear(this)
+                        crash = null
+                    })
+                }
             }
         }
     }

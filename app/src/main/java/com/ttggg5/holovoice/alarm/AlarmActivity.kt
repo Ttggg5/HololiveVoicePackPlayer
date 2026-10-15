@@ -62,8 +62,14 @@ class AlarmActivity : ComponentActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Opened by the fallback notification: nothing is ringing yet, so start it from here.
+        val pendingId = intent.getLongExtra(AlarmReceiver.EXTRA_ALARM_ID, -1L)
+        if (savedInstanceState == null && pendingId >= 0 && AlarmService.ringing.value == null) {
+            AlarmService.ringFromScreen(this, pendingId)
+        }
         setContent {
-            HoloVoiceTheme {
+            // The alarm screen doesn't need (or wake up) the music player.
+            HoloVoiceTheme(followPlayer = false) {
                 val ringing by AlarmService.ringing.collectAsStateWithLifecycle()
                 // Close once the alarm has been stopped or snoozed (also from the notification).
                 LaunchedEffect(Unit) {

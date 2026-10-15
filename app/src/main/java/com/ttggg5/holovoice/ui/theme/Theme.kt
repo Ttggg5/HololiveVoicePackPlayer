@@ -90,10 +90,11 @@ private fun scheme(accent: Accent, dark: Boolean): ColorScheme {
 
 /**
  * App theme, following the theme mode, Material You and accent chosen in Settings. With
- * "Match the playing talent" on, the main colours come from the talent who is speaking.
+ * "Match the playing talent" on, the main colours come from the talent who is speaking (unless
+ * [followPlayer] is false).
  */
 @Composable
-fun HoloVoiceTheme(content: @Composable () -> Unit) {
+fun HoloVoiceTheme(followPlayer: Boolean = true, content: @Composable () -> Unit) {
     val prefs = LocalContext.current.appContainer.uiPrefs
     val mode by prefs.themeMode.state.collectAsStateWithLifecycle()
     val dynamic by prefs.dynamicColor.state.collectAsStateWithLifecycle()
@@ -112,8 +113,13 @@ fun HoloVoiceTheme(content: @Composable () -> Unit) {
 
     // While a clip is loaded, take the main colours from the speaking talent's picture.
     val followTalent by prefs.talentColor.state.collectAsStateWithLifecycle()
-    val playerState by context.appContainer.player.state.collectAsStateWithLifecycle()
-    val talentImage = playerState.talentImageUrl.takeIf { followTalent }
+    // Screens that don't need the music player (the alarm) leave it untouched.
+    val talentImage = if (followPlayer) {
+        val playerState by context.appContainer.player.state.collectAsStateWithLifecycle()
+        playerState.talentImageUrl.takeIf { followTalent }
+    } else {
+        null
+    }
     var seed by remember { mutableStateOf<Color?>(null) }
     LaunchedEffect(talentImage) {
         seed = talentImage?.let { runCatching { TalentColor.seed(context, it) }.getOrNull() }

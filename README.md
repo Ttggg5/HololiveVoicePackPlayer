@@ -70,6 +70,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - An alarm that isn't stopped gives up after 10 minutes and counts as snoozed.
 - If the clip can't be played (for example, the file was moved), the system alarm sound plays instead.
 - Alarms survive restarts and time-zone changes.
+- If Android won't let the alarm start ringing in the background, a full-screen alarm notification opens the alarm screen, which starts it instead. If anything else goes wrong while ringing, it falls back to the system alarm sound.
 - If Android blocks notifications, exact alarms or full-screen alarms, the Alarms screen shows a red row that opens the right setting.
 
 ## Player
@@ -126,6 +127,9 @@ Every push also builds both APKs on GitHub Actions (download them from the run's
 Install **holovoice-apk** (`app-release.apk`): it is optimized with R8 and scrolls much more smoothly than the debug build.
 It is signed with the debug key, so it's for personal use only. If you had the debug APK installed, Android may ask you to uninstall it first because the two are signed differently.
 To install, copy the APK to your phone and open it with "install unknown apps" allowed, or run `adb install app-release.apk`.
+
+## Crash reports
+If the app ever closes unexpectedly, the details are saved on the phone. The next time you open the app, a dialog shows them with **Copy details**, so you can paste them into a bug report. The same report is under Settings › About › *Last crash report* until you dismiss it.
 
 ## Tests
 JVM unit tests live in `app/src/test` and run on every push in CI. Run them with:

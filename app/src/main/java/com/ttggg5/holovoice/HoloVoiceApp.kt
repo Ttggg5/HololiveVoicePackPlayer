@@ -26,6 +26,7 @@ class HoloVoiceApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        CrashLog.install(this)
         container = AppContainer(this)
     }
 

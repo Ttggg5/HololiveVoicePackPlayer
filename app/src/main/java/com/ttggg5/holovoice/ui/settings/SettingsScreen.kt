@@ -1,5 +1,8 @@
 package com.ttggg5.holovoice.ui.settings
 
+import com.ttggg5.holovoice.ui.components.CrashReportDialog
+import com.ttggg5.holovoice.CrashLog
+import androidx.compose.material.icons.filled.BugReport
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -116,6 +119,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
     var confirmRemove by remember { mutableStateOf<PackRepository.SyncedFolder?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
     val notify: (String) -> Unit = { undo?.show(it) }
+    var crashReport by remember { mutableStateOf(CrashLog.read(context)) }
+    var showCrash by remember { mutableStateOf(false) }
+    if (showCrash) {
+        crashReport?.let { report ->
+            CrashReportDialog(report, title = "Last crash report", onDismiss = {
+                CrashLog.clear(context)
+                crashReport = null
+                showCrash = false
+            })
+        }
+    }
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
     }
@@ -311,6 +325,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                     SettingRow(Icons.Filled.Info, IconTint.Blue, "Holo Voice", "Version $version")
                     Divider()
                     LinkRow(Icons.AutoMirrored.Filled.HelpOutline, IconTint.Green, "How it works", "A quick tour of the app", onShowHelp)
+                    if (crashReport != null) {
+                        Divider()
+                        LinkRow(Icons.Filled.BugReport, IconTint.Red, "Last crash report", "Copy the details to report the problem") { showCrash = true }
+                    }
                 }
             }
         }

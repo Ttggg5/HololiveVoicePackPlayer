@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.alarm
 
+import androidx.core.content.ContextCompat
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -76,7 +77,12 @@ class AlarmService : Service() {
             ACTION_RING -> {
                 val id = intent.getLongExtra(AlarmReceiver.EXTRA_ALARM_ID, -1L)
                 // Go to the foreground right away; the clip and picture are filled in once loaded.
-                startInForeground(notification(null, null, null))
+                if (!startInForeground(notification(null, null, null))) {
+                    // Not allowed to ring from here: hand over to the alarm screen.
+                    if (id >= 0) showFallback(this, id)
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
                 if (id >= 0) ring(id) else stopRinging()
             }
             ACTION_SNOOZE -> snoozeAndStop()
@@ -86,13 +92,17 @@ class AlarmService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startInForeground(notification: Notification) {
+    /** Goes to the foreground; false if Android doesn't allow it right now. */
+    private fun startInForeground(notification: Notification): Boolean = try {
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
             notification,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0,
         )
+        true
+    } catch (e: Exception) {
+        false
     }
 
     private fun ring(alarmId: Long) {
@@ -105,18 +115,25 @@ class AlarmService : Service() {
         handler.removeCallbacks(timeout)
         handler.postDelayed(timeout, TIMEOUT_MS)
         scope.launch {
-            val repo = appContainer.alarms
-            val alarm = repo.get(alarmId)
-            if (alarm == null) {
-                stopRinging()
-                return@launch
+            try {
+                val repo = appContainer.alarms
+                val alarm = repo.get(alarmId)
+                if (alarm == null) {
+                    stopRinging()
+                    return@launch
+                }
+                runCatching { repo.onRang(alarm) }
+                val clip = runCatching { repo.pickClip(alarm) }.getOrNull()
+                val picture = withContext(Dispatchers.IO) { clip?.let(::loadPicture) }
+                _ringing.value = Ringing(alarm, clip)
+                runCatching {
+                    getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(alarm, clip, picture))
+                }
+                play(clip?.clip?.fileUri?.let(Uri::parse))
+            } catch (e: Exception) {
+                // Whatever went wrong, still wake the user: the system alarm sound.
+                if (player == null) runCatching { play(null) }
             }
-            repo.onRang(alarm)
-            val clip = repo.pickClip(alarm)
-            val picture = withContext(Dispatchers.IO) { clip?.let(::loadPicture) }
-            _ringing.value = Ringing(alarm, clip)
-            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(alarm, clip, picture))
-            play(clip?.clip?.fileUri?.let(Uri::parse))
         }
     }
 
@@ -187,11 +204,17 @@ class AlarmService : Service() {
     /** The stored talent picture (or topic thumbnail) for the notification. */
     private fun loadPicture(clip: ClipWithPack): Bitmap? = runCatching {
         val uri = Uri.parse(clip.artwork?.takeUnless { it.startsWith("holovoice-collage") } ?: clip.coverUri ?: return null)
-        when (uri.scheme) {
-            "file" -> BitmapFactory.decodeFile(File(uri.path!!).absolutePath)
-            "content" -> contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream)
-            else -> null
+        val open: () -> java.io.InputStream? = when (uri.scheme) {
+            "file" -> { { File(uri.path!!).inputStream() } }
+            "content" -> { { contentResolver.openInputStream(uri) } }
+            else -> return null
         }
+        // Read the size first, then decode small enough for a notification (a huge cover can't run out of memory).
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        open()?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= PICTURE_PX && bounds.outHeight / (sample * 2) >= PICTURE_PX) sample *= 2
+        open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
     }.getOrNull()
 
     private fun notification(alarm: Alarm?, clip: ClipWithPack?, picture: Bitmap?): Notification {
@@ -234,6 +257,8 @@ class AlarmService : Service() {
         private const val RAMP_MS = 20_000L
         private const val RAMP_STEPS = 20
         private const val START_VOLUME = 0.2f
+        private const val PICTURE_PX = 256
+        private const val FALLBACK_NOTIFICATION_ID = 7302
 
         private val _ringing = MutableStateFlow<Ringing?>(null)
         val ringing: StateFlow<Ringing?> = _ringing.asStateFlow()
@@ -244,6 +269,47 @@ class AlarmService : Service() {
             Intent(context, AlarmService::class.java).setAction(action),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+
+        /**
+         * Used when the ringing service can't start from the background: a full-screen notification
+         * opens the alarm screen, which then starts the ringing itself.
+         */
+        fun showFallback(context: Context, alarmId: Long) {
+            runCatching {
+                ensureChannel(context)
+                val open = PendingIntent.getActivity(
+                    context,
+                    alarmId.toInt(),
+                    Intent(context, AlarmActivity::class.java)
+                        .putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_stat_holovoice)
+                    .setContentTitle("Alarm")
+                    .setContentText("Tap to open the alarm")
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setAutoCancel(true)
+                    .setContentIntent(open)
+                    .setFullScreenIntent(open, true)
+                    .build()
+                context.getSystemService(NotificationManager::class.java).notify(FALLBACK_NOTIFICATION_ID, notification)
+            }
+        }
+
+        /** Starts ringing [alarmId] from the alarm screen (after [showFallback]). */
+        fun ringFromScreen(context: Context, alarmId: Long) {
+            context.getSystemService(NotificationManager::class.java).cancel(FALLBACK_NOTIFICATION_ID)
+            runCatching {
+                ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, AlarmService::class.java).setAction(ACTION_RING).putExtra(AlarmReceiver.EXTRA_ALARM_ID, alarmId),
+                )
+            }
+        }
 
         /** Snooze or stop from the alarm screen. */
         fun send(context: Context, action: String) {

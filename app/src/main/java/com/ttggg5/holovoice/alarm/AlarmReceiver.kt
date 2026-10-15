@@ -15,10 +15,16 @@ class AlarmReceiver : BroadcastReceiver() {
         if (intent.action != ACTION_FIRE) return
         val id = intent.getLongExtra(EXTRA_ALARM_ID, -1L)
         if (id < 0) return
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, AlarmService::class.java).setAction(AlarmService.ACTION_RING).putExtra(EXTRA_ALARM_ID, id),
-        )
+        try {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, AlarmService::class.java).setAction(AlarmService.ACTION_RING).putExtra(EXTRA_ALARM_ID, id),
+            )
+        } catch (e: Exception) {
+            // Android refused to start the ringing service from the background: show the alarm screen
+            // through a full-screen notification instead; it starts the ringing once it's open.
+            AlarmService.showFallback(context, id)
+        }
     }
 
     companion object {
