@@ -1,5 +1,18 @@
 package com.ttggg5.holovoice.ui
 
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -259,7 +272,14 @@ fun HoloVoiceRoot(container: AppContainer) {
             Spacer(Modifier.height(8.dp))
         }
     }
-    Box(Modifier.weight(1f).onSizeChanged { playerSheet.height = it.height.toFloat() }) {
+    // Where this area sits on screen, so the mini player's position can be expressed inside it.
+    var areaOrigin by remember { mutableStateOf(Offset.Zero) }
+    Box(
+        Modifier
+            .weight(1f)
+            .onSizeChanged { playerSheet.height = it.height.toFloat() }
+            .onGloballyPositioned { areaOrigin = it.boundsInRoot().topLeft },
+    ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -272,9 +292,14 @@ fun HoloVoiceRoot(container: AppContainer) {
                     enter = expandVertically(Motion.enter(Motion.MEDIUM), expandFrom = Alignment.Top) + fadeIn(Motion.enter(Motion.MEDIUM)),
                     exit = shrinkVertically(Motion.exit(Motion.MEDIUM), shrinkTowards = Alignment.Top) + fadeOut(Motion.exit()),
                 ) {
+                    DisposableEffect(Unit) { onDispose { playerSheet.miniBounds = null } }
                     MiniPlayer(
                         playerState,
                         container.player,
+                        modifier = Modifier
+                            .onGloballyPositioned { playerSheet.miniBounds = it.boundsInRoot().translate(-areaOrigin) }
+                            // Hands over to Now Playing as it grows out of the bar.
+                            .graphicsLayer { alpha = 1f - ((1f - playerSheet.offset.value) / HANDOVER).coerceIn(0f, 1f) },
                         onOpen = playerSheet::open,
                         onSheetDrag = playerSheet::drag,
                         onSheetRelease = playerSheet::release,
@@ -447,17 +472,34 @@ fun HoloVoiceRoot(container: AppContainer) {
     if (playerSheet.isVisible) {
         val open = 1f - playerSheet.offset.value
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = 0.32f * open }.background(Color.Black))
+        val mini = playerSheet.miniBounds
         Box(
             Modifier.fillMaxSize().graphicsLayer {
-                // Follows the drag (and the predictive back swipe): drops, shrinks a little and rounds its corners.
                 val drag = playerSheet.offset.value.coerceIn(0f, 1f)
                 val p = backProgress.value
-                val shrink = (drag * 0.06f + p * 0.08f).coerceAtMost(0.12f)
-                scaleX = 1f - shrink
-                scaleY = 1f - shrink
-                translationY = drag * size.height + p * size.height * 0.08f
-                shape = RoundedCornerShape(((drag * 120) + p * 40).coerceIn(0f, 32f).dp)
-                this.clip = drag > 0f || p > 0f
+                if (mini != null && p == 0f) {
+                    // Grows out of the mini player: the visible box goes from the bar's rectangle to the
+                    // whole area (following the finger), the content isn't scaled, and the player fades in
+                    // while the bar fades out.
+                    // The open/close animation is already eased, so the box follows the offset linearly.
+                    val t = 1f - drag
+                    val grow = t
+                    val full = Rect(Offset.Zero, size)
+                    val box = lerp(mini, full, grow)
+                    translationX = box.left
+                    translationY = box.top
+                    shape = ClipToBox(box.width, box.height, 16.dp.toPx() * (1f - grow))
+                    this.clip = t < 1f
+                    alpha = (t / HANDOVER).coerceIn(0f, 1f)
+                } else {
+                    // Fallback, and the predictive back preview: drops, shrinks a little and rounds its corners.
+                    val shrink = (drag * 0.06f + p * 0.08f).coerceAtMost(0.12f)
+                    scaleX = 1f - shrink
+                    scaleY = 1f - shrink
+                    translationY = drag * size.height + p * size.height * 0.08f
+                    shape = RoundedCornerShape(((drag * 120) + p * 40).coerceIn(0f, 32f).dp)
+                    this.clip = drag > 0f || p > 0f
+                }
             },
         ) {
             NowPlayingScreen(
@@ -484,4 +526,13 @@ fun HoloVoiceRoot(container: AppContainer) {
     }
     }
     }
+}
+
+/** How much of the open/close movement the mini player and Now Playing take to swap places. */
+private const val HANDOVER = 0.35f
+
+/** Clips a layer to its top-left [width] × [height] with rounded corners (Now Playing growing out of the bar). */
+private class ClipToBox(private val width: Float, private val height: Float, private val radius: Float) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
+        Outline.Rounded(RoundRect(0f, 0f, width, height, CornerRadius(radius)))
 }

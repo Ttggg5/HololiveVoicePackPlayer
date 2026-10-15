@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Stable
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,12 @@ class PlayerSheet(private val scope: CoroutineScope, initiallyOpen: Boolean) {
 
     /** Height of the area the player covers, in px. */
     var height by mutableFloatStateOf(1f)
+
+    /**
+     * Where the mini player is, in the coordinates of the area the player covers; Now Playing grows
+     * out of (and shrinks back into) this rectangle. Null when the mini player isn't shown.
+     */
+    var miniBounds by mutableStateOf<Rect?>(null)
 
     /** Where the player is headed: open or closed. */
     var isOpen by mutableStateOf(initiallyOpen)
