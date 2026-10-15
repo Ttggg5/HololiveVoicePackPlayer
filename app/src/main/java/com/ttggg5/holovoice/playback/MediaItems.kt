@@ -35,6 +35,7 @@ fun ClipWithPack.toMediaItem(): MediaItem {
                         putString(ItemExtras.TALENT_SLUGS, orderedTalents.joinToString("\n") { it.slug })
                         putString(ItemExtras.COVER, coverUri)
                         putString(ItemExtras.CATEGORY, clip.category)
+                        clip.trackNo?.let { putInt(ItemExtras.TRACK, it) }
                     },
                 )
                 .setIsPlayable(true)
@@ -52,6 +53,9 @@ object ItemExtras {
     const val TALENT_SLUGS = "talentSlugs"
     const val COVER = "cover"
     const val CATEGORY = "category"
+
+    /** The clip's sequence number from its file name ("03_…" → 3), when it has one. */
+    const val TRACK = "track"
 }
 
 /** A–B loop: the service jumps back to the start whenever playback reaches the end. -1 clears it. */

@@ -33,6 +33,8 @@ data class QueueItem(
     val artworkUri: Uri?,
     /** The topic's thumbnail. */
     val coverUri: String? = null,
+    /** Sequence number from the file name, shown as a "#n" badge. */
+    val trackNo: Int? = null,
 )
 
 data class PlayerState(
@@ -360,6 +362,7 @@ class PlayerController(context: Context, private val prefs: UiPrefs) {
                 subtitle = listOfNotNull(item.mediaMetadata.artist, item.mediaMetadata.albumTitle).joinToString(" · "),
                 artworkUri = item.mediaMetadata.artworkUri,
                 coverUri = item.mediaMetadata.extras?.getString(ItemExtras.COVER),
+                trackNo = item.mediaMetadata.extras?.takeIf { it.containsKey(ItemExtras.TRACK) }?.getInt(ItemExtras.TRACK),
             )
             index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffle)
         }

@@ -92,7 +92,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 private const val REMOVE_HIDE_MS = 2_000L
 
 /**
- * The play queue in sections: shuffle / repeat / clear, NOW PLAYING, UP NEXT (numbered cards: tap to
+ * The play queue in sections: shuffle / repeat / clear, NOW PLAYING, UP NEXT (cards: tap to
  * jump, ⋮ for more, drag the handle to reorder, swipe left to remove with Undo) and a collapsible
  * PLAYED list. Used by the Queue screen, the swipe-up panel in the player, and the player's side
  * panel on large screens. Rows act on their queue key, looked up when the action runs, so quick
@@ -216,7 +216,6 @@ fun QueueList(player: PlayerController, modifier: Modifier = Modifier, showNowPl
                 SwipeRow(onRemove = { remove(item) }) {
                     QueueRow(
                         item = item,
-                        number = local.indexOf(item) + 1,
                         lifted = isDragging,
                         onClick = { player.skipTo(item.key) },
                         menu = { close ->
@@ -282,7 +281,6 @@ fun QueueList(player: PlayerController, modifier: Modifier = Modifier, showNowPl
                         SwipeRow(onRemove = { remove(item) }) {
                             QueueRow(
                                 item = item,
-                                number = null,
                                 faded = true,
                                 onClick = { player.skipTo(item.key) },
                                 menu = { close ->
@@ -324,6 +322,37 @@ fun QueueList(player: PlayerController, modifier: Modifier = Modifier, showNowPl
             },
             dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** The clip's sequence number from its file name as a small "#n" badge (as on the topic page), then who · topic. */
+@Composable
+private fun Details(item: QueueItem) {
+    if (item.trackNo == null && item.subtitle.isEmpty()) return
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+        item.trackNo?.let { n ->
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                modifier = Modifier.padding(end = 6.dp),
+            ) {
+                Text(
+                    "#$n",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                )
+            }
+        }
+        if (item.subtitle.isNotEmpty()) {
+            Text(
+                item.subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -430,9 +459,7 @@ private fun NowRow(item: QueueItem, isPlaying: Boolean, onClick: () -> Unit, mod
             QueueArt(item, 56)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (item.subtitle.isNotEmpty()) {
-                    Text(item.subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+                Details(item)
             }
             EqualizerBars(isPlaying, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(8.dp))
@@ -476,11 +503,10 @@ private fun SwipeRow(onRemove: () -> Unit, content: @Composable () -> Unit) {
     ) { content() }
 }
 
-/** One clip as a rounded card: number, picture, title, who · topic, ⋮ and (optionally) a drag handle. */
+/** One clip as a rounded card: picture, title, #n · who · topic, ⋮ and (optionally) a drag handle. */
 @Composable
 private fun QueueRow(
     item: QueueItem,
-    number: Int?,
     onClick: () -> Unit,
     menu: @Composable (close: () -> Unit) -> Unit,
     lifted: Boolean = false,
@@ -497,26 +523,11 @@ private fun QueueRow(
         shadowElevation = if (lifted) 8.dp else 0.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.alpha(alpha).padding(start = 8.dp, top = 8.dp, bottom = 8.dp)) {
-            Text(
-                number?.toString() ?: "",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(28.dp).padding(end = 4.dp),
-                maxLines = 1,
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.alpha(alpha).padding(start = 12.dp, top = 8.dp, bottom = 8.dp)) {
             QueueArt(item, 44)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(item.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (item.subtitle.isNotEmpty()) {
-                    Text(
-                        item.subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                Details(item)
             }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
