@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Lets voice alarms start their clip in the background on phones with strict battery managers. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Lets a ringing alarm open its screen by itself while the phone is in use. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Voice alarms -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />

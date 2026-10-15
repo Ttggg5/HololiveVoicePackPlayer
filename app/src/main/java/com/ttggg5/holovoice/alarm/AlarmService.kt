@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.alarm
 
+import android.provider.Settings
 import android.media.AudioManager
 import android.media.AudioFocusRequest
 import androidx.core.content.ContextCompat
@@ -136,6 +137,7 @@ class AlarmService : Service() {
                 runCatching {
                     getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(alarm, clip, picture))
                 }
+                openAlarmScreen()
                 AlarmLog.record(this@AlarmService, "Ringing with " + (clip?.let { "\"${it.clip.title}\"" } ?: "the alarm tone (no clip)"))
                 play(clip?.clip?.fileUri?.let(Uri::parse))
             } catch (e: Exception) {
@@ -149,6 +151,29 @@ class AlarmService : Service() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Shows the alarm screen right away. Android only lets apps open a screen from the background
+     * with "Display over other apps"; otherwise the notification's full-screen intent opens it
+     * (when the phone is locked) or it shows as a banner.
+     */
+    private fun openAlarmScreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            !getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+        ) {
+            AlarmLog.record(this, "Full-screen alarms not allowed")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            AlarmLog.record(this, "Display over other apps not allowed; the alarm screen opens only from the notification")
+            return
+        }
+        try {
+            startActivity(Intent(this, AlarmActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION))
+            AlarmLog.record(this, "Opened the alarm screen")
+        } catch (e: Exception) {
+            AlarmLog.record(this, "Couldn't open the alarm screen", e)
         }
     }
 
@@ -281,7 +306,7 @@ class AlarmService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setSilent(true)
+            .setOnlyAlertOnce(true)
             .setContentIntent(fullScreen)
             .setFullScreenIntent(fullScreen, true)
             .addAction(0, "Snooze", serviceIntent(this, ACTION_SNOOZE))

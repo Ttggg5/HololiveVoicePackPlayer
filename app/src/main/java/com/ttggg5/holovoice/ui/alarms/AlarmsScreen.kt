@@ -1,5 +1,7 @@
 package com.ttggg5.holovoice.ui.alarms
 
+import com.ttggg5.holovoice.appContainer
+import androidx.compose.material.icons.filled.Info
 import com.ttggg5.holovoice.alarm.AlarmLog
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.material3.DropdownMenuItem
@@ -470,6 +472,9 @@ private fun PermissionHints() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
                 add("Allow alarms & reminders so alarms ring on time" to Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                add("Allow \"Display over other apps\" so the alarm screen opens by itself" to Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+            }
             if (audio.getStreamVolume(AudioManager.STREAM_ALARM) == 0) {
                 add("Your alarm volume is off, so alarms are silent" to Intent(Settings.ACTION_SOUND_SETTINGS))
             }
@@ -500,6 +505,46 @@ private fun PermissionHints() {
                         modifier = Modifier.padding(start = 12.dp),
                     )
                 }
+            }
+        }
+        VendorAlarmTip()
+    }
+}
+
+/** Phone brands with extra switches that stop alarm screens popping up; the app can't check them. */
+private val STRICT_VENDORS = setOf("xiaomi", "redmi", "poco", "oppo", "realme", "oneplus", "vivo", "iqoo", "huawei", "honor")
+
+@Composable
+private fun VendorAlarmTip() {
+    val context = LocalContext.current
+    val prefs = context.appContainer.uiPrefs
+    val dismissed by prefs.vendorAlarmTipDismissed.state.collectAsStateWithLifecycle()
+    if (dismissed || Build.MANUFACTURER.lowercase() !in STRICT_VENDORS) return
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 12.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(
+                    "On ${Build.MANUFACTURER} phones, also turn on \"Show on lock screen\" and \"Open new windows while " +
+                        "running in the background\" (or \"Pop-up windows\") in this app's permissions, so the alarm screen can pop up.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(start = 12.dp, end = 8.dp),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { prefs.vendorAlarmTipDismissed.set(true) }) { Text("Got it") }
+                TextButton(onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }) { Text("Open app settings") }
             }
         }
     }

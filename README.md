@@ -71,6 +71,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - If the clip can't be played (for example, the file was moved), the system alarm sound plays instead.
 - Alarms survive restarts and time-zone changes.
 - If the phone won't let the alarm start its voice clip in the background (some phones' battery managers block it), the alarm still rings loudly with your phone's alarm tone, repeating, with *Snooze* / *Stop*; tap it to open the alarm screen and hear the voice. The Alarms page shows red hints for anything that can stop alarms working (notifications, exact alarms, full-screen alarms, alarm volume at 0, battery restrictions) and ⋮ → *Alarm log* lists what happened each time an alarm went off, with *Copy* for bug reports.
+- **The alarm screen pops up by itself** when the app may *Display over other apps* (also while you're using the phone); otherwise it opens over the lock screen from the alarm notification, or shows as a banner while the phone is unlocked. On Xiaomi, Oppo, Vivo, Huawei and similar phones also turn on *Show on lock screen* and *Open new windows while running in the background* in the app's permissions; the Alarms page links there.
 - If Android blocks notifications, exact alarms or full-screen alarms, the Alarms screen shows a red row that opens the right setting.
 
 ## Player

@@ -99,6 +99,10 @@ class UiPrefs(context: Context) {
     val autoSyncOnStart = BoolPref("autoSyncOnStart", true)
     val autoMatchTalents = BoolPref("autoMatchTalents", true)
 
+    // Alarms
+    /** The phone-brand tip about lock-screen / pop-up permissions was dismissed. */
+    val vendorAlarmTipDismissed = BoolPref("vendorAlarmTipDismissed", false)
+
     private val _gridCellDp = MutableStateFlow(prefs.getInt("gridCellDp", DEFAULT_GRID_DP))
 
     /** Minimum width of a grid tile; pinch on a grid to change it. */
