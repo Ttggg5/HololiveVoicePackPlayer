@@ -51,6 +51,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a wide 
   - *Sync now*, *Refresh talent list*, *Match all talents* and *Redownload talent pictures*
 - **Synced folders**: every imported folder, with a button to remove it.
 - **Data**: clear the play history.
+- **About**: the app version, *How it works*, and *GitHub* (opens this project's page for the source code, new builds and bug reports).
 
 ## Widget and shortcuts
 

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -99,6 +100,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -150,6 +152,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.openBackup(it, notify) }
     }
+    val uriHandler = LocalUriHandler.current
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
     }
@@ -368,6 +371,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                     SettingRow(Icons.Filled.Info, IconTint.Blue, "Holo Voice", "Version $version")
                     Divider()
                     LinkRow(Icons.AutoMirrored.Filled.HelpOutline, IconTint.Green, "How it works", "A quick tour of the app", onShowHelp)
+                    Divider()
+                    LinkRow(Icons.Filled.Code, IconTint.Indigo, "GitHub", "Source code, new builds and bug reports") {
+                        runCatching { uriHandler.openUri(GITHUB_URL) }.onFailure { notify("No app can open web links") }
+                    }
                     if (crashReport != null) {
                         Divider()
                         LinkRow(Icons.Filled.BugReport, IconTint.Red, "Last crash report", "Copy the details to report the problem") { showCrash = true }
@@ -449,6 +456,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
 }
 
 /** Colours for the small icon badges in front of each row. */
+private const val GITHUB_URL = "https://github.com/Ttggg5/HololiveVoicePackPlayer"
+
 private enum class IconTint(val color: Color) {
     Blue(Color(0xFF3B82F6)),
     Indigo(Color(0xFF6366F1)),
