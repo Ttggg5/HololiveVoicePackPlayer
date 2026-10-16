@@ -10,7 +10,10 @@ val buildNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toI
 
 // The app's own signing key, given to CI as secrets (see README › Building). Without it the debug key is used.
 val keystorePath = providers.environmentVariable("HOLOVOICE_KEYSTORE").orNull?.takeIf { file(it).isFile }
-val keystorePassword = providers.environmentVariable("HOLOVOICE_KEYSTORE_PASSWORD").orNull
+val keystorePassword = providers.environmentVariable("HOLOVOICE_KEYSTORE_PASSWORD").orNull?.takeIf { it.isNotEmpty() }
+if (keystorePath != null && keystorePassword == null) {
+    throw GradleException("HOLOVOICE_KEYSTORE is set but HOLOVOICE_KEYSTORE_PASSWORD is missing")
+}
 
 android {
     namespace = "com.ttggg5.holovoice"
