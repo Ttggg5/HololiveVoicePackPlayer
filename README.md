@@ -97,6 +97,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - Rewind and skip-ahead buttons sit beside previous and next. They jump 10 seconds by default; change this in Settings, or long-press either button.
 - **A–B loop**: tap *A–B* to mark the start, tap again to mark the end, and that part repeats (also with the screen off). Tap *Loop* to stop; it also ends when the next clip starts.
 - The player opens over the page you're on. Drag it down (you see that page underneath) or press back to close it. Tapping the media notification opens it.
+- **Mini player**: a rounded card floating above the tabs, over the playing topic's blurred thumbnail. It shows the topic thumbnail with the talent's picture as a badge, the title, the talent and topic, *Next* and a round play/pause button, with the progress along its bottom edge. Swipe right on it for the previous clip.
 - Swipe up on the mini player (or tap it) and Now Playing grows out of the bar, following your finger; drag it down and it shrinks back into the bar.
 - **Close the player**: drag the mini player down (it follows your finger), or tap ✕ on it while paused. Playback stops and the queue is cleared, with *Undo* to bring it all back.
 - Swipe up on the player, or tap the *Up next* bar, to see the queue; it rises with your finger, and you pull it down (by its header, or from the top of the list) to close it. Drag down to close the player.

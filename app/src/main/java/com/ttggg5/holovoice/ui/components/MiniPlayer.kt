@@ -7,6 +7,15 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.graphics.SolidColor
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -30,10 +39,8 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,7 +72,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
 
-/** Compact player bar showing the clip, its talent and its topic; tap it to open Now Playing. */
+/** Rounded corners of the mini player card (Now Playing grows out of it with the same corners). */
+val MiniPlayerCorner = 20.dp
+
+/**
+ * Floating card showing the clip, its talent and its topic; tap it to open Now Playing.
+ * Swipe left/right for next/previous, up to open, down to close.
+ */
 @Composable
 fun MiniPlayer(
     state: PlayerState,
@@ -74,116 +87,146 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
     onSheetDrag: (Float) -> Unit = {},
     onSheetRelease: (Float) -> Unit = {},
-    /** Closes the player (swipe the bar down, or ✕ while paused). */
+    /** Closes the player (swipe the card down, or ✕ while paused). */
     onDismiss: () -> Unit = {},
 ) {
     val position by player.position.collectAsStateWithLifecycle(initialValue = 0L)
-    // How far the bar has been pulled down towards closing.
+    // How far the card has been pulled down towards closing.
     val offsetY = remember { Animatable(0f) }
     // How far the clip has been swiped sideways towards next/previous.
     val offsetX = remember { Animatable(0f) }
-    Surface(
-        tonalElevation = 3.dp,
-        shadowElevation = 6.dp,
-        // Gestures are read here, outside the moving layer, so the bar can follow the finger.
-        modifier = modifier.fillMaxWidth().playerSwipes(state, player, onSheetDrag, onSheetRelease, offsetX, offsetY, onDismiss).graphicsLayer {
-            translationY = offsetY.value
-            alpha = 1f - (offsetY.value / size.height.coerceAtLeast(1f)).coerceIn(0f, 0.8f)
-        },
-    ) {
-        Box {
-        // The playing topic's thumbnail, blurred, behind the mini player.
-        BlurredCover(
-            model = state.coverUri ?: state.talentImageUrl,
-            wash = SolidColor(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)),
-            modifier = Modifier.matchParentSize(),
-            blur = 3.dp,
-        )
-        Column {
-            LinearProgressIndicator(
-                progress = { if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },
-                modifier = Modifier.fillMaxWidth().height(2.dp),
-                drawStopIndicator = {},
-                gapSize = 0.dp,
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .graphicsLayer {
-                        translationX = offsetX.value
-                        alpha = 1f - (abs(offsetX.value) / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.6f)
-                    }
-                    .clickable(onClick = onOpen)
-                    .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-            ) {
-                // Track info slides up when the clip changes.
-                AnimatedContent(
-                    targetState = state,
-                    contentKey = { it.clipId },
-                    transitionSpec = {
-                        (slideInVertically(Motion.enter()) { it / 2 } + fadeIn(Motion.enter(delay = 60))) togetherWith
-                            (slideOutVertically(Motion.exit()) { -it / 2 } + fadeOut(Motion.exit())) using
-                            SizeTransform(clip = false)
-                    },
-                    label = "miniPlayerTrack",
-                    modifier = Modifier.weight(1f),
-                ) { s ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box {
-                            // A collage for clips with several talents, otherwise the talent's picture.
-                            Artwork(
-                                s.artworkUri ?: s.talentImageUrl,
-                                Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                                iconSize = 22.dp,
-                            )
-                            EqualizerBars(
-                                playing = s.isPlaying,
-                                size = 14.dp,
-                                modifier = Modifier.align(Alignment.BottomEnd),
-                            )
+    val shape = RoundedCornerShape(MiniPlayerCorner)
+    Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        Surface(
+            shape = shape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 3.dp,
+            shadowElevation = 8.dp,
+            // Gestures are read here, outside the moving layer, so the card can follow the finger.
+            modifier = modifier.fillMaxWidth().playerSwipes(state, player, onSheetDrag, onSheetRelease, offsetX, offsetY, onDismiss).graphicsLayer {
+                translationY = offsetY.value
+                alpha = 1f - (offsetY.value / size.height.coerceAtLeast(1f)).coerceIn(0f, 0.8f)
+            },
+        ) {
+            Box {
+                // The playing topic's thumbnail, blurred, behind the card.
+                BlurredCover(
+                    model = state.coverUri ?: state.talentImageUrl,
+                    wash = SolidColor(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)),
+                    modifier = Modifier.matchParentSize(),
+                    blur = 3.dp,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .graphicsLayer {
+                            translationX = offsetX.value
+                            alpha = 1f - (abs(offsetX.value) / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.6f)
                         }
-                        Column(Modifier.padding(horizontal = 12.dp)) {
-                            Text(s.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (s.subtitle.isNotEmpty() && s.subtitle != s.title) {
-                                Text(
-                                    s.subtitle,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            TopicLine(s.album, s.category)
-                        }
-                    }
-                }
-                // While paused the first button closes the player (previous is still a swipe right away).
-                AnimatedContent(
-                    targetState = state.isPlaying,
-                    transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.6f)) togetherWith (fadeOut() + scaleOut(targetScale = 0.6f)) },
-                    label = "miniFirstButton",
-                ) { playing ->
-                    if (playing) {
-                        IconButton(onClick = player::previous) {
-                            Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous")
-                        }
-                    } else {
+                        .clickable(onClick = onOpen)
+                        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 11.dp),
+                ) {
+                    // Track info slides up when the clip changes.
+                    AnimatedContent(
+                        targetState = state,
+                        contentKey = { it.clipId },
+                        transitionSpec = {
+                            (slideInVertically(Motion.enter()) { it / 2 } + fadeIn(Motion.enter(delay = 60))) togetherWith
+                                (slideOutVertically(Motion.exit()) { -it / 2 } + fadeOut(Motion.exit())) using
+                                SizeTransform(clip = false)
+                        },
+                        label = "miniPlayerTrack",
+                        modifier = Modifier.weight(1f),
+                    ) { s -> TrackInfo(s) }
+                    // While paused a ✕ appears to close the player.
+                    AnimatedVisibility(
+                        visible = !state.isPlaying,
+                        enter = fadeIn() + scaleIn(initialScale = 0.6f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.6f),
+                    ) {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Filled.Close, contentDescription = "Close player")
+                            Icon(Icons.Filled.Close, contentDescription = "Close player", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    IconButton(onClick = player::next, enabled = state.hasNext) {
+                        Icon(Icons.Filled.SkipNext, contentDescription = "Next")
+                    }
+                    FilledIconButton(onClick = player::togglePlayPause, modifier = Modifier.size(44.dp)) {
+                        PlayPauseIcon(state.isPlaying)
+                    }
                 }
-                IconButton(onClick = player::togglePlayPause) {
-                    PlayPauseIcon(state.isPlaying)
-                }
-                IconButton(onClick = player::next, enabled = state.hasNext) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next")
+                // Progress along the card's bottom edge (clipped to its rounded corners).
+                Box(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
                 }
             }
         }
+    }
+}
+
+/** Topic thumbnail with the talent's picture as a badge, then the title and "Talent · Topic". */
+@Composable
+private fun TrackInfo(s: PlayerState) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(52.dp)) {
+            Artwork(
+                s.coverUri ?: s.artworkUri ?: s.talentImageUrl,
+                Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)),
+                iconSize = 22.dp,
+            )
+            EqualizerBars(
+                playing = s.isPlaying,
+                size = 14.dp,
+                modifier = Modifier.align(Alignment.TopStart).padding(3.dp),
+            )
+            // The talent (or a collage of several) when the thumbnail is the topic's.
+            val badge = (s.artworkUri ?: s.talentImageUrl)?.takeIf { s.coverUri != null }
+            if (badge != null) {
+                Artwork(
+                    badge,
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .border(2.dp, MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
+                    iconSize = 12.dp,
+                )
+            }
+        }
+        Column(Modifier.padding(horizontal = 10.dp)) {
+            Text(
+                s.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val talent = s.subtitle.takeIf { it.isNotEmpty() && it != s.title }
+            val topic = listOfNotNull(s.album.takeIf { it.isNotEmpty() }, s.category).joinToString(" › ")
+            if (talent != null || topic.isNotEmpty()) {
+                Text(
+                    buildAnnotatedString {
+                        if (talent != null) withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)) { append(talent) }
+                        if (talent != null && topic.isNotEmpty()) append(" · ")
+                        append(topic)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
