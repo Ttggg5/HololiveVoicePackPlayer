@@ -155,7 +155,7 @@ private fun Modifier.revealWidth(fraction: Float): Modifier = clipToBounds().lay
  */
 @Composable
 fun GlassNavRail(entries: List<NavEntry>, position: () -> Float, footer: NavEntry?, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = CircleShape
     Box(
         modifier
             .fillMaxHeight()
@@ -166,7 +166,7 @@ fun GlassNavRail(entries: List<NavEntry>, position: () -> Float, footer: NavEntr
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.liquidGlass(shape).fillMaxHeight().width(80.dp).padding(vertical = 14.dp),
+                modifier = Modifier.liquidGlass(shape).fillMaxHeight().width(80.dp).padding(vertical = 24.dp),
             ) {
                 RailTabs(entries, position)
                 Spacer(Modifier.weight(1f))
