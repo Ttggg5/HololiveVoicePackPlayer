@@ -101,7 +101,8 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 - Swipe up on the mini player (or tap it) and Now Playing grows out of the bar, following your finger; drag it down and it shrinks back into the bar.
 - **Close the player**: drag the mini player down (it follows your finger), or tap ✕ on it while paused. Playback stops and the queue is cleared, with *Undo* to bring it all back.
 - Swipe up on the player, or tap the *Up next* bar, to see the queue; it rises with your finger, and you pull it down (by its header, or from the top of the list) to close it. Drag down to close the player.
-- On wide screens (840dp and up, e.g. tablets in landscape), a side rail replaces the bottom bar, and the player shows the queue beside the controls.
+- On wide screens (840dp and up, e.g. tablets in landscape), a floating glass side rail (with Settings at the bottom) replaces the bottom bar, and the player shows the queue beside the controls.
+- **Tabs**: a floating liquid-glass pill under the mini player. The current tab sits in an accent bubble with its name; the others show just their icon, and the bubble grows into the tab you pick.
 - The bottom bar stays on every page; tap the highlighted tab again to jump back to its top page. On Android 14+, the back swipe shows the page you're going back to as you swipe.
 - The notification and lock-screen player show the topic thumbnail as the background with the talent picture on top (an accent-coloured gradient when the topic has no thumbnail), and the status bar shows the app's own icon.
 

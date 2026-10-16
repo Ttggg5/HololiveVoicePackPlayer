@@ -52,11 +52,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -90,13 +86,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
 import com.ttggg5.holovoice.ui.components.WIDE_LAYOUT_MIN_DP
 import com.ttggg5.holovoice.ui.components.MiniPlayerCorner
+import com.ttggg5.holovoice.ui.components.GlassNavBar
+import com.ttggg5.holovoice.ui.components.GlassNavRail
+import com.ttggg5.holovoice.ui.components.NavEntry
 import com.ttggg5.holovoice.ui.components.NoHaptics
 import com.ttggg5.holovoice.ui.alarms.AlarmsScreen
 import com.ttggg5.holovoice.ui.alarms.AlarmsViewModel
@@ -263,25 +260,10 @@ fun HoloVoiceRoot(container: AppContainer) {
     ) {
     Row(Modifier.fillMaxSize()) {
     if (wide) {
-        NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            Spacer(Modifier.height(8.dp))
-            Tab.entries.forEach { tab ->
-                NavigationRailItem(
-                    selected = currentTab == tab,
-                    onClick = { selectTab(tab) },
-                    icon = { Icon(tab.icon, contentDescription = null) },
-                    label = { Text(tab.label) },
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            NavigationRailItem(
-                selected = route == SETTINGS,
-                onClick = openSettings,
-                icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                label = { Text("Settings") },
-            )
-            Spacer(Modifier.height(8.dp))
-        }
+        GlassNavRail(
+            entries = Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } },
+            footer = NavEntry("Settings", Icons.Filled.Settings, route == SETTINGS, openSettings),
+        )
     }
     // Where this area sits on screen, so the mini player's position can be expressed inside it.
     var areaOrigin by remember { mutableStateOf(Offset.Zero) }
@@ -318,16 +300,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                     )
                 }
                 if (!wide) {
-                    NavigationBar {
-                        Tab.entries.forEach { tab ->
-                            NavigationBarItem(
-                                selected = currentTab == tab,
-                                onClick = { selectTab(tab) },
-                                icon = { Icon(tab.icon, contentDescription = null) },
-                                label = { Text(tab.label) },
-                            )
-                        }
-                    }
+                    GlassNavBar(Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } })
                 } else {
                     Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
