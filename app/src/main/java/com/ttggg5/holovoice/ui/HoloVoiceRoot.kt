@@ -262,6 +262,7 @@ fun HoloVoiceRoot(container: AppContainer) {
     if (wide) {
         GlassNavRail(
             entries = Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } },
+            position = { tabPager.currentPage + tabPager.currentPageOffsetFraction },
             footer = NavEntry("Settings", Icons.Filled.Settings, route == SETTINGS, openSettings),
         )
     }
@@ -300,7 +301,10 @@ fun HoloVoiceRoot(container: AppContainer) {
                     )
                 }
                 if (!wide) {
-                    GlassNavBar(Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } })
+                    GlassNavBar(
+                        Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } },
+                        position = { tabPager.currentPage + tabPager.currentPageOffsetFraction },
+                    )
                 } else {
                     Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
