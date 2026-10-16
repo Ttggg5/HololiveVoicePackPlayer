@@ -90,7 +90,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
 import com.ttggg5.holovoice.ui.components.WIDE_LAYOUT_MIN_DP
-import com.ttggg5.holovoice.ui.components.MiniPlayerCorner
 import com.ttggg5.holovoice.ui.components.GlassNavBar
 import com.ttggg5.holovoice.ui.components.GlassNavRail
 import com.ttggg5.holovoice.ui.components.NavEntry
@@ -492,7 +491,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                     val box = lerp(mini, full, grow)
                     translationX = box.left
                     translationY = box.top
-                    shape = ClipToBox(box.width, box.height, MiniPlayerCorner.toPx() * (1f - grow))
+                    shape = ClipToBox(box.width, box.height, mini.height / 2f * (1f - grow))
                     this.clip = t < 1f
                     alpha = (t / HANDOVER).coerceIn(0f, 1f)
                 } else {

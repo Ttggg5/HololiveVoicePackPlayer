@@ -7,10 +7,10 @@ import androidx.compose.material.icons.filled.Close
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.buildAnnotatedString
@@ -72,11 +72,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ttggg5.holovoice.playback.PlayerController
 import com.ttggg5.holovoice.playback.PlayerState
 
-/** Rounded corners of the mini player card (Now Playing grows out of it with the same corners). */
-val MiniPlayerCorner = 20.dp
 
 /**
- * Floating card showing the clip, its talent and its topic; tap it to open Now Playing.
+ * Floating glass pill showing the clip, its talent and its topic; tap it to open Now Playing.
  * Swipe left/right for next/previous, up to open, down to close.
  */
 @Composable
@@ -95,7 +93,7 @@ fun MiniPlayer(
     val offsetY = remember { Animatable(0f) }
     // How far the clip has been swiped sideways towards next/previous.
     val offsetX = remember { Animatable(0f) }
-    val shape = RoundedCornerShape(MiniPlayerCorner)
+    val shape = CircleShape
     Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
         Surface(
             shape = shape,
@@ -117,7 +115,7 @@ fun MiniPlayer(
                             alpha = 1f - (abs(offsetX.value) / size.width.coerceAtLeast(1f)).coerceIn(0f, 0.6f)
                         }
                         .clickable(onClick = onOpen)
-                        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 11.dp),
+                        .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 ) {
                     // Track info slides up when the clip changes.
                     AnimatedContent(
@@ -144,44 +142,40 @@ fun MiniPlayer(
                     IconButton(onClick = player::next, enabled = state.hasNext) {
                         Icon(Icons.Filled.SkipNext, contentDescription = "Next")
                     }
-                    FilledIconButton(onClick = player::togglePlayPause, modifier = Modifier.size(44.dp)) {
-                        PlayPauseIcon(state.isPlaying)
+                    // Play/pause inside a ring that fills up as the clip plays.
+                    Box(Modifier.size(50.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            progress = { if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f },
+                            modifier = Modifier.fillMaxSize(),
+                            strokeWidth = 3.dp,
+                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            strokeCap = StrokeCap.Round,
+                            gapSize = 0.dp,
+                        )
+                        FilledIconButton(onClick = player::togglePlayPause, modifier = Modifier.size(40.dp)) {
+                            PlayPauseIcon(state.isPlaying)
+                        }
                     }
-                }
-                // Progress along the card's bottom edge (clipped to its rounded corners).
-                Box(
-                    Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                ) {
-                    Box(
-                        Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(if (state.durationMs > 0) (position.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f)
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
                 }
             }
         }
     }
 }
 
-/** Topic thumbnail with the talent's picture as a badge, then the title and "Talent · Topic". */
+/** Round topic thumbnail with the talent's picture as a badge, then the title and "Talent · Topic". */
 @Composable
 private fun TrackInfo(s: PlayerState) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(52.dp)) {
             Artwork(
                 s.coverUri ?: s.artworkUri ?: s.talentImageUrl,
-                Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)),
+                Modifier.size(48.dp).clip(CircleShape),
                 iconSize = 22.dp,
             )
             EqualizerBars(
                 playing = s.isPlaying,
                 size = 14.dp,
-                modifier = Modifier.align(Alignment.TopStart).padding(3.dp),
+                modifier = Modifier.align(Alignment.TopStart),
             )
             // The talent (or a collage of several) when the thumbnail is the topic's.
             val badge = (s.artworkUri ?: s.talentImageUrl)?.takeIf { s.coverUri != null }
