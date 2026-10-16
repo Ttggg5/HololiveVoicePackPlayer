@@ -54,7 +54,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a wide 
 
 ## Widget and shortcuts
 
-- **Home-screen widget**: long-press your home screen → Widgets → Holo Voice. It shows the playing clip's talent picture, title and who is speaking over the topic's thumbnail, with previous, play/pause and next. The buttons work even when the app is closed (the last queue continues), and tapping the widget opens Now Playing. It's resizable (4×2 by default).
+- **Home-screen widget**: long-press your home screen → Widgets → Holo Voice. It's a frosted glass card (the wallpaper shows faintly through it) with the topic thumbnail and the talent's picture as a badge, the title, who is speaking and the topic, and previous, a round play/pause and next. The buttons work even when the app is closed (the last queue continues), and tapping the widget opens Now Playing. It's resizable (4×2 by default); on Android 12+ a short widget becomes a single row with play/pause and next.
 - **App shortcuts**: long-press the app icon for *Continue*, *Shuffle all* and *Favorites*, plus *Shuffle* for your two most played talents. Drag one to the home screen to pin it.
 
 ## Listening stats

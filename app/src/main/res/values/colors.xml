@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Home-screen widget (light) -->
-    <color name="widget_background">#FFF7F9FC</color>
-    <color name="widget_scrim">#C8F7F9FC</color>
+    <!-- Widget "liquid glass": translucent pane (shows the wallpaper), sheen, rim, round buttons, badge ring -->
+    <color name="widget_glass_top">#D9FFFFFF</color>
+    <color name="widget_glass_bottom">#C7EEF2F8</color>
+    <color name="widget_glass_sheen">#66FFFFFF</color>
+    <color name="widget_glass_rim">#B3FFFFFF</color>
+    <color name="widget_glass_button">#80FFFFFF</color>
+    <color name="widget_badge_ring">#F2FFFFFF</color>
     <color name="widget_text">#FF1A1C1E</color>
     <color name="widget_text_secondary">#FF44474E</color>
     <color name="widget_accent">#FF1E9BD7</color>
