@@ -264,6 +264,8 @@ fun HoloVoiceRoot(container: AppContainer) {
             entries = Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } },
             position = { tabPager.currentPage + tabPager.currentPageOffsetFraction },
             footer = NavEntry("Settings", Icons.Filled.Settings, route == SETTINGS, openSettings),
+            // The rail's strip (also behind the status and navigation bars) uses the page colour.
+            modifier = Modifier.background(MaterialTheme.colorScheme.background),
         )
     }
     // Where this area sits on screen, so the mini player's position can be expressed inside it.

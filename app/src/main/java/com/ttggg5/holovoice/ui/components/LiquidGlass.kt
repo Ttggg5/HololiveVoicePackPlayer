@@ -40,7 +40,9 @@ fun Modifier.liquidGlass(shape: Shape): Modifier {
             (if (dark) Color.White else Color.Black).copy(alpha = 0.06f),
         ),
     )
+    // An opaque base first: whatever is behind (the window, the card's own shadow) must not show through.
     return this
+        .background(colors.background, shape)
         .background(pane, shape)
         .background(sheen, shape)
         .border(1.dp, rim, shape)
