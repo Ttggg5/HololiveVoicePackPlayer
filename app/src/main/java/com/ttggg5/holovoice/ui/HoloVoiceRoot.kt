@@ -27,6 +27,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.ttggg5.holovoice.ui.nowplaying.PlayerSheet
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -87,9 +90,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.ttggg5.holovoice.ui.components.LocalIsWideLayout
 import com.ttggg5.holovoice.ui.components.WIDE_LAYOUT_MIN_DP
+import com.ttggg5.holovoice.ui.components.isDockedLayout
 import com.ttggg5.holovoice.ui.components.GlassNavBar
 import com.ttggg5.holovoice.ui.components.GlassNavRail
 import com.ttggg5.holovoice.ui.components.NavEntry
@@ -171,6 +176,10 @@ fun HoloVoiceRoot(container: AppContainer) {
 
     val onTabs = route == TABS
 
+    // Unfolded foldables (a wide, near-square window): pages on the left, Now Playing docked on the right.
+    val configuration = LocalConfiguration.current
+    val docked = isDockedLayout(configuration.screenWidthDp, configuration.screenHeightDp)
+
     // Now Playing is an overlay sheet above the pages; drags from the mini player and the player move it.
     val overlayScope = rememberCoroutineScope()
     var savedPlayerOpen by rememberSaveable { mutableStateOf(false) }
@@ -180,9 +189,12 @@ fun HoloVoiceRoot(container: AppContainer) {
     LaunchedEffect(playerSheet.isOpen) { if (playerSheet.isOpen) backProgress.snapTo(0f) }
     // Nothing to show once the queue is cleared.
     LaunchedEffect(playerState.clipId) { if (playerState.clipId == null && playerSheet.isOpen) playerSheet.close() }
+    // Docked, the player is always on screen: no sheet to open.
+    LaunchedEffect(docked) { if (docked && playerSheet.isOpen) playerSheet.close() }
     // Tapping a clip opens the player once the controller reports that clip, so the sheet never opens empty.
     LaunchedEffect(Unit) {
         container.player.openRequests.collect { id ->
+            if (docked) return@collect
             withTimeoutOrNull(2_000) { snapshotFlow { playerState.clipId }.first { it == id } }?.let { playerSheet.open() }
         }
     }
@@ -191,7 +203,7 @@ fun HoloVoiceRoot(container: AppContainer) {
     LaunchedEffect(openPlayerRequest) {
         if (openPlayerRequest) {
             container.openPlayerRequested.value = false
-            playerSheet.open()
+            if (!docked) playerSheet.open()
         }
     }
 
@@ -234,7 +246,7 @@ fun HoloVoiceRoot(container: AppContainer) {
         goToTab(Tab.Home)
     }
     // Back closes the player, previewing it on Android 14+ (it shrinks and drops with the swipe).
-    PredictiveBackHandler(enabled = playerSheet.isOpen) { events ->
+    PredictiveBackHandler(enabled = playerSheet.isOpen && !docked) { events ->
         try {
             events.collect { backProgress.snapTo(it.progress) }
             playerSheet.close()
@@ -251,14 +263,14 @@ fun HoloVoiceRoot(container: AppContainer) {
 
     // Wide windows (840dp+, e.g. tablets in landscape): navigation rail on the side instead of the bottom bar.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-    val wide = maxWidth >= WIDE_LAYOUT_MIN_DP.dp
+    val wide = !docked && maxWidth >= WIDE_LAYOUT_MIN_DP.dp
     CompositionLocalProvider(
         LocalUndo provides undo,
         LocalIsWideLayout provides wide,
         LocalHapticFeedback provides if (hapticsOn) systemHaptics else NoHaptics,
     ) {
     Row(Modifier.fillMaxSize()) {
-    if (wide) {
+    if (wide || docked) {
         GlassNavRail(
             entries = Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } },
             position = { tabPager.currentPage + tabPager.currentPageOffsetFraction },
@@ -283,7 +295,7 @@ fun HoloVoiceRoot(container: AppContainer) {
             // Always laid out, so pages never change size mid-transition (Now Playing simply covers them).
             Column {
                 AnimatedVisibility(
-                    visible = playerState.clipId != null,
+                    visible = playerState.clipId != null && !docked,
                     enter = expandVertically(Motion.enter(Motion.MEDIUM), expandFrom = Alignment.Top) + fadeIn(Motion.enter(Motion.MEDIUM)),
                     exit = shrinkVertically(Motion.exit(Motion.MEDIUM), shrinkTowards = Alignment.Top) + fadeOut(Motion.exit()),
                 ) {
@@ -301,7 +313,7 @@ fun HoloVoiceRoot(container: AppContainer) {
                         onDismiss = { container.player.dismiss { restore -> undo.show("Player closed", restore) } },
                     )
                 }
-                if (!wide) {
+                if (!wide && !docked) {
                     GlassNavBar(
                         Tab.entries.map { tab -> NavEntry(tab.label, tab.icon, currentTab == tab) { selectTab(tab) } },
                         position = { tabPager.currentPage + tabPager.currentPageOffsetFraction },
@@ -472,7 +484,7 @@ fun HoloVoiceRoot(container: AppContainer) {
     }
 
     // Now Playing opens over the current page, so that page shows underneath while it slides or is dragged.
-    if (playerSheet.isVisible) {
+    if (playerSheet.isVisible && !docked) {
         val open = 1f - playerSheet.offset.value
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = 0.32f * open }.background(Color.Black))
         val mini = playerSheet.miniBounds
@@ -525,6 +537,26 @@ fun HoloVoiceRoot(container: AppContainer) {
             )
         }
     }
+    }
+    if (docked) {
+        // Now Playing on the right half (exactly, so the split sits on the fold).
+        Box(
+            Modifier
+                .width(maxWidth / 2)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)),
+        ) {
+            NowPlayingScreen(
+                viewModel = viewModel { NowPlayingViewModel(repository, container.player) },
+                player = container.player,
+                playerSheet = playerSheet,
+                docked = true,
+                onBack = {},
+                onOpenQueue = { nav.navigate(QUEUE) { launchSingleTop = true } },
+                onOpenTopic = { id -> nav.navigate("pack/$id") },
+                onOpenTalent = { slug -> nav.navigate("talent/$slug") },
+            )
+        }
     }
     }
     }

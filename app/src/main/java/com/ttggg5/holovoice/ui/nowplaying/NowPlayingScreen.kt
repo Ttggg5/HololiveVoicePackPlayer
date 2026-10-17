@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -151,6 +152,8 @@ fun NowPlayingScreen(
     onOpenTopic: (Long) -> Unit,
     onOpenTalent: (String) -> Unit,
     playerSheet: PlayerSheet,
+    /** Shown permanently beside the pages (unfolded foldables): nothing to close or minimize. */
+    docked: Boolean = false,
 ) {
     val state by player.state.collectAsStateWithLifecycle()
     val clip by viewModel.currentClip.collectAsStateWithLifecycle()
@@ -162,7 +165,7 @@ fun NowPlayingScreen(
     // Drag the whole screen down to minimize it into the mini player; the sheet follows the finger.
     val prefs = LocalContext.current.appContainer.uiPrefs
     val playerSwipes by prefs.playerSwipes.state.collectAsStateWithLifecycle()
-    val wide = LocalIsWideLayout.current
+    val wide = LocalIsWideLayout.current && !docked
     // The Up next queue (phones) rises from the bottom with the finger, like the player itself.
     val scope = rememberCoroutineScope()
     val queueSheet = remember { PlayerSheet(scope, initiallyOpen = false) }
@@ -172,7 +175,7 @@ fun NowPlayingScreen(
     var dragTarget by remember { mutableStateOf<PlayerSheet?>(null) }
     val verticalDrag = rememberDraggableState { delta ->
         val target = dragTarget
-            ?: (if (delta < 0f && !wide && playerSheet.offset.value <= 0f) queueSheet else playerSheet).also { dragTarget = it }
+            ?: (if (docked || (delta < 0f && !wide && playerSheet.offset.value <= 0f)) queueSheet else playerSheet).also { dragTarget = it }
         target.drag(delta)
     }
     Box(Modifier.fillMaxSize()) {
@@ -186,7 +189,7 @@ fun NowPlayingScreen(
                 enabled = playerSwipes && !queueSheet.isOpen,
                 onDragStarted = { dragTarget = null },
                 onDragStopped = { velocity ->
-                    (dragTarget ?: playerSheet).release(velocity)
+                    (dragTarget ?: if (docked) queueSheet else playerSheet).release(velocity)
                     dragTarget = null
                 },
             ),
@@ -196,8 +199,10 @@ fun NowPlayingScreen(
                 title = { Text("Now playing") },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close")
+                    if (!docked) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close")
+                        }
                     }
                 },
                 actions = {
@@ -212,7 +217,23 @@ fun NowPlayingScreen(
     ) { padding ->
         if (state.clipId == null) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Nothing is playing", style = MaterialTheme.typography.titleMedium)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Filled.MusicNote,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(56.dp),
+                    )
+                    Text("Nothing is playing", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+                    if (docked) {
+                        Text(
+                            "Tap a clip on the left to start",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
             }
             return@Scaffold
         }

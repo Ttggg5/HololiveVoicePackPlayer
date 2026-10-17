@@ -18,3 +18,15 @@ val LocalIsWideLayout = staticCompositionLocalOf { false }
 object NoHaptics : HapticFeedback {
     override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
 }
+
+/**
+ * True for an unfolded foldable (e.g. Galaxy Z Fold): a window at least 600dp wide that is close to
+ * square. The pages then take the left half and Now Playing is docked on the right half, so the split
+ * sits on the fold. Tablets (much wider than tall in landscape, much taller in portrait) and phones
+ * keep their own layouts.
+ */
+fun isDockedLayout(widthDp: Int, heightDp: Int): Boolean {
+    if (widthDp < 600 || heightDp <= 0) return false
+    val ratio = widthDp.toFloat() / heightDp
+    return ratio in 0.75f..1.45f
+}
