@@ -264,6 +264,8 @@ fun HoloVoiceRoot(container: AppContainer) {
     // Wide windows (840dp+, e.g. tablets in landscape): navigation rail on the side instead of the bottom bar.
     BoxWithConstraints(Modifier.fillMaxSize()) {
     val wide = !docked && maxWidth >= WIDE_LAYOUT_MIN_DP.dp
+    // Docked: Now Playing takes exactly the right half, so the split sits on the fold.
+    val dockedPaneWidth = maxWidth / 2
     CompositionLocalProvider(
         LocalUndo provides undo,
         LocalIsWideLayout provides wide,
@@ -542,7 +544,7 @@ fun HoloVoiceRoot(container: AppContainer) {
         // Now Playing on the right half (exactly, so the split sits on the fold).
         Box(
             Modifier
-                .width(maxWidth / 2)
+                .width(dockedPaneWidth)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)),
         ) {
