@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      # Publishing the build as a GitHub Release (the app updates itself from there).
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -40,6 +43,18 @@ jobs:
         with:
           name: holovoice-0.1.${{ github.run_number }}-debug
           path: app/build/outputs/apk/debug/*.apk
+      # Every pushed build signed with the app key becomes the latest GitHub Release; the app's
+      # "Check for updates" downloads it from there. Only the 10 newest releases are kept.
+      - name: Publish release
+        if: github.event_name == 'push' && env.HOLOVOICE_KEYSTORE != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="0.1.${{ github.run_number }}"
+          cp app/build/outputs/apk/release/app-release.apk "holovoice-$V.apk"
+          gh release create "v$V" "holovoice-$V.apk" --target "${{ github.sha }}" \
+            --title "Holo Voice $V" --notes "$(git log -1 --pretty=%s)" --latest
+          gh release list --limit 100 --json tagName --jq '.[10:][].tagName' | xargs -r -n1 gh release delete --cleanup-tag -y
       - uses: actions/upload-artifact@v4
         if: always()
         with:

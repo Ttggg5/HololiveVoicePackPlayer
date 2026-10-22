@@ -1,5 +1,9 @@
 package com.ttggg5.holovoice.ui.home
 
+import com.ttggg5.holovoice.update.UpdateCard
+import com.ttggg5.holovoice.update.cardRelease
+import com.ttggg5.holovoice.appContainer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -144,6 +148,9 @@ fun HomeScreen(
         return
     }
 
+    val updater = LocalContext.current.appContainer.updater
+    val updateState by updater.state.collectAsStateWithLifecycle()
+    val updateDismissed by updater.dismissed.collectAsStateWithLifecycle()
     val today = smart.talentOfTheDay?.takeIf { it.clips.isNotEmpty() }
     val hasClip = state.clipId != null
     val onClipLongClick: (ClipWithPack) -> Unit = { actionsFor = it }
@@ -158,6 +165,9 @@ fun HomeScreen(
     ) {
         item(key = "header") {
             HomeHeader(onShowHelp = onShowHelp, onOpenSettings = onOpenSettings, onOpenAlarms = onOpenAlarms)
+        }
+        if (updateState.cardRelease(updateDismissed) != null) {
+            item(key = "update") { UpdateCard(Modifier.padding(horizontal = 16.dp)) }
         }
         if (hasClip || today != null) {
             item(key = "hero") {

@@ -4,7 +4,7 @@ An Android app for listening to the Hololive voice packs you own (for example, o
 The app ships no audio of its own. You import your packs from your phone.
 
 ## Features
-- **Home**: a big hero card at the top shows what's playing over its blurred topic thumbnail (with play/pause and progress; tap for Now Playing), or *Talent of the day* (a different talent each day) when nothing is loaded. Quick chips below it: *Shuffle all*, *Favorites*, *New for you*, *Most played*, *Stats* and *Alarms*. Then shelves: your talents, recently played, new topics, *Not played yet*, *Most played* and favorites; clip cards show the topic thumbnail with a small talent badge. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
+- **Home**: a big hero card at the top shows what's playing over its blurred topic thumbnail (with play/pause and progress; tap for Now Playing), or *Talent of the day* (a different talent each day) when nothing is loaded. Quick chips below it: *Shuffle all*, *Favorites*, *New for you*, *Most played*, *Stats* and *Alarms*. Then shelves: your talents, recently played, new topics, *Not played yet*, *Most played* and favorites; clip cards show the topic thumbnail with a small talent badge. Clips you've listened to (played at least once) get a small ✓: next to the #n badge on grid tiles, and as "✓ N plays" in list rows. A short intro explains the basics on first launch (⋮ → *How it works* shows it again).
 - **Talents tab**: every hololive member with their Japanese and English names, under a big *Talents* headline with counts and a search bar. A *Now speaking* card shows who is talking in the current clip. Talents you have clips for are full photo cards with the names and clip count on a dark gradient (in the sort you choose; the speaking talent gets a ring); the rest of the official roster follows as small dimmed round pictures. Status tags in names (like "[Alum]") are shown as a small badge instead of in the name. Search works in English or 日本語. Tap one to open their page: a banner with their picture, both names, any status tags, clip / topic / play counts, *Play all* and *Shuffle*, and topic filters above all their clips.
 - **Add your own talents**: someone not on the hololive list (a guest, another agency, a new debut)? Tap the add-person button on the Talents tab, search for them and tap *Add … as a talent*, or use *Add a talent* at the bottom of any talent picker. Give an English (or romaji) name, an optional 日本語 name and an optional picture from your gallery; files named after them are matched right away. Added talents carry a *Custom* badge, and their page has ⋮ → *Edit talent* / *Delete talent* (deleting takes them off every clip; your files aren't touched).
 - **Sorting everywhere**:
@@ -51,7 +51,7 @@ Open Settings from Home → ⋮ → *Settings*, or from the side rail on a wide 
   - *Sync now*, *Refresh talent list*, *Match all talents* and *Redownload talent pictures*
 - **Synced folders**: every imported folder, with a button to remove it.
 - **Data**: clear the play history.
-- **About**: the app version, *How it works*, and *GitHub* (opens this project's page for the source code, new builds and bug reports).
+- **About**: the app version, *How it works*, and *Check for updates* (see [Updates](#updates)), and *GitHub* (opens this project's page for the source code, new builds and bug reports).
 
 ## Widget and shortcuts
 
@@ -155,6 +155,15 @@ Install **holovoice-0.1.N** (`app-release.apk`): it is optimized with R8 and scr
 
 Without them (local builds, forks) the debug key is used, and those APKs can't update one signed with the app's key. Keep a copy of the keystore: GitHub can't show a secret again, and a new key means uninstalling once more (make a backup in Settings › Backup & restore first).
 To install, copy the APK to your phone and open it with "install unknown apps" allowed, or run `adb install app-release.apk`.
+
+## Updates
+
+The app updates itself from this repository's **Releases** page. Every pushed build that CI signs with the app's key is published there as `v0.1.N` with `holovoice-0.1.N.apk` (the 10 newest are kept).
+
+- Once a day, when the app opens, it quietly checks for a newer build. If there is one, a card at the top of Home says **Update available · 0.1.N**, with *Later* and *Install*.
+- Settings › About › **Check for updates** checks right away and shows the update's notes.
+- *Install* downloads the APK (with progress) and hands it to Android, which always asks you to confirm. The first time, Android asks you to allow Holo Voice to *install unknown apps*; allow it and tap *Install* again.
+- Updating keeps all your data. It needs the app to be signed with the same key as the installed one (see *Updating without uninstalling* above).
 
 ## Crash reports
 If the app ever closes unexpectedly, the details are saved on the phone. The next time you open the app, a dialog shows them with **Copy details**, so you can paste them into a bug report. The same report is under Settings › About › *Last crash report* until you dismiss it.

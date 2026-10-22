@@ -186,6 +186,8 @@ fun HoloVoiceRoot(container: AppContainer) {
             withTimeoutOrNull(2_000) { snapshotFlow { playerState.clipId }.first { it == id } }?.let { playerSheet.open() }
         }
     }
+    // Looks for a newer build at most once a day (Home shows a card when there is one).
+    LaunchedEffect(Unit) { container.updater.checkDaily() }
     // Tapping the media notification opens the player.
     val openPlayerRequest by container.openPlayerRequested.collectAsStateWithLifecycle()
     LaunchedEffect(openPlayerRequest) {

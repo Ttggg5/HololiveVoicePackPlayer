@@ -16,6 +16,7 @@ import com.ttggg5.holovoice.data.talents.TalentDirectory
 import com.ttggg5.holovoice.data.talents.TalentPictures
 import com.ttggg5.holovoice.data.talents.TalentLinker
 import com.ttggg5.holovoice.playback.PlayerController
+import com.ttggg5.holovoice.update.AppUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,8 @@ class AppContainer(context: Context) {
         alarms,
         appVersion = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty(),
     )
+
+    val updater = AppUpdater(context)
 
     /** Set when the media notification is tapped; the app then opens Now Playing. */
     val openPlayerRequested = MutableStateFlow(false)

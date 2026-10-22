@@ -43,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Button
@@ -382,18 +383,31 @@ private fun ClipTile(
                     iconSize = 18.dp,
                 )
             }
-            item.clip.trackNo?.let {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
-                ) {
-                    Text(
-                        "#$it",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
+            ) {
+                item.clip.trackNo?.let {
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)) {
+                        Text(
+                            "#$it",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                // Already listened to (played at least once).
+                if (item.clip.playCount > 0) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = "Listened",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(4.dp).size(14.dp),
+                        )
+                    }
                 }
             }
         }
@@ -481,18 +495,36 @@ private fun ClipRow(
                 overflow = TextOverflow.Ellipsis,
             )
             val meta = item.metaLine(showPack, showCategory)
-            if (meta.isNotEmpty()) {
-                Text(
-                    meta,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            val plays = item.clip.playCount
+            if (meta.isNotEmpty() || plays > 0) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (plays > 0) ListenedMark()
+                    Text(
+                        listOfNotNull(
+                            plays.takeIf { it > 0 }?.let { if (it == 1) "1 play" else "$it plays" },
+                            meta.takeIf { it.isNotEmpty() },
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
         FavoriteButton(item.clip.isFavorite, onToggleFavorite)
     }
+}
+
+/** Small ✓ in front of a list row's info line: the clip has been played at least once. */
+@Composable
+fun ListenedMark() {
+    Icon(
+        Icons.Filled.Check,
+        contentDescription = "Listened",
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(end = 4.dp).size(12.dp),
+    )
 }
 
 @Composable

@@ -1,5 +1,14 @@
 package com.ttggg5.holovoice.ui.settings
 
+import com.ttggg5.holovoice.update.Release
+import com.ttggg5.holovoice.update.UpdateDialog
+import com.ttggg5.holovoice.update.UpdateState
+import com.ttggg5.holovoice.update.startUpdate
+import androidx.compose.material.icons.filled.SystemUpdate
+import android.text.format.DateFormat
+import java.util.Date
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.ttggg5.holovoice.ui.components.CrashReportDialog
 import com.ttggg5.holovoice.CrashLog
 import androidx.compose.material.icons.filled.BugReport
@@ -153,6 +162,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
         uri?.let { viewModel.openBackup(it, notify) }
     }
     val uriHandler = LocalUriHandler.current
+    var updateDialogFor by remember { mutableStateOf<Release?>(null) }
+    updateDialogFor?.let { UpdateDialog(it, onDismiss = { updateDialogFor = null }) }
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
     }
@@ -372,6 +383,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                     Divider()
                     LinkRow(Icons.AutoMirrored.Filled.HelpOutline, IconTint.Green, "How it works", "A quick tour of the app", onShowHelp)
                     Divider()
+                    UpdateRow(onShowDialog = { updateDialogFor = it })
+                    Divider()
                     LinkRow(Icons.Filled.Code, IconTint.Indigo, "GitHub", "Source code, new builds and bug reports") {
                         runCatching { uriHandler.openUri(GITHUB_URL) }.onFailure { notify("No app can open web links") }
                     }
@@ -576,6 +589,34 @@ private fun SwitchRow(icon: ImageVector, tint: IconTint, title: String, subtitle
     SettingRow(icon, tint, title, subtitle, onClick = { pref.set(!on) }) {
         Switch(checked = on, onCheckedChange = pref::set)
     }
+}
+
+/** "Check for updates", with what the updater is doing as the subtitle. */
+@Composable
+private fun UpdateRow(onShowDialog: (Release) -> Unit) {
+    val context = LocalContext.current
+    val updater = context.appContainer.updater
+    val state by updater.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val subtitle = when (val s = state) {
+        UpdateState.Checking -> "Checking…"
+        is UpdateState.UpToDate -> "Up to date · checked ${DateFormat.getTimeFormat(context).format(Date(s.checkedAt))}"
+        is UpdateState.Available -> "${s.release.versionName} is available · tap to install"
+        is UpdateState.NeedsPermission -> "Allow Holo Voice to install apps, then tap again"
+        is UpdateState.Downloading -> "Downloading ${s.release.versionName}… ${(s.progress * 100).toInt()}%"
+        is UpdateState.Installing -> "Confirm the update when Android asks"
+        is UpdateState.Failed -> s.message
+        UpdateState.Idle -> "You have ${updater.installedVersionName}"
+    }
+    SettingRow(Icons.Filled.SystemUpdate, IconTint.Teal, "Check for updates", subtitle, onClick = {
+        when (val s = state) {
+            is UpdateState.Available -> onShowDialog(s.release)
+            is UpdateState.NeedsPermission -> startUpdate(context, s.release)
+            is UpdateState.Failed -> s.release?.let(onShowDialog) ?: scope.launch { updater.check(quiet = false) }
+            is UpdateState.Downloading, is UpdateState.Installing, UpdateState.Checking -> Unit
+            else -> scope.launch { updater.check(quiet = false) }
+        }
+    })
 }
 
 @Composable

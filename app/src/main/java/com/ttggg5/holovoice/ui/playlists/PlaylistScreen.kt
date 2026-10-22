@@ -177,6 +177,7 @@ fun PlaylistScreen(viewModel: PlaylistViewModel, player: PlayerController, onBac
                         badge = entry.item.coverUri.takeIf { it != entry.item.artwork },
                         highlighted = current,
                         playing = current && playerState.isPlaying,
+                        listened = entry.item.clip.playCount > 0,
                     )
                 },
                 onClick = { _, index -> player.playFrom(clips, index) },

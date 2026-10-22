@@ -61,6 +61,8 @@ data class TrackRow(
     val playing: Boolean = false,
     /** Faded, e.g. clips already played in the queue. */
     val dimmed: Boolean = false,
+    /** Played at least once: a small ✓ before the subtitle. */
+    val listened: Boolean = false,
 )
 
 /**
@@ -176,13 +178,16 @@ fun <T> TrackList(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 if (data.subtitle.isNotEmpty()) {
-                                    Text(
-                                        data.subtitle,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (data.listened) ListenedMark()
+                                        Text(
+                                            data.subtitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                             if (data.highlighted) {
