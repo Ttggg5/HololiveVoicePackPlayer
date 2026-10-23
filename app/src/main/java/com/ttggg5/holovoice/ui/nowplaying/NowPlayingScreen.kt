@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -383,11 +384,21 @@ fun NowPlayingScreen(
                         IconButton(onClick = player::toggleShuffle) {
                             Icon(Icons.Filled.Shuffle, contentDescription = "Shuffle", tint = if (state.shuffle) active else inactive)
                         }
-                        TextButton(onClick = { sheet = Sheet.Speed }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                        // Like the icons around them: accent colour only when changed from the default.
+                        TextButton(
+                            onClick = { sheet = Sheet.Speed },
+                            contentPadding = PaddingValues(horizontal = 6.dp),
+                            colors = ButtonDefaults.textButtonColors(contentColor = if (state.speed != 1f) active else inactive),
+                        ) {
                             Icon(Icons.Filled.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
                             Text(" ${formatSpeed(state.speed)}")
                         }
-                        TextButton(onClick = { sheet = Sheet.Sleep }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                        val sleepOn = state.sleepEndsAt != 0L || state.sleepAtEndOfTrack
+                        TextButton(
+                            onClick = { sheet = Sheet.Sleep },
+                            contentPadding = PaddingValues(horizontal = 6.dp),
+                            colors = ButtonDefaults.textButtonColors(contentColor = if (sleepOn) active else inactive),
+                        ) {
                             Icon(Icons.Filled.Bedtime, contentDescription = null, modifier = Modifier.size(18.dp))
                             Text(" ${sleepLabel(state)}")
                         }
