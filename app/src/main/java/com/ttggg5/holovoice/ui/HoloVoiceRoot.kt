@@ -252,7 +252,15 @@ fun HoloVoiceRoot(container: AppContainer) {
     val openSettings = { nav.navigate(SETTINGS) { launchSingleTop = true } }
 
     // Wide windows (840dp+, e.g. tablets in landscape): navigation rail on the side instead of the bottom bar.
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Where this area sits on screen, so the mini player's position can be expressed inside it (Now Playing
+    // covers all of it, tablet rail included).
+    var areaOrigin by remember { mutableStateOf(Offset.Zero) }
+    BoxWithConstraints(
+        Modifier
+            .fillMaxSize()
+            .onSizeChanged { playerSheet.height = it.height.toFloat() }
+            .onGloballyPositioned { areaOrigin = it.boundsInRoot().topLeft },
+    ) {
     val wide = maxWidth >= WIDE_LAYOUT_MIN_DP.dp
     CompositionLocalProvider(
         LocalUndo provides undo,
@@ -269,14 +277,7 @@ fun HoloVoiceRoot(container: AppContainer) {
             modifier = Modifier.background(MaterialTheme.colorScheme.background),
         )
     }
-    // Where this area sits on screen, so the mini player's position can be expressed inside it.
-    var areaOrigin by remember { mutableStateOf(Offset.Zero) }
-    Box(
-        Modifier
-            .weight(1f)
-            .onSizeChanged { playerSheet.height = it.height.toFloat() }
-            .onGloballyPositioned { areaOrigin = it.boundsInRoot().topLeft },
-    ) {
+    Box(Modifier.weight(1f)) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -472,8 +473,9 @@ fun HoloVoiceRoot(container: AppContainer) {
             }
         }
     }
-
-    // Now Playing opens over the current page, so that page shows underneath while it slides or is dragged.
+    }
+    }
+    // Now Playing opens over everything (the tablet rail too); the page shows underneath while it slides or is dragged.
     if (playerSheet.isVisible) {
         val open = 1f - playerSheet.offset.value
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = 0.32f * open }.background(Color.Black))
@@ -526,8 +528,6 @@ fun HoloVoiceRoot(container: AppContainer) {
                 },
             )
         }
-    }
-    }
     }
     }
     }
