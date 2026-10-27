@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -61,9 +62,11 @@ data class TrackRow(
     val playing: Boolean = false,
     /** Faded, e.g. clips already played in the queue. */
     val dimmed: Boolean = false,
-    /** Played at least once: a small ✓ before the subtitle. */
-    val listened: Boolean = false,
-)
+    /** How often the clip was played: a ✓ on the artwork and "N plays" before the subtitle when above 0. */
+    val plays: Int = 0,
+) {
+    val listened: Boolean get() = plays > 0
+}
 
 /**
  * A vertical list of tracks that can be reordered with the drag handle (when [onMove] is set)
@@ -153,21 +156,24 @@ fun <T> TrackList(
                                 )
                                 .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                         ) {
-                            if (data.badge == null) {
-                                Artwork(data.artwork, Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)), iconSize = 20.dp)
-                            } else {
-                                Box(Modifier.size(48.dp)) {
-                                    Artwork(data.artwork, Modifier.size(44.dp).clip(CircleShape), iconSize = 20.dp)
-                                    Artwork(
-                                        data.badge,
-                                        Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .size(22.dp)
-                                            .clip(RoundedCornerShape(5.dp))
-                                            .border(1.5.dp, MaterialTheme.colorScheme.surface, RoundedCornerShape(5.dp)),
-                                        iconSize = 12.dp,
-                                    )
+                            Box {
+                                if (data.badge == null) {
+                                    Artwork(data.artwork, Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)), iconSize = 20.dp)
+                                } else {
+                                    Box(Modifier.size(48.dp)) {
+                                        Artwork(data.artwork, Modifier.size(44.dp).clip(CircleShape), iconSize = 20.dp)
+                                        Artwork(
+                                            data.badge,
+                                            Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .size(22.dp)
+                                                .clip(RoundedCornerShape(5.dp))
+                                                .border(1.5.dp, MaterialTheme.colorScheme.surface, RoundedCornerShape(5.dp)),
+                                            iconSize = 12.dp,
+                                        )
+                                    }
                                 }
+                                if (data.listened) ListenedBadge(18.dp, Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp))
                             }
                             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 Text(
@@ -178,16 +184,13 @@ fun <T> TrackList(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 if (data.subtitle.isNotEmpty()) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (data.listened) ListenedMark()
-                                        Text(
-                                            data.subtitle,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
+                                    Text(
+                                        listenedLine(data.plays, data.subtitle),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
                                 }
                             }
                             if (data.highlighted) {

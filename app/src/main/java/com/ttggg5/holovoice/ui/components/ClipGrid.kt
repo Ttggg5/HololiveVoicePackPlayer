@@ -1,5 +1,10 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -340,6 +345,12 @@ private fun ClipTile(
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(1f)) {
             Artwork(item.picture(artwork), Modifier.fillMaxSize(), iconSize = 44.dp)
+            // Listened: the picture is dimmed and a solid ✓ sits in the corner, so unheard clips stand out.
+            val listened = item.clip.playCount > 0 && !isCurrent
+            if (listened) {
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.35f)))
+                ListenedBadge(28.dp, Modifier.align(Alignment.TopStart).padding(8.dp))
+            }
             androidx.compose.animation.AnimatedVisibility(
                 visible = pop,
                 enter = scaleIn(initialScale = 0.3f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
@@ -395,17 +406,6 @@ private fun ClipTile(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-                // Already listened to (played at least once).
-                if (item.clip.playCount > 0) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)) {
-                        Icon(
-                            Icons.Filled.Check,
-                            contentDescription = "Listened",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(4.dp).size(14.dp),
                         )
                     }
                 }
@@ -484,6 +484,7 @@ private fun ClipRow(
                 )
             }
             if (isCurrent) EqualizerBars(isPlaying, size = 14.dp, modifier = Modifier.align(Alignment.BottomEnd))
+            if (item.clip.playCount > 0) ListenedBadge(18.dp, Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp))
         }
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(
@@ -497,34 +498,44 @@ private fun ClipRow(
             val meta = item.metaLine(showPack, showCategory)
             val plays = item.clip.playCount
             if (meta.isNotEmpty() || plays > 0) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (plays > 0) ListenedMark()
-                    Text(
-                        listOfNotNull(
-                            plays.takeIf { it > 0 }?.let { if (it == 1) "1 play" else "$it plays" },
-                            meta.takeIf { it.isNotEmpty() },
-                        ).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                Text(
+                    listenedLine(plays, meta),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
         FavoriteButton(item.clip.isFavorite, onToggleFavorite)
     }
 }
 
-/** Small ✓ in front of a list row's info line: the clip has been played at least once. */
+/** Solid accent ✓ on a clip's picture: it has been played at least once. */
 @Composable
-fun ListenedMark() {
-    Icon(
-        Icons.Filled.Check,
-        contentDescription = "Listened",
-        tint = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(end = 4.dp).size(12.dp),
-    )
+fun ListenedBadge(size: Dp, modifier: Modifier = Modifier) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
+        shadowElevation = 2.dp,
+        modifier = modifier.size(size),
+    ) {
+        Icon(Icons.Filled.Check, contentDescription = "Listened", modifier = Modifier.padding(size * 0.18f))
+    }
+}
+
+/** "3 plays · meta", with the play count in the accent colour (just [meta] for unplayed clips). */
+@Composable
+fun listenedLine(plays: Int, meta: String): AnnotatedString = buildAnnotatedString {
+    if (plays > 0) {
+        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)) {
+            append(if (plays == 1) "1 play" else "$plays plays")
+        }
+        if (meta.isNotEmpty()) append(" · ")
+    }
+    append(meta)
 }
 
 @Composable
