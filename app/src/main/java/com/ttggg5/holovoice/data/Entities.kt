@@ -170,4 +170,9 @@ data class TalentSummary(
     @ColumnInfo(name = "plays") val plays: Int,
     @ColumnInfo(name = "lastPlayed") val lastPlayed: Long,
     @ColumnInfo(name = "topicCount") val topicCount: Int,
-)
+    /** Clips played at least once. */
+    @ColumnInfo(name = "listenedCount") val listenedCount: Int = 0,
+) {
+    /** Every clip of this talent has been listened to. */
+    val allListened: Boolean get() = clipCount > 0 && listenedCount >= clipCount
+}

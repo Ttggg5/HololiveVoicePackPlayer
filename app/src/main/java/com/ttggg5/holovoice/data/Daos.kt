@@ -97,12 +97,14 @@ interface ClipDao {
         """
         SELECT ct.slug AS slug, MAX(ct.name) AS name, MAX(ct.imageUrl) AS imageUrl,
             COUNT(*) AS clipCount, SUM(c.playCount) AS plays, MAX(c.lastPlayedAt) AS lastPlayed,
-            COUNT(DISTINCT c.packId) AS topicCount
+            COUNT(DISTINCT c.packId) AS topicCount,
+            SUM(CASE WHEN c.playCount > 0 THEN 1 ELSE 0 END) AS listenedCount
         FROM clip_talents ct INNER JOIN clips c ON c.id = ct.clipId GROUP BY ct.slug
         UNION ALL
         SELECT NULL AS slug, NULL AS name, NULL AS imageUrl,
             COUNT(*) AS clipCount, COALESCE(SUM(playCount), 0) AS plays, COALESCE(MAX(lastPlayedAt), 0) AS lastPlayed,
-            COUNT(DISTINCT packId) AS topicCount
+            COUNT(DISTINCT packId) AS topicCount,
+            COALESCE(SUM(CASE WHEN playCount > 0 THEN 1 ELSE 0 END), 0) AS listenedCount
         FROM clips WHERE id NOT IN (SELECT clipId FROM clip_talents)
         """,
     )

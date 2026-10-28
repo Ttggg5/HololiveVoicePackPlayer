@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.talents
 
+import com.ttggg5.holovoice.ui.components.ListenedBadge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -99,6 +100,8 @@ private data class TalentCardData(
     val clipCount: Int,
     /** Status tags taken off the name, e.g. "Alum". */
     val tags: List<String> = emptyList(),
+    /** Every one of their clips has been listened to. */
+    val allListened: Boolean = false,
 )
 
 /**
@@ -167,6 +170,7 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                         imageUrl = official?.imageUrl ?: t.imageUrl,
                         clipCount = t.clipCount,
                         tags = (official?.tags.orEmpty() + savedTags + customTag(t.slug)).distinct(),
+                        allListened = t.allListened,
                     )
                 }
             }
@@ -403,6 +407,8 @@ private fun TalentPhotoCard(talent: TalentCardData, speaking: Boolean, isPlaying
                 talent.tags.forEach { TagBadge(it) }
             }
         }
+        // Every clip listened to (the corner shows the speaking badge instead while they talk).
+        if (talent.allListened && !speaking) ListenedBadge(30.dp, Modifier.align(Alignment.TopStart).padding(10.dp))
         AnimatedVisibility(visible = speaking, modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
                 EqualizerBars(isPlaying, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(6.dp))
@@ -427,11 +433,14 @@ private fun TalentPhotoCard(talent: TalentCardData, speaking: Boolean, isPlaying
                     modifier = Modifier.weight(1f),
                 )
                 if (talent.clipCount > 0) {
-                    Surface(shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = 0.22f)) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (talent.allListened) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.22f),
+                    ) {
                         Text(
-                            "${talent.clipCount} clips",
+                            "${talent.clipCount} clips" + if (talent.allListened) " · All listened" else "",
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
+                            color = if (talent.allListened) MaterialTheme.colorScheme.onPrimary else Color.White,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         )
