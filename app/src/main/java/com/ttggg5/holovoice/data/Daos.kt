@@ -14,7 +14,8 @@ interface PackDao {
         """
         SELECT packs.*,
             (SELECT COUNT(*) FROM clips WHERE clips.packId = packs.id) AS clipCount,
-            (SELECT COUNT(DISTINCT category) FROM clips WHERE clips.packId = packs.id) AS categoryCount
+            (SELECT COUNT(DISTINCT category) FROM clips WHERE clips.packId = packs.id) AS categoryCount,
+            (SELECT COUNT(*) FROM clips WHERE clips.packId = packs.id AND clips.playCount > 0) AS listenedCount
         FROM packs ORDER BY talent COLLATE NOCASE, name COLLATE NOCASE
         """,
     )

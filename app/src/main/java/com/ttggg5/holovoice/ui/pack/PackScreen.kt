@@ -1,5 +1,9 @@
 package com.ttggg5.holovoice.ui.pack
 
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import com.ttggg5.holovoice.ui.library.EditPackDialog
 import com.ttggg5.holovoice.ui.components.TalentPickerDialog
 import com.ttggg5.holovoice.ui.components.LocalUndo
@@ -120,6 +124,27 @@ fun PackScreen(viewModel: PackViewModel, player: PlayerController, onBack: () ->
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(
+                                text = { Text("Play topic next") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                enabled = allClips.isNotEmpty(),
+                                onClick = {
+                                    menu = false
+                                    player.playNext(allClips)
+                                    undo?.show("${allClips.size} clips will play next")
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Add topic to queue") },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null) },
+                                enabled = allClips.isNotEmpty(),
+                                onClick = {
+                                    menu = false
+                                    player.addToQueue(allClips)
+                                    undo?.show("Added ${allClips.size} clips to the queue")
+                                },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
                                 text = { Text("Edit topic") },
                                 leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
                                 onClick = {
@@ -193,6 +218,17 @@ colors = TopAppBarDefaults.topAppBarColors(
                         FilledTonalButton(onClick = { player.playQueue(clips, shuffle = true) }, enabled = clips.isNotEmpty(), modifier = Modifier.weight(1f)) {
                             Icon(Icons.Filled.Shuffle, contentDescription = null)
                             Text(" Shuffle")
+                        }
+                        // The whole topic, in order, after what's already queued (starts it when nothing plays).
+                        FilledTonalIconButton(
+                            onClick = {
+                                player.addToQueue(allClips)
+                                undo?.show("Added ${allClips.size} clips to the queue")
+                            },
+                            enabled = allClips.isNotEmpty(),
+                            modifier = Modifier.size(48.dp, 40.dp),
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = "Add topic to queue")
                         }
                     }
                     if (categories.isNotEmpty()) {

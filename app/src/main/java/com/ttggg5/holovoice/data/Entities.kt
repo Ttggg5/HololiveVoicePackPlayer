@@ -112,7 +112,12 @@ data class PackWithCount(
     @Embedded val pack: Pack,
     @ColumnInfo(name = "clipCount") val clipCount: Int,
     @ColumnInfo(name = "categoryCount") val categoryCount: Int,
-)
+    /** Clips played at least once. */
+    @ColumnInfo(name = "listenedCount") val listenedCount: Int = 0,
+) {
+    /** Every clip of the topic has been listened to. */
+    val allListened: Boolean get() = clipCount > 0 && listenedCount >= clipCount
+}
 
 @Entity(tableName = "playlists")
 data class Playlist(

@@ -1,5 +1,9 @@
 package com.ttggg5.holovoice.ui.library
 
+import com.ttggg5.holovoice.ui.components.ListenedBadge
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import com.ttggg5.holovoice.ui.theme.Motion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -478,6 +482,8 @@ private fun TopicCoverCard(
     ) {
         Artwork(item.pack.coverUri, Modifier.fillMaxSize(), iconSize = 48.dp, placeholder = Icons.Filled.LibraryMusic)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.82f))))
+        // Every clip listened to.
+        if (item.allListened) ListenedBadge(30.dp, Modifier.align(Alignment.TopStart).padding(10.dp))
         // Badge on the topic that is playing right now.
         AnimatedVisibility(
             visible = playingHere,
@@ -508,7 +514,15 @@ private fun TopicCoverCard(
                     Spacer(Modifier.width(8.dp))
                 }
                 Text(
-                    "${item.clipCount} clips" + if (item.categoryCount > 0) " · ${item.categoryCount} categories" else "",
+                    buildAnnotatedString {
+                        append("${item.clipCount} clips")
+                        if (item.allListened) {
+                            append(" · ")
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.inversePrimary, fontWeight = FontWeight.Bold)) { append("All listened") }
+                        } else if (item.categoryCount > 0) {
+                            append(" · ${item.categoryCount} categories")
+                        }
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.85f),
                     maxLines = 1,
