@@ -1,5 +1,9 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -193,12 +197,13 @@ fun ClipBrowser(
     val play: (Int) -> Unit = { index -> player.playFrom(shown, index) }
 
     if (view == ClipView.GRID) {
+        val density = GridDensity.of(cellDp)
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = cellDp.dp),
+            columns = gridColumns(cellDp, density),
             modifier = modifier.fillMaxSize().pinchToResize(prefs),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(gridSpacing(density)),
+            verticalArrangement = Arrangement.spacedBy(gridSpacing(density)),
         ) {
             header?.let { h -> item(key = "header", span = { GridItemSpan(maxLineSpan) }) { h() } }
             item(key = "toolbar", span = { GridItemSpan(maxLineSpan) }) { toolbar() }
@@ -208,21 +213,46 @@ fun ClipBrowser(
                     isFavorite = item.clip.isFavorite,
                     onPlayNext = { playNext(item) },
                     onToggleFavorite = { toggleFavorite(item) },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(if (density == GridDensity.MOSAIC) 10.dp else 18.dp),
                     modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
                 ) {
-                ClipTile(
-                    item = item,
-                    artwork = artwork,
-                    isCurrent = playerState.clipId == item.clip.id,
-                    isPlaying = playerState.clipId == item.clip.id && playerState.isPlaying,
-                    showPack = showPack,
-                    showCategory = showCategory,
-                    onClick = { play(index) },
-                    onLongClick = { onLongPress(item) },
-                    onToggleFavorite = { toggleFavorite(item) },
-                    doubleTapEnabled = doubleTap,
-                )
+                val isCurrent = playerState.clipId == item.clip.id
+                val isPlaying = isCurrent && playerState.isPlaying
+                when (density) {
+                    GridDensity.MOSAIC -> ClipMosaicTile(
+                        item = item,
+                        artwork = artwork,
+                        isCurrent = isCurrent,
+                        isPlaying = isPlaying,
+                        onClick = { play(index) },
+                        onLongClick = { onLongPress(item) },
+                        onDoubleClick = { toggleFavorite(item) }.takeIf { doubleTap },
+                    )
+                    GridDensity.WIDE -> ClipWideCard(
+                        item = item,
+                        artwork = artwork,
+                        isCurrent = isCurrent,
+                        isPlaying = isPlaying,
+                        showPack = showPack,
+                        showCategory = showCategory,
+                        onClick = { play(index) },
+                        onLongClick = { onLongPress(item) },
+                        onToggleFavorite = { toggleFavorite(item) },
+                        doubleTapEnabled = doubleTap,
+                    )
+                    GridDensity.NORMAL -> ClipTile(
+                        item = item,
+                        artwork = artwork,
+                        isCurrent = isCurrent,
+                        isPlaying = isPlaying,
+                        showPack = showPack,
+                        showCategory = showCategory,
+                        onClick = { play(index) },
+                        onLongClick = { onLongPress(item) },
+                        onToggleFavorite = { toggleFavorite(item) },
+                        doubleTapEnabled = doubleTap,
+                    )
+                }
                 }
             }
         }
@@ -433,6 +463,165 @@ private fun ClipTile(
         }
     }
 }
+
+/** Smallest zoom: just the picture, with tiny badges (playing, listened, #n, favorite). */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ClipMosaicTile(
+    item: ClipWithPack,
+    artwork: ClipArt,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onDoubleClick: (() -> Unit)?,
+) {
+    val shape = RoundedCornerShape(10.dp)
+    val border by animateColorAsState(if (isCurrent) MaterialTheme.colorScheme.primary else Color.Transparent, tween(350), label = "mosaicBorder")
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(shape)
+            .border(2.dp, border, shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onDoubleClick = onDoubleClick)
+            .semantics { contentDescription = item.clip.title },
+    ) {
+        Artwork(item.picture(artwork), Modifier.fillMaxSize(), iconSize = 28.dp)
+        val listened = item.clip.playCount > 0 && !isCurrent
+        if (listened) {
+            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.35f)))
+            ListenedBadge(18.dp, Modifier.align(Alignment.TopStart).padding(4.dp))
+        }
+        if (isCurrent) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.TopStart).padding(4.dp)) {
+                EqualizerBars(isPlaying, size = 12.dp, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(3.dp))
+            }
+        }
+        if (item.clip.isFavorite) {
+            Icon(
+                Icons.Filled.Star,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(14.dp),
+            )
+        }
+        item.clip.trackNo?.let {
+            Surface(
+                shape = RoundedCornerShape(5.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                modifier = Modifier.align(Alignment.BottomStart).padding(4.dp),
+            ) {
+                Text(
+                    "#$it",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Biggest zoom: one wide card per row, a big picture on the left and every detail on the right. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ClipWideCard(
+    item: ClipWithPack,
+    artwork: ClipArt,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    showPack: Boolean,
+    showCategory: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    doubleTapEnabled: Boolean,
+) {
+    val container by animateColorAsState(
+        if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        tween(350),
+        label = "wideColor",
+    )
+    val border by animateColorAsState(if (isCurrent) MaterialTheme.colorScheme.primary else Color.Transparent, tween(350), label = "wideBorder")
+    val shape = RoundedCornerShape(18.dp)
+    Card(
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(2.dp, border),
+        shape = shape,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onDoubleClick = if (doubleTapEnabled) onToggleFavorite else null),
+    ) {
+        Row(Modifier.height(120.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(120.dp)) {
+                Artwork(item.picture(artwork), Modifier.fillMaxSize(), iconSize = 40.dp)
+                if (item.clip.playCount > 0 && !isCurrent) {
+                    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.35f)))
+                    ListenedBadge(24.dp, Modifier.align(Alignment.TopStart).padding(6.dp))
+                }
+                if (isCurrent) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.TopStart).padding(6.dp)) {
+                        EqualizerBars(isPlaying, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(5.dp))
+                    }
+                }
+                if (artwork == ClipArt.TOPIC && item.coverUri != null && item.artwork != item.coverUri) {
+                    Artwork(
+                        item.artwork,
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                        iconSize = 16.dp,
+                    )
+                }
+            }
+            Column(Modifier.weight(1f).padding(start = 14.dp, end = 4.dp)) {
+                Text(
+                    item.clip.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val where = listOfNotNull(
+                    item.speaker.takeIf { it != item.clip.title },
+                    listOfNotNull(packName(item, showPack), item.clip.category.takeIf { showCategory }).joinToString(" › ").ifEmpty { null },
+                ).joinToString(" · ")
+                if (where.isNotEmpty()) {
+                    Text(
+                        where,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                val facts = listOfNotNull(item.clip.trackNo?.let { "#$it" }, item.clip.durationMs?.let(::formatDuration)).joinToString(" · ")
+                Text(
+                    listenedLine(item.clip.playCount, facts),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                FavoriteButton(item.clip.isFavorite, onToggleFavorite)
+                IconButton(onClick = onLongClick) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "More actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+private fun packName(item: ClipWithPack, show: Boolean): String? = if (show) item.packName else null
 
 /** Compact one-line row for list view. */
 @OptIn(ExperimentalFoundationApi::class)

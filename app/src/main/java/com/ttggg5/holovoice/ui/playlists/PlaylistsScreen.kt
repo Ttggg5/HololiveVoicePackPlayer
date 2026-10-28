@@ -1,5 +1,13 @@
 package com.ttggg5.holovoice.ui.playlists
 
+import com.ttggg5.holovoice.ui.components.GridDensity
+import com.ttggg5.holovoice.ui.components.gridColumns
+import com.ttggg5.holovoice.ui.components.gridSpacing
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Alignment
@@ -107,15 +115,17 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
         },
     ) { padding ->
         val list = playlists?.let(sort::sorted) ?: return@Scaffold
+        val density = GridDensity.of(cellDp)
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = (cellDp * 0.85f).dp),
+            columns = gridColumns(cellDp, density, scale = 0.85f),
             modifier = Modifier.fillMaxSize().padding(padding).pinchToResize(prefs),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(gridSpacing(density)),
+            verticalArrangement = Arrangement.spacedBy(if (density == GridDensity.NORMAL) 14.dp else gridSpacing(density)),
         ) {
             item(key = "favorites") {
                 PlaylistCard(
+                    density = density,
                     name = "Favorites",
                     details = "$favoriteCount clips",
                     art = {
@@ -137,6 +147,7 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
                 var menu by remember { mutableStateOf(false) }
                 Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
                     PlaylistCard(
+                        density = density,
                         name = p.playlist.name,
                         details = listOf("${p.entryCount} clips", formatTotal(p.totalMs)).filter { it.isNotEmpty() }.joinToString(" · "),
                         art = { PlaylistArt(covers[p.playlist.id].orEmpty(), Modifier.fillMaxSize()) },
@@ -222,6 +233,7 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlaylistCard(
+    density: GridDensity,
     name: String,
     details: String,
     art: @Composable () -> Unit,
@@ -231,6 +243,57 @@ private fun PlaylistCard(
     onLongClick: (() -> Unit)? = null,
 ) {
     val haptics = LocalHapticFeedback.current
+    val longClick: (() -> Unit)? = onLongClick?.let {
+        {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            it()
+        }
+    }
+    when (density) {
+        // Smallest zoom: just the mosaic.
+        GridDensity.MOSAIC -> {
+            Box(
+                modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .combinedClickable(onClick = onClick, onLongClick = longClick)
+                    .semantics { contentDescription = name },
+            ) { art() }
+            return
+        }
+        // Biggest zoom: the mosaic on the left, name, details and play on the right.
+        GridDensity.WIDE -> {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).combinedClickable(onClick = onClick, onLongClick = longClick),
+            ) {
+                Row(Modifier.height(120.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(120.dp)) { art() }
+                    Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                        Text(name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (details.isNotEmpty()) {
+                            Text(
+                                details,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
+                    if (onPlay != null) {
+                        FilledIconButton(onClick = onPlay, modifier = Modifier.padding(end = 14.dp).size(48.dp)) {
+                            Icon(Icons.Filled.PlayArrow, contentDescription = "Play $name", modifier = Modifier.size(28.dp))
+                        }
+                    }
+                }
+            }
+            return
+        }
+        GridDensity.NORMAL -> Unit
+    }
     Column(
         modifier
             .fillMaxWidth()

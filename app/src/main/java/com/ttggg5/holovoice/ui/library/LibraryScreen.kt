@@ -1,5 +1,11 @@
 package com.ttggg5.holovoice.ui.library
 
+import com.ttggg5.holovoice.ui.components.GridDensity
+import com.ttggg5.holovoice.ui.components.gridColumns
+import com.ttggg5.holovoice.ui.components.gridSpacing
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.BorderStroke
 import com.ttggg5.holovoice.ui.components.ListenedBadge
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -385,12 +391,13 @@ private fun PackGrid(
     // Group headers only make sense when the list is sorted by talent.
     val groups: List<Pair<String?, List<PackWithCount>>> =
         if (groupByTalent) packs.groupBy { TalentTags.clean(it.pack.talent).ifBlank { "No talent" } }.toList() else listOf(null to packs)
+    val density = GridDensity.of(cellDp)
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = cellDp.dp),
+        columns = gridColumns(cellDp, density),
         modifier = Modifier.pinchToResize(prefs),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(gridSpacing(density)),
+        verticalArrangement = Arrangement.spacedBy(gridSpacing(density)),
     ) {
         if (showSearch) item(key = "search", span = { GridItemSpan(maxLineSpan) }) { TopicSearchField(query, onQueryChange) }
         if (playingFrom != null) {
@@ -428,6 +435,7 @@ private fun PackGrid(
             items(inGroup, key = { it.pack.id }) { item ->
                 TopicCoverCard(
                     item = item,
+                    density = density,
                     talents = packTalents[item.pack.id].orEmpty(),
                     playingHere = playerState.packId == item.pack.id,
                     isPlaying = playerState.isPlaying,
@@ -448,6 +456,7 @@ private fun PackGrid(
 @Composable
 private fun TopicCoverCard(
     item: PackWithCount,
+    density: GridDensity,
     talents: List<String>,
     playingHere: Boolean,
     isPlaying: Boolean,
@@ -463,6 +472,15 @@ private fun TopicCoverCard(
         animationSpec = tween(Motion.MEDIUM),
         label = "topicRing",
     )
+    if (density == GridDensity.WIDE) {
+        TopicWideCard(item, talents, playingHere, isPlaying, ring, onClick, onLongClick, interaction, modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        })
+        return
+    }
+    val mosaic = density == GridDensity.MOSAIC
+    val cardShape = RoundedCornerShape(if (mosaic) 10.dp else 20.dp)
     Box(
         modifier
             .graphicsLayer {
@@ -471,8 +489,9 @@ private fun TopicCoverCard(
             }
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(20.dp))
-            .border(3.dp, ring, RoundedCornerShape(20.dp))
+            .clip(cardShape)
+            .border(if (mosaic) 2.dp else 3.dp, ring, cardShape)
+            .semantics { contentDescription = item.pack.name + if (item.allListened) ", all listened" else "" }
             .combinedClickable(
                 interactionSource = interaction,
                 indication = LocalIndication.current,
@@ -480,7 +499,17 @@ private fun TopicCoverCard(
                 onLongClick = onLongClick,
             ),
     ) {
-        Artwork(item.pack.coverUri, Modifier.fillMaxSize(), iconSize = 48.dp, placeholder = Icons.Filled.LibraryMusic)
+        Artwork(item.pack.coverUri, Modifier.fillMaxSize(), iconSize = if (mosaic) 28.dp else 48.dp, placeholder = Icons.Filled.LibraryMusic)
+        if (mosaic) {
+            // Smallest zoom: just the cover and tiny badges.
+            if (item.allListened) ListenedBadge(18.dp, Modifier.align(Alignment.TopStart).padding(4.dp))
+            if (playingHere) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                    EqualizerBars(isPlaying, size = 12.dp, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(3.dp))
+                }
+            }
+            return@Box
+        }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.82f))))
         // Every clip listened to.
         if (item.allListened) ListenedBadge(30.dp, Modifier.align(Alignment.TopStart).padding(10.dp))
@@ -527,6 +556,80 @@ private fun TopicCoverCard(
                     color = Color.White.copy(alpha = 0.85f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** Biggest zoom: the cover on the left, name, talents and counts on the right. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TopicWideCard(
+    item: PackWithCount,
+    talents: List<String>,
+    playingHere: Boolean,
+    isPlaying: Boolean,
+    ring: Color,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    interaction: MutableInteractionSource,
+    modifier: Modifier,
+) {
+    val shape = RoundedCornerShape(20.dp)
+    Surface(
+        shape = shape,
+        color = if (playingHere) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(3.dp, ring),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .combinedClickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick, onLongClick = onLongClick),
+    ) {
+        Row(Modifier.height(120.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(120.dp)) {
+                Artwork(item.pack.coverUri, Modifier.fillMaxSize(), iconSize = 40.dp, placeholder = Icons.Filled.LibraryMusic)
+                if (item.allListened) ListenedBadge(24.dp, Modifier.align(Alignment.TopStart).padding(6.dp))
+                if (playingHere) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+                        EqualizerBars(isPlaying, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(5.dp))
+                    }
+                }
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                Text(item.pack.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val talentName = TalentTags.clean(item.pack.talent)
+                if (talents.isNotEmpty() || talentName.isNotBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        if (talents.isNotEmpty()) {
+                            AvatarStack(talents)
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text(
+                            talentName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Text(
+                    buildAnnotatedString {
+                        append("${item.clipCount} clips")
+                        if (item.categoryCount > 0) append(" · ${item.categoryCount} categories")
+                        if (item.allListened) {
+                            append(" · ")
+                            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)) { append("All listened") }
+                        } else if (item.listenedCount > 0) {
+                            append(" · ${item.listenedCount} listened")
+                        }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }

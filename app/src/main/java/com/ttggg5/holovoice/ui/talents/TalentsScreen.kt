@@ -1,5 +1,12 @@
 package com.ttggg5.holovoice.ui.talents
 
+import com.ttggg5.holovoice.ui.components.GridDensity
+import com.ttggg5.holovoice.ui.components.gridColumns
+import com.ttggg5.holovoice.ui.components.gridSpacing
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.height
 import com.ttggg5.holovoice.ui.components.ListenedBadge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -192,13 +199,14 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                 ?.takeIf { playerState.clipId != null }
             val cellDp by prefs.gridCellDp.collectAsStateWithLifecycle()
             LibraryRefreshBox(Modifier.fillMaxSize()) {
+                val density = GridDensity.of(cellDp)
                 LazyVerticalGrid(
                     // Photo cards follow the same pinch size as clip tiles.
-                    columns = GridCells.Adaptive(minSize = (cellDp * 0.8f).dp),
+                    columns = gridColumns(cellDp, density, scale = 0.8f),
                     modifier = Modifier.pinchToResize(prefs),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(gridSpacing(density)),
+                    verticalArrangement = Arrangement.spacedBy(gridSpacing(density)),
                 ) {
                     item(key = "search", span = { GridItemSpan(maxLineSpan) }) {
                         TalentSearchField(query) { query = it }
@@ -217,6 +225,7 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                         items(shownMine, key = { "mine:" + (it.slug ?: UNASSIGNED_SLUG) }) { t ->
                             TalentPhotoCard(
                                 talent = t,
+                                density = density,
                                 speaking = t.slug != null && t.slug in playerState.talentSlugs && playerState.clipId != null,
                                 isPlaying = playerState.isPlaying,
                                 modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
@@ -372,8 +381,20 @@ private fun NowSpeakingStrip(talent: TalentCardData, isPlaying: Boolean, onClick
 
 /** A talent in the library: their picture full-bleed with the names and clip count on a dark gradient. */
 @Composable
-private fun TalentPhotoCard(talent: TalentCardData, speaking: Boolean, isPlaying: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
+private fun TalentPhotoCard(
+    talent: TalentCardData,
+    density: GridDensity,
+    speaking: Boolean,
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    if (density == GridDensity.WIDE) {
+        TalentWideCard(talent, speaking, isPlaying, modifier, onClick)
+        return
+    }
+    val mosaic = density == GridDensity.MOSAIC
+    val shape = RoundedCornerShape(if (mosaic) 10.dp else 20.dp)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.95f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "talentPress")
@@ -391,15 +412,27 @@ private fun TalentPhotoCard(talent: TalentCardData, speaking: Boolean, isPlaying
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(shape)
-            .border(3.dp, ring, shape)
-            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick),
+            .border(if (mosaic) 2.dp else 3.dp, ring, shape)
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
+            .semantics { contentDescription = talent.nameEn + if (talent.allListened) ", all listened" else "" },
     ) {
         Artwork(
             talent.imageUrl,
             Modifier.fillMaxSize(),
-            iconSize = 48.dp,
+            iconSize = if (mosaic) 28.dp else 48.dp,
             placeholder = if (talent.slug == null) Icons.Filled.PersonOff else Icons.Filled.Face,
         )
+        if (mosaic) {
+            // Smallest zoom: just the photo and tiny badges.
+            if (speaking) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.TopStart).padding(4.dp)) {
+                    EqualizerBars(isPlaying, size = 12.dp, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(3.dp))
+                }
+            } else if (talent.allListened) {
+                ListenedBadge(18.dp, Modifier.align(Alignment.TopStart).padding(4.dp))
+            }
+            return@Box
+        }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.82f))))
         if (talent.tags.isNotEmpty()) {
             // Status tags like "Alum" sit on the picture instead of in the name.
@@ -445,6 +478,76 @@ private fun TalentPhotoCard(talent: TalentCardData, speaking: Boolean, isPlaying
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Biggest zoom: the photo on the left, both names, tags and the clip count on the right. */
+@Composable
+private fun TalentWideCard(talent: TalentCardData, speaking: Boolean, isPlaying: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    val ring by animateColorAsState(
+        if (speaking) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = tween(Motion.MEDIUM),
+        label = "talentWideRing",
+    )
+    Surface(
+        shape = shape,
+        color = if (speaking) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(3.dp, ring),
+        modifier = modifier.fillMaxWidth().clip(shape).clickable(onClick = onClick),
+    ) {
+        Row(Modifier.height(120.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(120.dp)) {
+                Artwork(
+                    talent.imageUrl,
+                    Modifier.fillMaxSize(),
+                    iconSize = 40.dp,
+                    placeholder = if (talent.slug == null) Icons.Filled.PersonOff else Icons.Filled.Face,
+                )
+                if (speaking) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.TopStart).padding(6.dp)) {
+                        EqualizerBars(isPlaying, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(5.dp))
+                    }
+                } else if (talent.allListened) {
+                    ListenedBadge(24.dp, Modifier.align(Alignment.TopStart).padding(6.dp))
+                }
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                Text(
+                    talent.nameJa ?: talent.nameEn,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (talent.nameJa != null) {
+                    Text(
+                        talent.nameEn,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                    if (talent.clipCount > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (talent.allListened) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = if (talent.allListened) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                        ) {
+                            Text(
+                                "${talent.clipCount} clips" + if (talent.allListened) " · All listened" else "",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    talent.tags.forEach { TagBadge(it) }
                 }
             }
         }

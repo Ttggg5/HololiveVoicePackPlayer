@@ -181,8 +181,8 @@ class UiPrefs(context: Context) {
 
     companion object {
         const val DEFAULT_GRID_DP = 160
-        const val MIN_GRID_DP = 110
-        const val MAX_GRID_DP = 260
+        const val MIN_GRID_DP = 72
+        const val MAX_GRID_DP = 300
         const val MAX_RECENT_SEARCHES = 8
     }
 }

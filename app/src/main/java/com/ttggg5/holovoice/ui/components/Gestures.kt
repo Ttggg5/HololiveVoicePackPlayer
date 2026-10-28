@@ -1,5 +1,7 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
@@ -24,6 +26,7 @@ import kotlin.math.roundToInt
 fun Modifier.pinchToResize(prefs: UiPrefs): Modifier {
     val size by prefs.gridCellDp.collectAsStateWithLifecycle()
     val latest by rememberUpdatedState(size)
+    val haptics = LocalHapticFeedback.current
     return this.pointerInput(prefs) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -35,7 +38,10 @@ fun Modifier.pinchToResize(prefs: UiPrefs): Modifier {
                 if (event.changes.count { it.pressed } >= 2) {
                     if (start < 0) start = latest
                     scale *= event.calculateZoom()
+                    val before = GridDensity.of(latest)
                     prefs.setGridCellDp((start * scale).roundToInt())
+                    // A tick when the layout switches (mosaic / tiles / wide cards).
+                    if (GridDensity.of(prefs.gridCellDp.value) != before) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     event.changes.forEach { if (it.positionChanged()) it.consume() }
                 }
             } while (event.changes.any { it.pressed })

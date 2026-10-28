@@ -119,7 +119,7 @@ Wake up to a talent's voice. Open **Alarms** from the ⏰ icon on Home (or Setti
 | Clip tile or row | Swipe left across half the item | Favorite / unfavorite (with Undo) |
 | Clip tile or row | Double-tap | Favorite |
 | Clip tile or row | Long-press | More actions |
-| Clip, topic and talent grids | Pinch | Bigger or smaller tiles (remembered) |
+| Clip, topic, talent and playlist grids | Pinch | Bigger or smaller tiles (remembered). Pinch all the way in for a picture-only **mosaic** (tiny ✓ / #n / ★ badges; long-press for details), all the way out for **wide cards**, one per row, with a big picture and every detail (title, talent, topic, #n, length, plays, ★ and ⋮). Settings › Tile size does the same |
 | Inside a topic | Swipe left / right | Change category |
 | Main tabs | Swipe left / right | Next / previous tab (the next tab slides in with your finger) |
 

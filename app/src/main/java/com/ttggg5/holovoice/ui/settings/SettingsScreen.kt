@@ -1,5 +1,6 @@
 package com.ttggg5.holovoice.ui.settings
 
+import com.ttggg5.holovoice.ui.components.GridDensity
 import com.ttggg5.holovoice.update.Release
 import com.ttggg5.holovoice.update.UpdateDialog
 import com.ttggg5.holovoice.update.UpdateState
@@ -237,7 +238,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onShowHelp:
                         }
                     }
                     Divider()
-                    SettingBlock(Icons.Filled.GridView, IconTint.Blue, "Tile size", "${cell}dp · you can also pinch a grid") {
+                    SettingBlock(Icons.Filled.GridView, IconTint.Blue, "Tile size", when (GridDensity.of(cell)) {
+                        GridDensity.MOSAIC -> "Mosaic · ${cell}dp"
+                        GridDensity.WIDE -> "Wide cards · ${cell}dp"
+                        GridDensity.NORMAL -> "${cell}dp"
+                    } + " · you can also pinch a grid") {
                         Slider(
                             value = cell.toFloat(),
                             onValueChange = { prefs.setGridCellDp(it.toInt()) },
