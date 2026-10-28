@@ -1,6 +1,7 @@
 package com.ttggg5.holovoice.ui.library
 
 import com.ttggg5.holovoice.ui.components.GridDensity
+import com.ttggg5.holovoice.ui.components.DensityCrossfade
 import com.ttggg5.holovoice.ui.components.gridColumns
 import com.ttggg5.holovoice.ui.components.gridSpacing
 import androidx.compose.ui.semantics.contentDescription
@@ -433,19 +434,23 @@ private fun PackGrid(
                 }
             }
             items(inGroup, key = { it.pack.id }) { item ->
-                TopicCoverCard(
-                    item = item,
-                    density = density,
-                    talents = packTalents[item.pack.id].orEmpty(),
-                    playingHere = playerState.packId == item.pack.id,
-                    isPlaying = playerState.isPlaying,
-                    onClick = { onOpen(item.pack.id) },
-                    onLongClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onLongPress(item.pack)
-                    },
-                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
-                )
+                DensityCrossfade(
+                    density,
+                    Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                ) { d ->
+                    TopicCoverCard(
+                        item = item,
+                        density = d,
+                        talents = packTalents[item.pack.id].orEmpty(),
+                        playingHere = playerState.packId == item.pack.id,
+                        isPlaying = playerState.isPlaying,
+                        onClick = { onOpen(item.pack.id) },
+                        onLongClick = {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongPress(item.pack)
+                        },
+                    )
+                }
             }
         }
     }

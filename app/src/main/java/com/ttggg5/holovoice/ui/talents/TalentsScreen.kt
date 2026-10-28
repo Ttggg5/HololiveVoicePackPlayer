@@ -1,6 +1,7 @@
 package com.ttggg5.holovoice.ui.talents
 
 import com.ttggg5.holovoice.ui.components.GridDensity
+import com.ttggg5.holovoice.ui.components.DensityCrossfade
 import com.ttggg5.holovoice.ui.components.gridColumns
 import com.ttggg5.holovoice.ui.components.gridSpacing
 import androidx.compose.ui.semantics.contentDescription
@@ -223,14 +224,18 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                             SectionHeader("In your library", shownMine.size)
                         }
                         items(shownMine, key = { "mine:" + (it.slug ?: UNASSIGNED_SLUG) }) { t ->
-                            TalentPhotoCard(
-                                talent = t,
-                                density = density,
-                                speaking = t.slug != null && t.slug in playerState.talentSlugs && playerState.clipId != null,
-                                isPlaying = playerState.isPlaying,
-                                modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
-                                onClick = { onOpen(t.slug ?: UNASSIGNED_SLUG) },
-                            )
+                            DensityCrossfade(
+                                density,
+                                Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                            ) { d ->
+                                TalentPhotoCard(
+                                    talent = t,
+                                    density = d,
+                                    speaking = t.slug != null && t.slug in playerState.talentSlugs && playerState.clipId != null,
+                                    isPlaying = playerState.isPlaying,
+                                    onClick = { onOpen(t.slug ?: UNASSIGNED_SLUG) },
+                                )
+                            }
                         }
                     }
                     if (shownOthers.isNotEmpty()) {

@@ -1,6 +1,15 @@
 package com.ttggg5.holovoice.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -52,3 +61,16 @@ fun gridColumns(cellDp: Int, density: GridDensity, scale: Float = 1f): GridCells
 
 /** Gap between grid items: tight for the mosaic. */
 fun gridSpacing(density: GridDensity): Dp = if (density == GridDensity.MOSAIC) 4.dp else 12.dp
+
+/** Crossfades an item between its mosaic, tile and wide-card looks when the zoom crosses a boundary. */
+@Composable
+fun DensityCrossfade(density: GridDensity, modifier: Modifier = Modifier, content: @Composable (GridDensity) -> Unit) {
+    AnimatedContent(
+        targetState = density,
+        transitionSpec = {
+            (fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.92f)) togetherWith fadeOut(tween(150)) using SizeTransform(clip = false)
+        },
+        modifier = modifier,
+        label = "density",
+    ) { content(it) }
+}

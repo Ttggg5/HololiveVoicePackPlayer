@@ -218,7 +218,8 @@ fun ClipBrowser(
                 ) {
                 val isCurrent = playerState.clipId == item.clip.id
                 val isPlaying = isCurrent && playerState.isPlaying
-                when (density) {
+                DensityCrossfade(density) { d ->
+                when (d) {
                     GridDensity.MOSAIC -> ClipMosaicTile(
                         item = item,
                         artwork = artwork,
@@ -252,6 +253,7 @@ fun ClipBrowser(
                         onToggleFavorite = { toggleFavorite(item) },
                         doubleTapEnabled = doubleTap,
                     )
+                }
                 }
                 }
             }

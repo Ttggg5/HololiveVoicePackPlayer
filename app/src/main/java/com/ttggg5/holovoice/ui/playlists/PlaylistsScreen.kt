@@ -1,6 +1,7 @@
 package com.ttggg5.holovoice.ui.playlists
 
 import com.ttggg5.holovoice.ui.components.GridDensity
+import com.ttggg5.holovoice.ui.components.DensityCrossfade
 import com.ttggg5.holovoice.ui.components.gridColumns
 import com.ttggg5.holovoice.ui.components.gridSpacing
 import androidx.compose.ui.semantics.contentDescription
@@ -233,6 +234,21 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlaylistCard(
+    density: GridDensity,
+    name: String,
+    details: String,
+    art: @Composable () -> Unit,
+    onClick: () -> Unit,
+    onPlay: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+) {
+    DensityCrossfade(density, modifier) { d -> PlaylistCardBody(d, name, details, art, onClick, onPlay, Modifier, onLongClick) }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PlaylistCardBody(
     density: GridDensity,
     name: String,
     details: String,
