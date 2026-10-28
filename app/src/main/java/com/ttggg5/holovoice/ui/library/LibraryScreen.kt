@@ -403,7 +403,7 @@ private fun PackGrid(
         if (showSearch) item(key = "search", span = { GridItemSpan(maxLineSpan) }) { TopicSearchField(query, onQueryChange) }
         if (playingFrom != null) {
             item(key = "playing", span = { GridItemSpan(maxLineSpan) }) {
-                Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
+                Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade())) {
                     PlayingFromStrip(playingFrom, playerState.isPlaying) { onOpen(playingFrom.pack.id) }
                 }
             }
@@ -428,7 +428,7 @@ private fun PackGrid(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())
+                            .animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade())
                             .padding(top = 8.dp, start = 4.dp),
                     )
                 }
@@ -436,7 +436,7 @@ private fun PackGrid(
             items(inGroup, key = { it.pack.id }) { item ->
                 DensityCrossfade(
                     density,
-                    Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                    Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade()),
                 ) { d ->
                     TopicCoverCard(
                         item = item,

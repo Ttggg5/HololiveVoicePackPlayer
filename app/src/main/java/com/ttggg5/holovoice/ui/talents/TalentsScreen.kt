@@ -214,7 +214,7 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                     }
                     if (speaking != null) {
                         item(key = "speaking", span = { GridItemSpan(maxLineSpan) }) {
-                            Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
+                            Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade())) {
                                 NowSpeakingStrip(speaking, playerState.isPlaying) { onOpen(speaking.slug ?: UNASSIGNED_SLUG) }
                             }
                         }
@@ -226,7 +226,7 @@ fun TalentsScreen(viewModel: TalentsViewModel, playerState: PlayerState, onOpen:
                         items(shownMine, key = { "mine:" + (it.slug ?: UNASSIGNED_SLUG) }) { t ->
                             DensityCrossfade(
                                 density,
-                                Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                                Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade()),
                             ) { d ->
                                 TalentPhotoCard(
                                     talent = t,

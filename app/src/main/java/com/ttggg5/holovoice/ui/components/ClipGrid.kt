@@ -214,7 +214,7 @@ fun ClipBrowser(
                     onPlayNext = { playNext(item) },
                     onToggleFavorite = { toggleFavorite(item) },
                     shape = RoundedCornerShape(if (density == GridDensity.MOSAIC) 10.dp else 18.dp),
-                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade()),
                 ) {
                 val isCurrent = playerState.clipId == item.clip.id
                 val isPlaying = isCurrent && playerState.isPlaying
@@ -269,7 +269,7 @@ fun ClipBrowser(
                     onPlayNext = { playNext(item) },
                     onToggleFavorite = { toggleFavorite(item) },
                     shape = RectangleShape,
-                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade()),
                 ) {
                 ClipRow(
                     item = item,

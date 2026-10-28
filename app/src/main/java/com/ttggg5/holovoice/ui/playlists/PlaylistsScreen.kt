@@ -141,12 +141,12 @@ fun PlaylistsScreen(viewModel: PlaylistsViewModel, player: PlayerController, onO
                     },
                     onClick = onOpenFavorites,
                     onPlay = null,
-                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade()),
+                    modifier = Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade()),
                 )
             }
             items(list, key = { it.playlist.id }) { p ->
                 var menu by remember { mutableStateOf(false) }
-                Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.itemPlacement, fadeOutSpec = Motion.itemFade())) {
+                Box(Modifier.animateItem(fadeInSpec = Motion.itemFade(), placementSpec = Motion.zoomPlacement, fadeOutSpec = Motion.itemFade())) {
                     PlaylistCard(
                         density = density,
                         name = p.playlist.name,

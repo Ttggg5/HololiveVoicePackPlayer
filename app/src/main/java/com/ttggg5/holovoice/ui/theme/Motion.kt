@@ -30,4 +30,8 @@ object Motion {
     fun <T> itemFade(): FiniteAnimationSpec<T> = spring(stiffness = Spring.StiffnessMediumLow)
     val itemPlacement: FiniteAnimationSpec<IntOffset> =
         spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset(1, 1))
+
+    /** Tiles gliding to their new places when a pinch changes the number of columns. */
+    val zoomPlacement: FiniteAnimationSpec<IntOffset> =
+        spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset(1, 1))
 }
